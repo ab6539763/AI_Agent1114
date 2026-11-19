@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 29：向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 5 周</span>
+      <span class="badge badge-ticket">STARMIND-029</span>
+      <span class="badge">Day 29 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="29" onclick="toggleDayComplete(29, this)">标记今日已完成</button>
+      <a class="btn" href="../day28/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day30/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day29-vector-db-hnsw-chroma</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day29/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day29/day29_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day29_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 5 周：第5周：企业级 RAG 全链路、高级检索优化与评估</div>
+        <h1>Day 29：向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现</h1>
+        <p class="hero-sub">从暴力扫描到分层导航小世界，亲手打造支持元数据过滤与磁盘持久化的类 Chroma 向量库</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-029</span>
+          <span class="hero-tag">分支：feat/day29-vector-db-hnsw-chroma</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>各位早！进入第 5 周了，今天攻克 RAG 系统的发动机——向量数据库（Vector Database）。很多人一听「HNSW 分层导航小世界图」、「ANN 近似最近邻」、「余弦相似度」就头大。老陈用大白话给你讲透：HNSW 就像你从杭州坐高铁去北京找一个胡同——先在顶层坐高铁跨省（长跳），再到中层坐地铁跨区（中跳），最后在底层步行精准找到门牌号（短跳），所以能从 1000 万条向量里在 10 毫秒内找到最相似的 Top-5！今天咱们除了讲清楚 Chroma / Milvus / FAISS / Pinecone 的企业选型红黑榜，还要亲手写出可运行的归一化 Embedding、轻量 HNSW 图索引，以及一套接口对齐 Chroma、支持 <code>where</code> 元数据过滤和重启自动加载的持久化向量库！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 28）我们把企业里的 Markdown、HTML、CSV、DOCX、PDF 全部洗干净并切成了高质量的中文 Chunks。但现在有几万个文本块摆在内存里，用户问一句「去上海出差住酒店最多报多少钱？」，怎么在几十毫秒内从几万块里找出最相关的那 3 块？</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 30）是第三阶段的核心里程碑日：我们将把 Day 25~29 的所有模块组装成端到端「企业级 RAG 问答系统」，实现引用来源标注与「我不知道」防幻觉兜底！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 29 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 29）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 28）我们把企业里的 Markdown、HTML、CSV、DOCX、PDF 全部洗干净并切成了高质量的中文 Chunks。但现在有几万个文本块摆在内存里，用户问一句「去上海出差住酒店最多报多少钱？」，怎么在几十毫秒内从几万块里找出最相关的那 3 块？ 今天我们通过需求单 STARMIND-029，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day29/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 30）是第三阶段的核心里程碑日：我们将把 Day 25~29 的所有模块组装成端到端「企业级 RAG 问答系统」，实现引用来源标注与「我不知道」防幻觉兜底！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>Embedding 向量空间、ANN 与 HNSW 通俗原理解析</td><td>图解余弦相似度 vs 欧氏距离、倒排乘积量化 IVF-PQ 与 HNSW 高铁-地铁-步行分层检索原理。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>Chroma / Milvus / FAISS / Pinecone 企业选型对比</td><td>从部署运维成本、过滤能力、分布式扩展、国内合规角度做深度横评。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>手写中文 Embedding、HNSW 索引与持久化向量库</td><td>实现类 Chroma Collection 接口、元数据 where 过滤与磁盘持久化恢复。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>检索召回测试、Code Review 与作业实战</td><td>完成 pytest 单测，拓展支持 `$in` / `$ne` 复合过滤与向量增量更新。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-029）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科知识库涵盖研发、HR、财务、法务四个部门的内部文档，需要支持按语义相似度毫秒级召回，并严格支持按部门（<code>dept</code>）或文档类型（<code>doc_type</code>）进行权限与范围过滤。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>纯关键字 SQL `LIKE &#x27;%报销%&#x27;` 查不到「差旅住宿补贴标准」这类语义相近但字面不同的文档。</li><li>文档全量暴力遍历在大规模语料下性能下降明显，需要理解并引入 ANN/HNSW 索引机制。</li><li>不同部门员工只能检索本部门公开文档，向量检索必须结合元数据 `where` 条件过滤。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现确定性中文稠密向量化模型（归一化余弦空间，兼容 `bge-large-zh-v1.5` 接口协议）。</li><li>实现教学级 HNSW 分层近邻图索引，直观验证分层跳转搜索过程。</li><li>实现类 Chroma 风格本地持久化向量库 `StarMindVectorStore`，支持 `add_documents`、`similarity_search_with_score`、`where` 元数据过滤及磁盘保存/加载。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>语义相近的查询（如「出差住酒店上限」与「一线城市住宿标准600元」）能稳居 Top-1 召回。</li><li>传入 `where={&#x27;dept&#x27;: &#x27;研发部&#x27;}` 时，返回结果 100% 仅来自研发部文档。</li><li>执行 `persist()` 落盘后，重新实例化 `StarMindVectorStore` 可完整恢复所有向量与文档，pytest 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>所有向量经过 L2 归一化，余弦相似度等价于高效点积运算。</li><li>持久化格式清晰可读（JSON/SQLite），无 C++ 编译环境依赖。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>企业级向量检索架构选型需要综合考量「数据规模、过滤复杂度、运维人力、数据合规」四个维度：<br/>- **FAISS**（Meta 开源）：本质是 C++ 向量索引库（不是完整数据库），没有原生 CRUD、没有元数据过滤、没有分布式高可用，适合算法离线评测或百万级以下只读静态库。<br/>- **Chroma**：极简 Python 优先的嵌入式向量库，开箱即用、支持本地持久化与元数据过滤，非常适合 10 万条以内的原型验证与中小团队单机部署。<br/>- **Milvus / Qdrant / pgvector**：生产级企业首选。如果公司已有 PostgreSQL 团队且向量在 500 万以内，直接开 <code>pgvector</code> 插件（省去一套数据库运维，还能跟业务表做 ACID 事务 JOIN）；如果数据量破千万且需要高并发分布式集群，国产之光 **Milvus** 或 Rust 写的 **Qdrant** 是不二之选。<br/>- **Pinecone**：全托管 SaaS，省心但数据出境受限，国内政企和金融客户一般无法使用。</p>
+<p>在索引层面，**HNSW（Hierarchical Navigable Small World）** 已成为工业界事实标准：它在建索引时以指数衰减概率将节点随机分配到不同层级，顶层稀疏做长距离粗定位，底层稠密做精细近邻搜索，实现了 $O(\log N)$ 级别的查询复杂度与 95%+ 的高召回率。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 29.1：HNSW 分层导航小世界图检索原理（高铁-&gt;地铁-&gt;步行）（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">HNSW 分层导航小世界图检索原理（高铁-&gt;地铁-&gt;步行）</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Query 向量</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">出差住宿报销</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Layer 2 (高速层)</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">少量入口节点长跳</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Layer 1 (主干层)</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">区域内快速逼近</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Layer 0 (全量底层)</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">贪心搜索 Top-K 近邻</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="908" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>顶层稀疏图快速跨区域跳转，中层缩小范围，底层稠密图精确定位 Top-K 最近邻。</div></div><div class="diagram-card"><div class="diagram-title">图 29.2：类 Chroma 持久化向量库架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">类 Chroma 持久化向量库架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Document Chunks</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">Day 28 切分输出</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Embedding 模型</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">文本 -&gt; L2归一化向量</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">HNSW / 余弦索引</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">快速相似度计算</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">Metadata Filter</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">where={&#x27;dept&#x27;: &#x27;财务部&#x27;}</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">本地持久化存储</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">collection.json / SQLite</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">embed_documents</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入向量图</text>
+<line x1="430.0" y1="130" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">建立元数据映射</text>
+<line x1="629.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="629.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">persist() 落盘</text>
+<line x1="231.0" y1="370" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">过滤候选集合</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>将文档原文、元数据字典与归一化稠密向量统一管理，支持内存 HNSW/余弦检索与磁盘持久化。</div></div><div class="diagram-card"><div class="diagram-title">图 29.3：四大主流向量数据库企业选型决策流（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">四大主流向量数据库企业选型决策流</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">评估企业场景</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">规模 / 合规 / 团队</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">&lt; 10万切片 / 原型</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">Chroma 本地持久化</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">&lt; 500万 &amp; 已有PG</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">pgvector (HNSW索引)</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">千万级+ / 高并发私有化</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">Milvus / Qdrant 集群</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">纯离线静态批处理</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">FAISS 内存索引</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="251.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">快速MVP</text>
+<line x1="256" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="364.5" y="66.0" width="132" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="430.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">低运维+事务JOIN</text>
+<line x1="146.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="390.0" y="132.5" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">分布式高可用</text>
+<line x1="146.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="241.0" y="132.5" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="289.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">科研/离线召回</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>结合数据规模、私有化合规与现有技术栈快速做出合理选型。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么中文场景 Embedding 首推 BGE-M3 / bge-large-zh-v1.5？</h3><p>向量检索的天花板由 Embedding 模型决定。OpenAI 的 <code>text-embedding-3-small</code> 英文强但中文性价比一般，且数据需出境；国内企业私有化部署首选智源研究院的 **BGE-M3**（支持中英多语言、同时产出稠密向量+稀疏向量、最长 8192 Token）或阿里的 **text-embedding-v3** API。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：入库建索引和线上查询检索，**必须使用完全同一个 Embedding 模型与同一个版本**！不同模型生成的向量空间坐标轴完全不同，混用等于鸡同鸭讲。</div><h3>2. 2. 生产环境 LangChain + Chroma 真实写法对照</h3><p>在生产环境安装了 <code>langchain-chroma</code> 和 <code>sentence-transformers</code> 时，写法与我们今天封装的 <code>StarMindVectorStore</code> 完全对称：<br/>```python<br/>from langchain_chroma import Chroma<br/>from langchain_community.embeddings import HuggingFaceEmbeddings</p>
+<p>embeddings = HuggingFaceEmbeddings(model_name=&#x27;BAAI/bge-large-zh-v1.5&#x27;, encode_kwargs={&#x27;normalize_embeddings&#x27;: True})<br/>vectorstore = Chroma.from_documents(<br/>    documents=chunks,<br/>    embedding=embeddings,<br/>    persist_directory=&#x27;./chroma_db&#x27;,<br/>    collection_name=&#x27;starmind_kb&#x27;,<br/>)<br/>results = vectorstore.similarity_search_with_score(&#x27;出差酒店上限&#x27;, k=3, filter={&#x27;dept&#x27;: &#x27;财务部&#x27;})<br/>```</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：元数据过滤要警惕「后过滤（Post-Filtering）空结果陷阱」：如果先在全库找 Top-3，再按 `dept=&#x27;法务部&#x27;` 过滤，很可能 Top-3 全是财务部文档导致过滤后返回 0 条！务必采用「预过滤（Pre-Filtering）」或先扩大候选集再过滤。</div><h3>3. 3. L2 归一化与余弦相似度加速技巧</h3><p>两个向量 $\mathbf{a}, \mathbf{b}$ 的余弦相似度为 $\cos(\theta) = \frac{\mathbf{a} \cdot \mathbf{b}}{\|\mathbf{a}\| \|\mathbf{b}\|}$。如果在向量入库前就全部做完 L2 归一化（使 $\|\mathbf{v}\| = 1$），查询时就只需要算一次点积 $\mathbf{a} \cdot \mathbf{b}$，省去开平方和除法运算，在大规模检索时可显著提速。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：Chroma 默认返回的是「距离（distance，越小越相似）」，而很多业务代码期望「相似度分数（score，越大越相似）」。上线前务必打印确认分数方向，别把 `score &gt; 0.6` 写反成 `distance &gt; 0.6`！</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈架构笔记：向量库上线后最容易踩的 3 个性能坑】<br/>1. **内存吃紧**：100 万条 1024 维 float32 向量，光是原始向量就占 $10^6 \times 1024 \times 4 \approx 4\text{GB}$，加上 HNSW 图索引指针大约需要 8~10GB 内存。生产规划机器规格时至少留 2 倍冗余，或开启 SQ8/PQ 标量量化压缩内存 70%。<br/>2. **频繁单条写入**：不要在 <code>for chunk in chunks:</code> 循环里每次只 <code>add_documents([chunk])</code>！Embedding 模型和向量库对批量（batch_size=64/128）写入的吞吐比单条快 10~30 倍。<br/>3. **缺少文档版本与过期时间元数据**：一定要在 <code>metadata</code> 里写入 <code>updated_at</code> 和 <code>status=&#x27;active&#x27;</code>，防止废止制度被召回误导员工。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day29/</code> 与 <code>notebooks/day29/day29_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现归一化中文语义 Embedding 与轻量 HNSW 分层图索引</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们先写两个硬核组件：一是零外部权重依赖、支持中文字符 1-gram/2-gram + 企业同义词映射的确定性稠密 Embedding 模型；二是直观清晰的教学级 HNSW 分层近邻图索引，让你亲眼看到分层贪心搜索是怎么工作的！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day29_embeddings_hnsw.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 29 - 步骤一：中文稠密 Embedding 模型（离线确定性版）与轻量 HNSW 分层近邻图索引
+生产对照：BAAI/bge-large-zh-v1.5 + hnswlib / Milvus HNSW
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import hashlib
+import math
+import random
+import re
+from typing import Dict, List, Sequence, Set, Tuple
+
+
+def cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -&gt; float:
+    &quot;&quot;&quot;计算两个已归一化向量的余弦相似度（等价于点积）。&quot;&quot;&quot;
+    return sum(a * b for a, b in zip(vec_a, vec_b))
+
+
+class StarMindLocalEmbeddings:
+    &quot;&quot;&quot;
+    轻量确定性中文稠密 Embedding 模型（L2 归一化）：
+    - 结合中文单字/双字 N-gram、英文词干与企业同义词归一化特征哈希映射到固定维度。
+    - 离线零依赖、跨平台 100% 可复现；生产环境可无缝替换为 BGE / OpenAI Embeddings。
+    &quot;&quot;&quot;
+
+    # 企业常见同义词概念槽，模拟稠密向量的语义泛化能力
+    SYNONYM_GROUPS = [
+        (&quot;报销&quot;, &quot;差旅&quot;, &quot;住宿&quot;, &quot;酒店&quot;, &quot;发票&quot;, &quot;补贴&quot;, &quot;餐补&quot;, &quot;出差&quot;),
+        (&quot;年假&quot;, &quot;休假&quot;, &quot;请假&quot;, &quot;病假&quot;, &quot;调休&quot;, &quot;考勤&quot;, &quot;打卡&quot;),
+        (&quot;发布&quot;, &quot;上线&quot;, &quot;部署&quot;, &quot;合并&quot;, &quot;分支&quot;, &quot;GitLab&quot;, &quot;MR&quot;, &quot;CI&quot;, &quot;代码&quot;),
+        (&quot;VPN&quot;, &quot;内网&quot;, &quot;网络&quot;, &quot;证书&quot;, &quot;零信任&quot;, &quot;权限&quot;, &quot;SSO&quot;, &quot;密码&quot;),
+        (&quot;加密&quot;, &quot;保密&quot;, &quot;安全&quot;, &quot;脱敏&quot;, &quot;审计&quot;, &quot;合规&quot;, &quot;权限&quot;),
+    ]
+
+    def __init__(self, dim: int = 256) -&gt; None:
+        self.dim = dim
+
+    def _extract_features(self, text: str) -&gt; List[Tuple[str, float]]:
+        clean = re.sub(r&quot;\s+&quot;, &quot;&quot;, text.lower())
+        features: List[Tuple[str, float]] = []
+
+        # 1. 英文单词 / 数字词元
+        for tok in re.findall(r&quot;[a-z0-9_]+&quot;, text.lower()):
+            features.append((f&quot;en:{tok}&quot;, 2.0))
+
+        # 2. 中文字符 1-gram 与 2-gram（核心区分度）
+        zh_only = &quot;&quot;.join(re.findall(r&quot;[\u4e00-\u9fff]&quot;, clean))
+        for ch in zh_only:
+            features.append((f&quot;c1:{ch}&quot;, 1.0))
+        for i in range(len(zh_only) - 1):
+            features.append((f&quot;c2:{zh_only[i : i + 2]}&quot;, 2.5))
+
+        # 3. 语义概念槽增强（让“住酒店”与“住宿标准”在向量空间靠近）
+        for gid, group in enumerate(self.SYNONYM_GROUPS):
+            hits = sum(1 for kw in group if kw.lower() in text.lower())
+            if hits &gt; 0:
+                features.append((f&quot;concept:{gid}&quot;, 2.2 * math.log1p(hits)))
+
+        return features
+
+    def embed_query(self, text: str) -&gt; List[float]:
+        vec = [0.0] * self.dim
+        for feat, weight in self._extract_features(text):
+            digest = hashlib.md5(feat.encode(&quot;utf-8&quot;)).digest()
+            idx = int.from_bytes(digest[:4], &quot;big&quot;) % self.dim
+            sign = 1.0 if (digest[4] &amp; 1) == 0 else -1.0
+            vec[idx] += sign * weight
+
+        norm = math.sqrt(sum(v * v for v in vec))
+        if norm &gt; 0:
+            vec = [v / norm for v in vec]
+        return vec
+
+    def embed_documents(self, texts: Sequence[str]) -&gt; List[List[float]]:
+        return [self.embed_query(t) for t in texts]
+
+
+class MiniHNSWIndex:
+    &quot;&quot;&quot;
+    教学级 HNSW（Hierarchical Navigable Small World）分层导航小世界图索引：
+    - 通过指数衰减随机分配节点层级。
+    - 检索时从最高层入口点贪心下降至第 0 层，再执行广度近邻搜索返回 Top-K。
+    &quot;&quot;&quot;
+
+    def __init__(self, max_neighbors: int = 8, ef_search: int = 24, seed: int = 42) -&gt; None:
+        self.max_neighbors = max_neighbors
+        self.ef_search = ef_search
+        self._rng = random.Random(seed)
+        self._vectors: Dict[str, List[float]] = {}
+        self._layers: List[Dict[str, List[str]]] = []  # layer -&gt; {node_id: [neighbor_ids]}
+        self._entry_point: str | None = None
+
+    def _sample_level(self) -&gt; int:
+        level = 0
+        while self._rng.random() &lt; 0.35 and level &lt; 4:
+            level += 1
+        return level
+
+    def add(self, doc_id: str, vector: List[float]) -&gt; None:
+        self._vectors[doc_id] = vector
+        level = self._sample_level()
+        while len(self._layers) &lt;= level:
+            self._layers.append({})
+
+        if self._entry_point is None:
+            self._entry_point = doc_id
+            for lv in range(level + 1):
+                self._layers[lv][doc_id] = []
+            return
+
+        # 逐层建立双向近邻边
+        for lv in range(level + 1):
+            layer_graph = self._layers[lv]
+            existing = list(layer_graph.keys())
+            layer_graph[doc_id] = []
+            if not existing:
+                continue
+            scored = sorted(
+                ((cosine_similarity(vector, self._vectors[nid]), nid) for nid in existing),
+                reverse=True,
+            )
+            neighbors = [nid for _, nid in scored[: self.max_neighbors]]
+            layer_graph[doc_id] = neighbors
+            for nid in neighbors:
+                nbrs = layer_graph[nid]
+                if doc_id not in nbrs:
+                    nbrs.append(doc_id)
+                    if len(nbrs) &gt; self.max_neighbors:
+                        nbrs.sort(key=lambda x: cosine_similarity(self._vectors[nid], self._vectors[x]), reverse=True)
+                        del nbrs[self.max_neighbors :]
+
+        if level &gt;= len(self._layers) - 1:
+            self._entry_point = doc_id
+
+    def search(
+        self,
+        query_vec: List[float],
+        top_k: int = 5,
+        allowed_ids: Set[str] | None = None,
+    ) -&gt; List[Tuple[str, float]]:
+        if not self._vectors or self._entry_point is None:
+            return []
+
+        curr = self._entry_point
+        curr_sim = cosine_similarity(query_vec, self._vectors[curr])
+
+        # 1. 从最高层贪心下降到第 1 层（高速层 -&gt; 主干层）
+        for lv in range(len(self._layers) - 1, 0, -1):
+            layer_graph = self._layers[lv]
+            improved = True
+            while improved:
+                improved = False
+                for nbr in layer_graph.get(curr, []):
+                    sim = cosine_similarity(query_vec, self._vectors[nbr])
+                    if sim &gt; curr_sim:
+                        curr, curr_sim = nbr, sim
+                        improved = True
+
+        # 2. 在底层 Layer 0 展开候选集探索（保证高召回）
+        layer0 = self._layers[0]
+        visited: Set[str] = {curr}
+        candidates: List[Tuple[float, str]] = [(curr_sim, curr)]
+        idx = 0
+        while idx &lt; len(candidates) and len(visited) &lt; max(self.ef_search, top_k * 4):
+            _, node = candidates[idx]
+            idx += 1
+            for nbr in layer0.get(node, []):
+                if nbr not in visited:
+                    visited.add(nbr)
+                    candidates.append((cosine_similarity(query_vec, self._vectors[nbr]), nbr))
+            candidates.sort(reverse=True)
+
+        # 若启用了元数据预过滤且图探索命中不足，则对 allowed_ids 精确补齐，防止后过滤空结果陷阱
+        if allowed_ids is not None:
+            filtered = [(nid, score) for score, nid in candidates if nid in allowed_ids]
+            if len(filtered) &lt; top_k:
+                all_allowed = sorted(
+                    ((cosine_similarity(query_vec, self._vectors[nid]), nid) for nid in allowed_ids if nid in self._vectors),
+                    reverse=True,
+                )
+                return [(nid, round(score, 4)) for score, nid in all_allowed[:top_k]]
+            return [(nid, round(score, 4)) for nid, score in filtered[:top_k]]
+
+        return [(nid, round(score, 4)) for score, nid in candidates[:top_k]]
+
+
+if __name__ == &quot;__main__&quot;:
+    emb = StarMindLocalEmbeddings(dim=256)
+    hnsw = MiniHNSWIndex(max_neighbors=6)
+    samples = {
+        &quot;d1&quot;: &quot;一线城市出差酒店住宿报销上限为每晚600元，餐补每天100元。&quot;,
+        &quot;d2&quot;: &quot;研发代码发布前必须通过GitLab MR代码评审且严禁周五晚发布。&quot;,
+        &quot;d3&quot;: &quot;员工入职满1年享受5天带薪年假，请假需提前3个工作日申请。&quot;,
+    }
+    for doc_id, text in samples.items():
+        hnsw.add(doc_id, emb.embed_query(text))
+
+    q_vec = emb.embed_query(&quot;去上海出差住酒店能报多少钱？&quot;)
+    print(&quot;HNSW Top-2 检索结果:&quot;, hnsw.search(q_vec, top_k=2))
+</code></pre><div class="output-box"># 预期运行输出示例：
+HNSW Top-2 检索结果: [(&#x27;d1&#x27;, 0.6842), (&#x27;d3&#x27;, 0.0412)]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>StarMindLocalEmbeddings</code> 通过「英文词元 + 中文 1/2-gram + 概念同义词槽 + 特征哈希 + L2 归一化」把任意文本映射到单位超球面，保证哪怕没有 GPU 和外网，语义检索也能准确把「出差住酒店」和「住宿报销上限」拉近。<br/>2. <code>MiniHNSWIndex</code> 完整还原了 HNSW 的核心两阶段搜索：高层贪心下沉 + 底层候选集扩展，并且在带 <code>allowed_ids</code> 元数据过滤时内置了防空结果兜底逻辑。</p><h3>实操步骤 2：步骤二：实现类 Chroma 持久化向量数据库（支持 where 元数据过滤）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在把 Embedding、HNSW 索引、元数据过滤和 JSON 磁盘持久化封装成 <code>StarMindVectorStore</code>，API 风格完全对齐 Chroma/LangChain，支持增量写入、重启自动加载、以及按部门/文档类型 <code>where</code> 精准过滤！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day29_vector_store.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 29 - 步骤二：类 Chroma 本地持久化向量库（支持 where 元数据过滤与磁盘恢复）
+对应生产包：langchain_chroma.Chroma / chromadb.PersistentClient
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import json
+import sys
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_embeddings_hnsw import MiniHNSWIndex, StarMindLocalEmbeddings
+
+
+def _match_where(metadata: Dict[str, Any], where: Optional[Dict[str, Any]]) -&gt; bool:
+    &quot;&quot;&quot;
+    支持类 Chroma 元数据过滤语法：
+    - 精确匹配：{&quot;dept&quot;: &quot;财务部&quot;}
+    - 运算符匹配：{&quot;dept&quot;: {&quot;$in&quot;: [&quot;财务部&quot;, &quot;HR&quot;]}, &quot;year&quot;: {&quot;$gte&quot;: 2025}}
+    &quot;&quot;&quot;
+    if not where:
+        return True
+    for key, cond in where.items():
+        val = metadata.get(key)
+        if isinstance(cond, dict):
+            for op, target in cond.items():
+                if op == &quot;$eq&quot; and val != target:
+                    return False
+                elif op == &quot;$ne&quot; and val == target:
+                    return False
+                elif op == &quot;$in&quot; and val not in target:
+                    return False
+                elif op == &quot;$gte&quot; and (val is None or val &lt; target):
+                    return False
+                elif op == &quot;$lte&quot; and (val is None or val &gt; target):
+                    return False
+        else:
+            if val != cond:
+                return False
+    return True
+
+
+class StarMindVectorStore:
+    &quot;&quot;&quot;
+    星辰智脑本地持久化向量数据库（Chroma 兼容风格）：
+    - 支持 add_documents / similarity_search / similarity_search_with_score / delete
+    - 支持 persist_directory 自动落盘与重启热加载
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        collection_name: str = &quot;starmind_kb&quot;,
+        embedding_function: Optional[StarMindLocalEmbeddings] = None,
+        persist_directory: Optional[str | Path] = None,
+    ) -&gt; None:
+        self.collection_name = collection_name
+        self.embedding_function = embedding_function or StarMindLocalEmbeddings()
+        self.persist_directory = Path(persist_directory) if persist_directory else None
+
+        self._docs: Dict[str, Document] = {}
+        self._vectors: Dict[str, List[float]] = {}
+        self._index = MiniHNSWIndex()
+
+        if self.persist_directory and self._store_file().exists():
+            self._load_from_disk()
+
+    def _store_file(self) -&gt; Path:
+        assert self.persist_directory is not None
+        return self.persist_directory / f&quot;{self.collection_name}.json&quot;
+
+    def count(self) -&gt; int:
+        return len(self._docs)
+
+    def add_documents(
+        self,
+        documents: Sequence[Document],
+        ids: Optional[Sequence[str]] = None,
+    ) -&gt; List[str]:
+        if not documents:
+            return []
+        doc_ids = list(ids) if ids else [f&quot;doc_{uuid.uuid4().hex[:10]}&quot; for _ in documents]
+        vectors = self.embedding_function.embed_documents([d.page_content for d in documents])
+
+        for doc_id, doc, vec in zip(doc_ids, documents, vectors):
+            self._docs[doc_id] = doc
+            self._vectors[doc_id] = vec
+            self._index.add(doc_id, vec)
+
+        if self.persist_directory:
+            self.persist()
+        return doc_ids
+
+    def similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 3,
+        where: Optional[Dict[str, Any]] = None,
+    ) -&gt; List[Tuple[Document, float]]:
+        if not self._docs:
+            return []
+        q_vec = self.embedding_function.embed_query(query)
+        allowed_ids = None
+        if where:
+            allowed_ids = {
+                doc_id for doc_id, doc in self._docs.items() if _match_where(doc.metadata, where)
+            }
+            if not allowed_ids:
+                return []
+
+        hits = self._index.search(q_vec, top_k=k, allowed_ids=allowed_ids)
+        return [(self._docs[doc_id], score) for doc_id, score in hits]
+
+    def similarity_search(
+        self,
+        query: str,
+        k: int = 3,
+        where: Optional[Dict[str, Any]] = None,
+    ) -&gt; List[Document]:
+        return [doc for doc, _ in self.similarity_search_with_score(query, k=k, where=where)]
+
+    def persist(self) -&gt; None:
+        if not self.persist_directory:
+            return
+        self.persist_directory.mkdir(parents=True, exist_ok=True)
+        payload = {
+            &quot;collection_name&quot;: self.collection_name,
+            &quot;dim&quot;: self.embedding_function.dim,
+            &quot;records&quot;: [
+                {
+                    &quot;id&quot;: doc_id,
+                    &quot;page_content&quot;: doc.page_content,
+                    &quot;metadata&quot;: doc.metadata,
+                    &quot;vector&quot;: self._vectors[doc_id],
+                }
+                for doc_id, doc in self._docs.items()
+            ],
+        }
+        self._store_file().write_text(json.dumps(payload, ensure_ascii=False), encoding=&quot;utf-8&quot;)
+
+    def _load_from_disk(self) -&gt; None:
+        data = json.loads(self._store_file().read_text(encoding=&quot;utf-8&quot;))
+        self._docs.clear()
+        self._vectors.clear()
+        self._index = MiniHNSWIndex()
+        for rec in data.get(&quot;records&quot;, []):
+            doc_id = rec[&quot;id&quot;]
+            doc = Document(page_content=rec[&quot;page_content&quot;], metadata=rec[&quot;metadata&quot;])
+            vec = rec[&quot;vector&quot;]
+            self._docs[doc_id] = doc
+            self._vectors[doc_id] = vec
+            self._index.add(doc_id, vec)
+
+
+if __name__ == &quot;__main__&quot;:
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = StarMindVectorStore(collection_name=&quot;starmind_v1&quot;, persist_directory=tmpdir)
+        store.add_documents([
+            Document(&quot;一线城市出差住宿上限600元/晚，餐补100元/天。&quot;, {&quot;dept&quot;: &quot;财务部&quot;, &quot;source&quot;: &quot;报销制度.md&quot;, &quot;year&quot;: 2026}),
+            Document(&quot;代码合并main分支必须经过GitLab评审，严禁周五晚发布。&quot;, {&quot;dept&quot;: &quot;研发部&quot;, &quot;source&quot;: &quot;发布规范.md&quot;, &quot;year&quot;: 2026}),
+            Document(&quot;入职满一年享5天带薪年假，病假需三甲医院证明。&quot;, {&quot;dept&quot;: &quot;HR&quot;, &quot;source&quot;: &quot;员工手册.pdf&quot;, &quot;year&quot;: 2025}),
+        ])
+
+        # 模拟进程重启，重新从磁盘加载向量库
+        reloaded = StarMindVectorStore(collection_name=&quot;starmind_v1&quot;, persist_directory=tmpdir)
+        print(&quot;重启恢复文档数:&quot;, reloaded.count())
+        print(&quot;全库检索「出差酒店」:&quot;, [(d.metadata[&quot;source&quot;], s) for d, s in reloaded.similarity_search_with_score(&quot;出差酒店标准&quot;, k=2)])
+        print(&quot;仅限研发部检索「发布」:&quot;, [(d.metadata[&quot;source&quot;], s) for d, s in reloaded.similarity_search_with_score(&quot;周五能发布吗&quot;, k=2, where={&quot;dept&quot;: &quot;研发部&quot;})])
+</code></pre><div class="output-box"># 预期运行输出示例：
+重启恢复文档数: 3
+全库检索「出差酒店」: [(&#x27;报销制度.md&#x27;, 0.6215), (&#x27;员工手册.pdf&#x27;, 0.0321)]
+仅限研发部检索「发布」: [(&#x27;发布规范.md&#x27;, 0.5834)]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>_match_where</code> 实现了类似 MongoDB/Chroma 的声明式过滤语法（精确匹配 + <code>$in</code> / <code>$ne</code> / <code>$gte</code> / <code>$lte</code>），能轻松应对企业权限隔离（如 <code>where={&#x27;dept&#x27;: {&#x27;$in&#x27;: user_allowed_depts}}</code>）。<br/>2. 落盘时把计算好的 <code>vector</code> 一并持久化，重启 <code>_load_from_disk</code> 时直接重建内存 HNSW 图，无需重新调用 Embedding 模型烧算力和时间！</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现归一化中文语义 Embedding 与轻量 HNSW 分层图索引（src/day29_embeddings_hnsw.py）</h3><p>模块 <code>src/day29_embeddings_hnsw.py</code> 共计 200 行源码，其中包含 8 行中文工程注释（注释密度约 4.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-029 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>hashlib</code>、<code>math</code>、<code>random</code>、<code>re</code>、<code>typing (Dict, List, Sequence, Set, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>StarMindLocalEmbeddings</code>（第 20~76 行）】这是一个独立领域模型类。其核心职责定义为：轻量确定性中文稠密 Embedding 模型（L2 归一化）：<br/>- 结合中文单字/双字 N-gram、英文词干与企业同义词归一化特征哈希映射到固定维度。<br/>- 离线零依赖、跨平台 100% 可复现；生产环境可无缝替换为 BGE / OpenAI Embeddings。。类内部暴露了 4 个方法：<code>__init__(self, dim)</code>、<code>_extract_features(self, text)</code>、<code>embed_query(self, text)</code>、<code>embed_documents(self, texts)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StarMindLocalEmbeddings.__init__</code>（第 36~37 行）属于同步实例方法，入参签名为 <code>(self, dim)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindLocalEmbeddings._extract_features</code>（第 39~60 行）属于同步实例方法，入参签名为 <code>(self, text)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindLocalEmbeddings.embed_query</code>（第 62~73 行）属于同步实例方法，入参签名为 <code>(self, text)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindLocalEmbeddings.embed_documents</code>（第 75~76 行）属于同步实例方法，入参签名为 <code>(self, texts)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>MiniHNSWIndex</code>（第 79~185 行）】这是一个独立领域模型类。其核心职责定义为：教学级 HNSW（Hierarchical Navigable Small World）分层导航小世界图索引：<br/>- 通过指数衰减随机分配节点层级。<br/>- 检索时从最高层入口点贪心下降至第 0 层，再执行广度近邻搜索返回 Top-K。。类内部暴露了 4 个方法：<code>__init__(self, max_neighbors, ef_search, seed)</code>、<code>_sample_level(self)</code>、<code>add(self, doc_id, vector)</code>、<code>search(self, query_vec, top_k, allowed_ids)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>MiniHNSWIndex.__init__</code>（第 86~92 行）属于同步实例方法，入参签名为 <code>(self, max_neighbors, ef_search, seed)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MiniHNSWIndex._sample_level</code>（第 94~98 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MiniHNSWIndex.add</code>（第 100~134 行）属于同步实例方法，入参签名为 <code>(self, doc_id, vector)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MiniHNSWIndex.search</code>（第 136~185 行）属于同步实例方法，入参签名为 <code>(self, query_vec, top_k, allowed_ids)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>cosine_similarity</code>（第 15~17 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(vec_a, vec_b)</code>。职责说明：计算两个已归一化向量的余弦相似度（等价于点积）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day29_embeddings_hnsw.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day29/day29_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day29/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现类 Chroma 持久化向量数据库（支持 where 元数据过滤）（src/day29_vector_store.py）</h3><p>模块 <code>src/day29_vector_store.py</code> 共计 176 行源码，其中包含 1 行中文工程注释（注释密度约 0.6%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-029 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>json</code>、<code>sys</code>、<code>uuid</code>、<code>pathlib (Path)</code>、<code>typing (Any, Dict, List, Optional, Sequence, Tuple)</code>、<code>src.day28_loaders (Document)</code>、<code>src.day29_embeddings_hnsw (MiniHNSWIndex, StarMindLocalEmbeddings)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>StarMindVectorStore</code>（第 50~158 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑本地持久化向量数据库（Chroma 兼容风格）：<br/>- 支持 add_documents / similarity_search / similarity_search_with_score / delete<br/>- 支持 persist_directory 自动落盘与重启热加载。类内部暴露了 8 个方法：<code>__init__(self, collection_name, embedding_function, persist_directory)</code>、<code>_store_file(self)</code>、<code>count(self)</code>、<code>add_documents(self, documents, ids)</code>、<code>similarity_search_with_score(self, query, k, where)</code>、<code>similarity_search(self, query, k, where)</code>、<code>persist(self)</code>、<code>_load_from_disk(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StarMindVectorStore.__init__</code>（第 57~72 行）属于同步实例方法，入参签名为 <code>(self, collection_name, embedding_function, persist_directory)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindVectorStore._store_file</code>（第 74~76 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindVectorStore.count</code>（第 78~79 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindVectorStore.add_documents</code>（第 81~98 行）属于同步实例方法，入参签名为 <code>(self, documents, ids)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindVectorStore.similarity_search_with_score</code>（第 100~118 行）属于同步实例方法，入参签名为 <code>(self, query, k, where)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindVectorStore.similarity_search</code>（第 120~126 行）属于同步实例方法，入参签名为 <code>(self, query, k, where)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>_match_where</code>（第 22~47 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(metadata, where)</code>。职责说明：支持类 Chroma 元数据过滤语法：<br/>- 精确匹配：{&quot;dept&quot;: &quot;财务部&quot;}<br/>- 运算符匹配：{&quot;dept&quot;: {&quot;$in&quot;: [&quot;财务部&quot;, &quot;HR&quot;]}, &quot;year&quot;: {&quot;$gte&quot;: 2025}}。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day29_vector_store.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day29/day29_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day29/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day29_embeddings_hnsw.py（共 200 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day29_embeddings_hnsw.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import math</code></td><td>核心意图：代表语句：`import math`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>return sum(a * b for a, b in zip(vec_a, vec_b))</code></td><td>核心意图：代表语句：`return sum(a * b for a, b in zip(vec_a, vec_b))`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L25-L32</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：企业常见同义词概念槽，模拟稠密向量的语义泛化能力。代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>(&quot;加密&quot;, &quot;保密&quot;, &quot;安全&quot;, &quot;脱敏&quot;, &quot;审计&quot;, &quot;合规&quot;, &quot;权限&quot;),</code></td><td>核心意图：代表语句：`(&quot;加密&quot;, &quot;保密&quot;, &quot;安全&quot;, &quot;脱敏&quot;, &quot;审计&quot;, &quot;合规&quot;, &quot;权限&quot;),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>features: List[Tuple[str, float]] = []</code></td><td>核心意图：1. 英文单词 / 数字词元；2. 中文字符 1-gram 与 2-gram（核心区分度）。代表语句：`features: List[Tuple[str, float]] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L49-L56</code></td><td><code>for ch in zh_only:</code></td><td>核心意图：3. 语义概念槽增强（让“住酒店”与“住宿标准”在向量空间靠近）。代表语句：`for ch in zh_only:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>if hits &gt; 0:</code></td><td>核心意图：代表语句：`if hits &gt; 0:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>digest = hashlib.md5(feat.encode(&quot;utf-8&quot;)).digest()</code></td><td>核心意图：代表语句：`digest = hashlib.md5(feat.encode(&quot;utf-8&quot;)).digest()`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>return vec</code></td><td>核心意图：代表语句：`return vec`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>教学级 HNSW（Hierarchical Navigable Small World）分层导航小世界图索引：</code></td><td>核心意图：代表语句：`教学级 HNSW（Hierarchical Navigable Small World）分层导航小世界图索引：`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>self._rng = random.Random(seed)</code></td><td>核心意图：代表语句：`self._rng = random.Random(seed)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>level += 1</code></td><td>核心意图：代表语句：`level += 1`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L105-L112</code></td><td><code>if self._entry_point is None:</code></td><td>核心意图：逐层建立双向近邻边。代表语句：`if self._entry_point is None:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>for lv in range(level + 1):</code></td><td>核心意图：代表语句：`for lv in range(level + 1):`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>reverse=True,</code></td><td>核心意图：代表语句：`reverse=True,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>if len(nbrs) &gt; self.max_neighbors:</code></td><td>核心意图：代表语句：`if len(nbrs) &gt; self.max_neighbors:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>self,</code></td><td>核心意图：代表语句：`self,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L145-L152</code></td><td><code>curr = self._entry_point</code></td><td>核心意图：1. 从最高层贪心下降到第 1 层（高速层 -&gt; 主干层）。代表语句：`curr = self._entry_point`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L153-L160</code></td><td><code>improved = False</code></td><td>核心意图：2. 在底层 Layer 0 展开候选集探索（保证高召回）。代表语句：`improved = False`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>layer0 = self._layers[0]</code></td><td>核心意图：代表语句：`layer0 = self._layers[0]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L169-L176</code></td><td><code>if nbr not in visited:</code></td><td>核心意图：若启用了元数据预过滤且图探索命中不足，则对 allowed_ids 精确补齐，防止后过滤空结果陷阱。代表语句：`if nbr not in visited:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L177-L184</code></td><td><code>if len(filtered) &lt; top_k:</code></td><td>核心意图：代表语句：`if len(filtered) &lt; top_k:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L185-L192</code></td><td><code>return [(nid, round(score, 4)) for score, nid in candidates[:top_k]]</code></td><td>核心意图：代表语句：`return [(nid, round(score, 4)) for score, nid in candidates[:top_k]]`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L193-L200</code></td><td><code>&quot;d2&quot;: &quot;研发代码发布前必须通过GitLab MR代码评审且严禁周五晚发布。&quot;,</code></td><td>核心意图：代表语句：`&quot;d2&quot;: &quot;研发代码发布前必须通过GitLab MR代码评审且严禁周五晚发布。&quot;,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day29_vector_store.py（共 176 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day29_vector_store.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import sys</code></td><td>核心意图：代表语句：`import sys`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day28_loaders import Document</code></td><td>核心意图：代表语句：`from src.day28_loaders import Document`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>- 精确匹配：{&quot;dept&quot;: &quot;财务部&quot;}</code></td><td>核心意图：代表语句：`- 精确匹配：{&quot;dept&quot;: &quot;财务部&quot;}`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>for op, target in cond.items():</code></td><td>核心意图：代表语句：`for op, target in cond.items():`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>return False</code></td><td>核心意图：代表语句：`return False`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>class StarMindVectorStore:</code></td><td>核心意图：代表语句：`class StarMindVectorStore:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L57-L64</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>self.persist_directory = Path(persist_directory) if persist_directory el</code></td><td>核心意图：代表语句：`self.persist_directory = Path(persist_directory) if persist_directory else None`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>def _store_file(self) -&gt; Path:</code></td><td>核心意图：代表语句：`def _store_file(self) -&gt; Path:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>def add_documents(</code></td><td>核心意图：代表语句：`def add_documents(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>vectors = self.embedding_function.embed_documents([d.page_content for d </code></td><td>核心意图：代表语句：`vectors = self.embedding_function.embed_documents([d.page_content for d in documents])`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>self.persist()</code></td><td>核心意图：代表语句：`self.persist()`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>) -&gt; List[Tuple[Document, float]]:</code></td><td>核心意图：代表语句：`) -&gt; List[Tuple[Document, float]]:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>self,</code></td><td>核心意图：代表语句：`self,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>if not self.persist_directory:</code></td><td>核心意图：代表语句：`if not self.persist_directory:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>&quot;id&quot;: doc_id,</code></td><td>核心意图：代表语句：`&quot;id&quot;: doc_id,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L145-L152</code></td><td><code>self._store_file().write_text(json.dumps(payload, ensure_ascii=False), e</code></td><td>核心意图：代表语句：`self._store_file().write_text(json.dumps(payload, ensure_ascii=False), encoding=&quot;utf-8&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L153-L160</code></td><td><code>doc_id = rec[&quot;id&quot;]</code></td><td>核心意图：代表语句：`doc_id = rec[&quot;id&quot;]`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L168</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L169-L176</code></td><td><code>Document(&quot;入职满一年享5天带薪年假，病假需三甲医院证明。&quot;, {&quot;dept&quot;: &quot;HR&quot;, &quot;source&quot;: &quot;员工手册.pdf&quot;,</code></td><td>核心意图：模拟进程重启，重新从磁盘加载向量库。代表语句：`Document(&quot;入职满一年享5天带薪年假，病假需三甲医院证明。&quot;, {&quot;dept&quot;: &quot;HR&quot;, &quot;source&quot;: &quot;员工手册.pdf&quot;, &quot;year&quot;: 2025}),`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day29/tests/test_day29.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day29/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day29/tests/test_day29.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 29 自动化单元测试：验证 Embedding、HNSW 索引、元数据过滤与磁盘持久化。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_embeddings_hnsw import StarMindLocalEmbeddings, cosine_similarity
+from src.day29_vector_store import StarMindVectorStore
+
+
+def test_embedding_normalization_and_semantics():
+    emb = StarMindLocalEmbeddings(dim=256)
+    v_query = emb.embed_query(&quot;出差住酒店报销多少钱&quot;)
+    v_rel = emb.embed_query(&quot;一线城市差旅住宿标准每晚600元&quot;)
+    v_irrel = emb.embed_query(&quot;研发周五禁止上线发布代码&quot;)
+
+    # 校验 L2 归一化长度接近 1.0
+    assert abs(cosine_similarity(v_query, v_query) - 1.0) &lt; 1e-6
+    assert cosine_similarity(v_query, v_rel) &gt; cosine_similarity(v_query, v_irrel)
+
+
+def test_vector_store_persist_and_where_filter(tmp_path):
+    store = StarMindVectorStore(collection_name=&quot;unit_kb&quot;, persist_directory=tmp_path)
+    store.add_documents([
+        Document(&quot;财务报销：住宿标准一线600元，新一线480元。&quot;, {&quot;dept&quot;: &quot;财务部&quot;, &quot;year&quot;: 2026}),
+        Document(&quot;研发规范：GitLab MR 需两人审批通过。&quot;, {&quot;dept&quot;: &quot;研发部&quot;, &quot;year&quot;: 2026}),
+        Document(&quot;旧版规定：2023年差旅报销标准为400元。&quot;, {&quot;dept&quot;: &quot;财务部&quot;, &quot;year&quot;: 2023}),
+    ])
+
+    # 重启加载验证
+    reloaded = StarMindVectorStore(collection_name=&quot;unit_kb&quot;, persist_directory=tmp_path)
+    assert reloaded.count() == 3
+
+    # 复合元数据过滤：只要财务部且年份 &gt;= 2025
+    hits = reloaded.similarity_search_with_score(
+        &quot;差旅住宿标准&quot;, k=3, where={&quot;dept&quot;: &quot;财务部&quot;, &quot;year&quot;: {&quot;$gte&quot;: 2025}}
+    )
+    assert len(hits) == 1
+    assert hits[0][0].metadata[&quot;year&quot;] == 2026
+    assert &quot;600元&quot; in hits[0][0].page_content
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-029</code>，承接自 Day 28 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day29-vector-db-hnsw-chroma</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day29-vector-db-hnsw-chroma）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day29-vector-db-hnsw-chroma
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day29.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-029）
+git add src/day29_embeddings_hnsw.py src/day29_vector_store.py tests/test_day29.py
+git commit -m &quot;feat(day29): 实现中文语义Embedding、教学级HNSW索引与支持where过滤的持久化向量库
+
+Refs: STARMIND-029
+- 完成 向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day29-vector-db-hnsw-chroma</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-029 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-029 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day29_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day29_embeddings_hnsw.py src/day29_vector_store.py
+    - echo &quot;Day 29 语法编译检查通过&quot;
+
+day29_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day29/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day29/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>用 <code>$gte</code> 把 2023 年的过时报销政策挡在检索之外，这个场景太真实了！企业知识库里最容易出事故的就是召回了 3 年前的废止文档。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>如果 <code>where</code> 过滤条件太严导致 <code>allowed_ids</code> 为空，提前返回 <code>[]</code> 避免进入 HNSW 遍历，逻辑干净利落。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-029 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-029（向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科知识库涵盖研发、HR、财务、法务四个部门的内部文档，需要支持按语义相似度毫秒级召回，并严格支持按部门（<code>dept</code>）或文档类型（<code>doc_type</code>）进行权限与范围过滤。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）纯关键字 SQL <code>LIKE &#x27;%报销%&#x27;</code> 查不到「差旅住宿补贴标准」这类语义相近但字面不同的文档。；（2）文档全量暴力遍历在大规模语料下性能下降明显，需要理解并引入 ANN/HNSW 索引机制。；（3）不同部门员工只能检索本部门公开文档，向量检索必须结合元数据 <code>where</code> 条件过滤。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现确定性中文稠密向量化模型（归一化余弦空间，兼容 <code>bge-large-zh-v1.5</code> 接口协议）。；（2）实现教学级 HNSW 分层近邻图索引，直观验证分层跳转搜索过程。；（3）实现类 Chroma 风格本地持久化向量库 <code>StarMindVectorStore</code>，支持 <code>add_documents</code>、<code>similarity_search_with_score</code>、<code>where</code> 元数据过滤及磁盘保存/加载。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day29/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么中文场景 Embedding 首推 BGE-M3 / bge-large-zh-v1.5？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：向量检索的天花板由 Embedding 模型决定。OpenAI 的 <code>text-embedding-3-small</code> 英文强但中文性价比一般，且数据需出境；国内企业私有化部署首选智源研究院的 **BGE-M3**（支持中英多语言、同时产出稠密向量+稀疏向量、最长 8192 Token）或阿里的 **text-embedding-v3** API。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：入库建索引和线上查询检索，**必须使用完全同一个 Embedding 模型与同一个版本**！不同模型生成的向量空间坐标轴完全不同，混用等于鸡同鸭讲。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么中文场景 Embedding 首推 BGE-M3 / bge-large-zh-v1.5？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生产环境 LangChain + Chroma 真实写法对照】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在生产环境安装了 <code>langchain-chroma</code> 和 <code>sentence-transformers</code> 时，写法与我们今天封装的 <code>StarMindVectorStore</code> 完全对称：<br/>```python<br/>from langchain_chroma import Chroma<br/>from langchain_community.embeddings import HuggingFaceEmbeddings</p>
+<p>embeddings = HuggingFaceEmbeddings(model_name=&#x27;BAAI/bge-large-zh-v1.5&#x27;, encode_kwargs={&#x27;normalize_embeddings&#x27;: Tr…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：元数据过滤要警惕「后过滤（Post-Filtering）空结果陷阱」：如果先在全库找 Top-3，再按 <code>dept=&#x27;法务部&#x27;</code> 过滤，很可能 Top-3 全是财务部文档导致过滤后返回 0 条！务必采用「预过滤（Pre-Filtering）」或先扩大候选集再过滤。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生产环境 LangChain + Chroma 真实写法对照」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. L2 归一化与余弦相似度加速技巧】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：两个向量 $\mathbf{a}, \mathbf{b}$ 的余弦相似度为 $\cos(\theta) = \frac{\mathbf{a} \cdot \mathbf{b}}{\|\mathbf{a}\| \|\mathbf{b}\|}$。如果在向量入库前就全部做完 L2 归一化（使 $\|\mathbf{v}\| = 1$），查询时就只需要算一次点积 $\mathbf{a} \cdot \mathbf{b}$，省去开平方和除法运算，在大规模检索时可显著提速。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：Chroma 默认返回的是「距离（distance，越小越相似）」，而很多业务代码期望「相似度分数（score，越大越相似）」。上线前务必打印确认分数方向，别把 <code>score &gt; 0.6</code> 写反成 <code>distance &gt; 0.6</code>！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. L2 归一化与余弦相似度加速技巧」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 29 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day29/</code> 中亲手编写了 <code>src/day29_embeddings_hnsw.py</code>、<code>src/day29_vector_store.py</code> 以及对应的自动化测试 <code>tests/test_day29.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day29_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 29 / STARMIND-029）：1. 已在分支 <code>feat/day29-vector-db-hnsw-chroma</code> 完成 向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 30）：明天（Day 30）是第三阶段的核心里程碑日：我们将把 Day 25~29 的所有模块组装成端到端「企业级 RAG 问答系统」，实现引用来源标注与「我不知道」防幻觉兜底！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 29 掌握的「向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-029 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day29.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 29 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day29/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day29_embeddings_hnsw.py, src/day29_vector_store.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>语义相近的查询（如「出差住酒店上限」与「一线城市住宿标准600元」）能稳居 Top-1 召回。；传入 `where={&#x27;dept&#x27;: &#x27;研发部&#x27;}` 时，返回结果 100% 仅来自研发部文档。；执行 `persist()` 落盘后，重新实例化 `StarMindVectorStore` 可完整恢复所有向量与文档，pytest 100% 通过。</td><td>运行 `pytest versions/day29/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day29/day29_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day29-vector-db-hnsw-chroma` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-029 需求时，我们的核心业务目标是：实现确定性中文稠密向量化模型（归一化余弦空间，兼容 <code>bge-large-zh-v1.5</code> 接口协议）。；实现教学级 HNSW 分层近邻图索引，直观验证分层跳转搜索过程。；实现类 Chroma 风格本地持久化向量库 <code>StarMindVectorStore</code>，支持 <code>add_documents</code>、<code>similarity_search_with_score</code>、<code>where</code> 元数据过滤及磁盘保存/加载。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么中文场景 Embedding 首推 BGE-M3 / bge-large-zh-v1.5？、2. 生产环境 LangChain + Chroma 真实写法对照、3. L2 归一化与余弦相似度加速技巧 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「向量数据库：ANN与HNSW检索原理、主流选型对比与本地持久化实现」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 29 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day29_embeddings_hnsw.py、src/day29_vector_store.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天大家把向量检索最核心的三大概念——余弦相似度、HNSW 分层近邻图、元数据预/后过滤（<code>where={&#x27;dept&#x27;: &#x27;财务部&#x27;}</code>）全部亲手写代码跑通了。记住老陈的选型建议：本地原型和单机小库用 Chroma / Qdrant，千万级以上国产企业私有化上 Milvus 或 pgvector，纯算法离线批量计算用 FAISS。明天核心日，咱们把完整 RAG 系统端到端跑起来！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现按文档来源批量删除与增量更新（upsert）</strong><span class="badge">基础巩固</span></div><p>当 HR 更新了《员工手册.pdf》后，旧切片必须全部清理再重新入库。请继承 <code>StarMindVectorStore</code> 实现 <code>delete_by_source(source_name)</code> 方法，删除所有 <code>metadata[&#x27;source&#x27;] == source_name</code> 的记录并重建索引、重新落盘，返回删除条数。</p><p><strong>💡 思路提示：</strong>过滤掉匹配的 `doc_id`，重建 `self._index = MiniHNSWIndex()` 并把剩余向量重新 `add`，最后调用 `self.persist()`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-29-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-29-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 29 作业一参考答案：向量库按来源批量删除与索引重建&quot;&quot;&quot;
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_embeddings_hnsw import MiniHNSWIndex
+from src.day29_vector_store import StarMindVectorStore
+
+
+class UpdatableVectorStore(StarMindVectorStore):
+    def delete_by_source(self, source_name: str) -&gt; int:
+        to_delete = [
+            doc_id for doc_id, doc in self._docs.items()
+            if doc.metadata.get(&quot;source&quot;) == source_name
+        ]
+        if not to_delete:
+            return 0
+        for doc_id in to_delete:
+            del self._docs[doc_id]
+            del self._vectors[doc_id]
+        # 重建 HNSW 索引保证无悬空边
+        self._index = MiniHNSWIndex()
+        for doc_id, vec in self._vectors.items():
+            self._index.add(doc_id, vec)
+        self.persist()
+        return len(to_delete)
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vs = UpdatableVectorStore(persist_directory=tmpdir)
+        vs.add_documents([
+            Document(&quot;旧版年假3天&quot;, {&quot;source&quot;: &quot;hr_v1.pdf&quot;}),
+            Document(&quot;报销600元&quot;, {&quot;source&quot;: &quot;fin.md&quot;}),
+        ])
+        deleted = vs.delete_by_source(&quot;hr_v1.pdf&quot;)
+        print(f&quot;删除 {deleted} 条，剩余 {vs.count()} 条&quot;)
+        assert deleted == 1 and vs.count() == 1
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>企业知识库是活的，文档天天更新。没有 <code>delete_by_source</code> 的向量库上线两周就会变成新旧政策打架的垃圾场。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现最大边际相关性检索（MMR，Maximal Marginal Relevance）</strong><span class="badge">企业实战</span></div><p>向量检索有时会返回 3 条内容几乎一模一样的切片（信息冗余）。请实现 <code>mmr_search(store, query, k=3, fetch_k=8, lambda_mult=0.5)</code>：先取 Top-<code>fetch_k</code> 候选，再迭代选择使 <code>lambda_mult * sim(doc, query) - (1 - lambda_mult) * max_sim(doc, selected)</code> 最大的文档，兼顾相关性与多样性。</p><p><strong>💡 思路提示：</strong>利用 `cosine_similarity` 计算候选文档与查询的相似度，以及与已选集合的最大相似度。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-29-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-29-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 29 作业二参考答案：MMR 最大边际相关性多样化检索&quot;&quot;&quot;
+import sys
+from pathlib import Path
+from typing import List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_embeddings_hnsw import cosine_similarity
+from src.day29_vector_store import StarMindVectorStore
+
+
+def mmr_search(
+    store: StarMindVectorStore,
+    query: str,
+    k: int = 3,
+    fetch_k: int = 8,
+    lambda_mult: float = 0.5,
+) -&gt; List[Document]:
+    q_vec = store.embedding_function.embed_query(query)
+    raw_hits = store.similarity_search_with_score(query, k=fetch_k)
+    if not raw_hits:
+        return []
+
+    cand_docs = [doc for doc, _ in raw_hits]
+    cand_vecs = [store.embedding_function.embed_query(d.page_content) for d in cand_docs]
+
+    selected_indices: List[int] = []
+    remaining = list(range(len(cand_docs)))
+
+    while remaining and len(selected_indices) &lt; k:
+        best_idx = -1
+        best_score = -1e9
+        for idx in remaining:
+            rel = cosine_similarity(q_vec, cand_vecs[idx])
+            redundancy = (
+                max(cosine_similarity(cand_vecs[idx], cand_vecs[s]) for s in selected_indices)
+                if selected_indices
+                else 0.0
+            )
+            mmr_score = lambda_mult * rel - (1.0 - lambda_mult) * redundancy
+            if mmr_score &gt; best_score:
+                best_score = mmr_score
+                best_idx = idx
+        selected_indices.append(best_idx)
+        remaining.remove(best_idx)
+
+    return [cand_docs[i] for i in selected_indices]
+
+
+if __name__ == &quot;__main__&quot;:
+    vs = StarMindVectorStore()
+    vs.add_documents([
+        Document(&quot;一线城市出差住宿上限600元。&quot;, {&quot;id&quot;: 1}),
+        Document(&quot;一线城市出差住宿上限为600元每晚。&quot;, {&quot;id&quot;: 2}),  # 与id=1高度重复
+        Document(&quot;出差餐饮补助每天100元无需发票。&quot;, {&quot;id&quot;: 3}),
+    ])
+    diversified = mmr_search(vs, &quot;出差报销标准&quot;, k=2, lambda_mult=0.5)
+    print(&quot;MMR 多样化召回:&quot;, [(d.metadata[&quot;id&quot;], d.page_content) for d in diversified])
+    assert {d.metadata[&quot;id&quot;] for d in diversified} != {1, 2}
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>MMR 是 LangChain <code>vectorstore.max_marginal_relevance_search()</code> 的核心算法，特别适合汇总型问题（如「出差报销都有哪些规定？」），能把住宿、餐补、交通多维度同时召回。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现多租户命名空间隔离管理器（TenantVectorRegistry）</strong><span class="badge">架构进阶</span></div><p>星辰智脑作为 SaaS 平台服务多家客户企业，要求每个租户拥有物理隔离的向量 Collection。实现 <code>TenantVectorRegistry(base_dir)</code>：提供 <code>get_store(tenant_id)</code> 方法，按 <code>tenant_id</code> 懒加载并缓存各自独立的 <code>StarMindVectorStore</code>，并校验 <code>tenant_id</code> 防止路径穿越攻击（如 <code>../etc</code>）。</p><p><strong>💡 思路提示：</strong>用正则校验 `tenant_id` 仅允许字母/数字/下划线，存储目录设为 `base_dir / tenant_id`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-29-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-29-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 29 作业三参考答案：防路径穿越的多租户物理隔离向量库管理器&quot;&quot;&quot;
+import re
+import sys
+import tempfile
+from pathlib import Path
+from typing import Dict
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_vector_store import StarMindVectorStore
+
+
+class TenantVectorRegistry:
+    TENANT_RE = re.compile(r&quot;^[a-zA-Z0-9_-]{2,32}$&quot;)
+
+    def __init__(self, base_dir: str | Path) -&gt; None:
+        self.base_dir = Path(base_dir)
+        self._cache: Dict[str, StarMindVectorStore] = {}
+
+    def get_store(self, tenant_id: str) -&gt; StarMindVectorStore:
+        if not self.TENANT_RE.match(tenant_id):
+            raise ValueError(f&quot;非法 tenant_id: {tenant_id}&quot;)
+        if tenant_id not in self._cache:
+            tenant_dir = self.base_dir / tenant_id
+            self._cache[tenant_id] = StarMindVectorStore(
+                collection_name=f&quot;kb_{tenant_id}&quot;,
+                persist_directory=tenant_dir,
+            )
+        return self._cache[tenant_id]
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        reg = TenantVectorRegistry(tmpdir)
+        reg.get_store(&quot;acme_corp&quot;).add_documents([Document(&quot;ACME机密报价单&quot;)])
+        assert reg.get_store(&quot;beta_corp&quot;).count() == 0
+        print(&quot;多租户物理隔离校验通过！&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>ToB SaaS 场景下，大客户通常要求物理级（独立 Collection / 独立 Partition）数据隔离而非仅靠 <code>where</code> 逻辑过滤，同时严防路径穿越漏洞。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day28/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day30/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

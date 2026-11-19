@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 60：毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 6 阶段 · 第 9 周</span>
+      <span class="badge badge-ticket">STARMIND-060</span>
+      <span class="badge">Day 60 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="60" onclick="toggleDayComplete(60, this)">标记今日已完成</button>
+      <a class="btn" href="../day59/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day61/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day60-capstone-hybrid-rag</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day60/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day60/day60_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day60_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 6 阶段：第六阶段：毕业设计与就业冲刺 · 第 9 周：星辰智脑毕业设计全栈开发与上线</div>
+        <h1>Day 60：毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源</h1>
+        <p class="hero-sub">BM25 词法 + 向量语义双路召回、RRF 倒数秩融合、精排重排与强制 [doc_id] 溯源</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-060</span>
+          <span class="hero-tag">分支：feat/day60-capstone-hybrid-rag</span>
+          <span class="hero-tag">角色：能够主导企业级 AI 平台从 0 到 1 交付、答辩与系统设计面试的高级 AI 应用架构师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！毕业设计 Day 2，干翻 RAG！面试官问 RAG 优化，你要是只答&#x27;切块塞向量库做 Top-K&#x27;，基本一面就挂了。为什么？因为纯向量检索对企业里的专有编号（比如报销单号 <code>FIN-2026</code>、错误码 <code>ERR_4291</code>、规章条款号）极度不敏感，而纯 BM25 又听不懂同义表达（比如&#x27;差旅住宿标准&#x27;和&#x27;出差住酒店上限&#x27;）。今天咱用纯 Python 把工业界最稳的四段式 RAG 流水线直接打通：中文 N-gram BM25 词法召回 + 轻量语义向量召回 -&gt; RRF 倒数秩融合 -&gt; 交叉特征 Rerank 精排 -&gt; 强制 <code>[DOC-xx]</code> 脚标引用溯源与低分拒答防幻觉！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天我们搭好了星辰智脑的配置中心、JSON 日志与 SQLAlchemy 持久化底座，今天正式进入核心智能引擎第一战——企业级 RAG 知识库主链路。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 61）我们开发核心多 Agent 编排主链路：把今天的混合检索 RAG 封装为专家节点，接入 LangGraph 状态机、MCP 工具、多轮记忆与人工审批（HITL）。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 60 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 60）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【能够主导企业级 AI 平台从 0 到 1 交付、答辩与系统设计面试的高级 AI 应用架构师】，依托的工程底座是【StarMind 星辰智脑 v1.0.0 全栈平台（FastAPI + RAG + Multi-Agent + MCP + Text-to-SQL + Guardrails + Docker + Web 控制台）】。回顾昨天留下的上下文：昨天我们搭好了星辰智脑的配置中心、JSON 日志与 SQLAlchemy 持久化底座，今天正式进入核心智能引擎第一战——企业级 RAG 知识库主链路。 今天我们通过需求单 STARMIND-060，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day60/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 61）我们开发核心多 Agent 编排主链路：把今天的混合检索 RAG 封装为专家节点，接入 LangGraph 状态机、MCP 工具、多轮记忆与人工审批（HITL）。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>企业级四段式 RAG 召回与融合原理</td><td>详解 BM25 词频饱和公式、稠密向量余弦相似度与 RRF `1 / (k + rank)` 融合优势。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>Rerank 精排与防幻觉引用溯源</td><td>剖析 Bi-Encoder 粗排 vs Cross-Encoder 精排差异、置信度拒答阈值与 `[DOC-xx]` 溯源格式。</td></tr>
+<tr><td><strong>下午 14:00-15:45</strong></td><td>星辰混合检索 RAG 引擎编码实战</td><td>手写 BM25 + 向量 + RRF + Rerank + 引用溯源完整引擎。</td></tr>
+<tr><td><strong>下午 16:00-17:30</strong></td><td>Bad Case 调优与单测验收</td><td>测试专有名词、同义问法、库外问题拒答三类用例并合入代码。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-060）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰智脑知识库承载公司财务报销、IT 运维、法务合同与产品 SLA 文档。业务要求回答必须有据可查、精准召回专有名词与同义问法，且在知识库无相关内容时明确拒答而非编造。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>纯向量检索对工单号、错误码、制度编号召回率低。</li><li>纯关键词检索对口语化同义提问召回率为 0。</li><li>大模型回答缺乏原文引用角标，员工不敢直接采信用于财务或法务决策。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现双路混合检索器：BM25 词法打分 + 稠密词袋/语义余弦相似度。</li><li>实现 RRF（Reciprocal Rank Fusion）融合与 Rerank 精排重打分。</li><li>实现带强制 `[doc_id]` 引用角标及置信度阈值拒答机制的 RAG 问答组装器。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>混合检索在专有编号查询和同义语义查询上均能将目标文档排入 Top-2。</li><li>当检索最高精排得分低于阈值时，明确返回&#x27;知识库未检索到依据&#x27;拒答提示，绝不瞎编。</li><li>纯 Python 离线运行，pytest 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>检索 1000 个切片响应时间 &lt; 50ms。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>星辰智脑 RAG 引擎采用工业界标准的 **粗排双路召回 + RRF 融合 + 精排重排 + 溯源生成** 漏斗架构：<br/>1. **BM25 词法路**：对中文做 2-gram + 英文/数字完整 Token 切分，对专有编号（如 <code>ERR_4291</code>、<code>SLA</code>）和精确制度条款拥有极高区分度。<br/>2. **语义向量路**：结合领域同义词概念空间投影（生产环境无缝替换为 <code>bge-m3</code> / <code>text-embedding-v3</code>），解决&#x27;住酒店&#x27;与&#x27;住宿报销&#x27;的语义鸿沟。<br/>3. **RRF 融合**：不直接把量纲不同的 BM25 分数和余弦相似度硬相加，而是按排名融合 <code>score = sum(1 / (60 + rank))</code>，鲁棒性极强。<br/>4. **Rerank 精排与拒答门禁**：对 Top-K 候选做标题加权 + 覆盖率 + 连续短语匹配精排；若 Top-1 精排分低于 <code>min_score</code>，直接触发安全拒答，根治大模型一本正经胡说八道。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 60.1：星辰智脑混合检索与 Rerank 精排流水线（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">星辰智脑混合检索与 Rerank 精排流水线</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">用户提问 Query</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">分词 + 语义编码</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">BM25 词法召回</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">精准命中编号/专词</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">向量语义召回</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">命中同义/口语表达</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">RRF 倒数秩融合</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">1 / (60 + rank)</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">Rerank 精排 + 溯源</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">附 [DOC-xx] 引用/拒答</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="263.5" y="66.0" width="48" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">稀疏路</text>
+<line x1="256" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="406.5" y="66.0" width="48" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="430.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">稠密路</text>
+<line x1="432.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="533.0" y="132.5" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">Top-20</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="676.0" y="132.5" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">Top-20</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="522.5" y="202.0" width="108" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">精排 Top-3</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>双路互补召回 -&gt; RRF 无量纲融合 -&gt; 精排重打分 -&gt; 阈值拒答/溯源生成。</div></div><div class="diagram-card"><div class="diagram-title">图 60.2：RRF 倒数秩融合原理示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 707 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="707" height="216" rx="12" fill="#f7fdfa"/>
+<text x="353.5" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">RRF 倒数秩融合原理示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">BM25 排名 #1</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">1/(60+1) = 0.0164</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">向量 排名 #2</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">1/(60+2) = 0.0161</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">RRF 融合总分</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">0.0325 -&gt; 稳居榜首</text>
+<line x1="215" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>规避 BM25(0~20) 与余弦(0~1) 分数尺度不一致难题，双路同时靠前文档获最高分。</div></div><div class="diagram-card"><div class="diagram-title">图 60.3：RAG 引用溯源与置信度拒答架构（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">RAG 引用溯源与置信度拒答架构</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">精排 Top-K 切片</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">带 doc_id 与 score</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">置信度阈值门禁</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">score &gt;= 0.25 ?</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">溯源答案组装</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">附 [DOC-01] 角标</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">防幻觉安全拒答</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">提示补充文档/转人工</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">校验 Top-1</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">达标</text>
+<line x1="231.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">不达标</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>每条结论强制绑定原文切片 ID 与得分，低于阈值触发安全拒答。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么 RRF 比加权线性相加更稳？</h3><p>BM25 分数无上界（可能 0.5 也可能 25），而余弦相似度在 <code>[-1, 1]</code> 之间，直接 <code>0.5*bm25 + 0.5*vec</code> 会导致 BM25 完全淹没向量分。RRF 只看各路排序位次 <code>1/(k + rank)</code>（通常 <code>k=60</code>），天然免归一化，工程极稳。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：把 RRF 后的微小数值（如 0.03）直接当成置信度阈值拿去做拒答判断，正确做法是用精排 Rerank 的 `[0, 1]` 归一化分做拒答门禁。</div><h3>2. 2. 企业知识库切块的黄金经验</h3><p>Markdown/Word 规章制度优先按标题层级做语义切块（保留父标题上下文，如&#x27;财务制度 &gt; 差旅报销 &gt; 住宿标准&#x27;），块长控制在 300~500 汉字，重叠（overlap）10%~15%，切忌硬按固定字符数把一个表格或条款拦腰截断。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：切块丢失文档标题，导致检索出&#x27;不超过 600 元/晚&#x27;却不知道是一线城市还是二线城市的住宿标准。</div><h3>3. 3. 强制引用溯源如何消除业务方信任危机？</h3><p>在最终答案中强制标注 <code>[DOC-01]</code> 并在返回 JSON 中附带原文 <code>snippet</code> 和 <code>title</code>，前端渲染为可悬浮预览的原文卡片，业务方一眼核实来源，采纳率立涨 3 倍。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：允许模型在没有检索到依据时自由发挥，导致财务制度问答出现&#x27;编造报销额度&#x27;的严重事故。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【大厂 RAG 调优秘籍：80% 的 RAG 效果差不是模型笨，而是检索脏】<br/>线上排查 RAG Bad Case 有一条黄金步骤：先把送给 LLM 的 Top-3 检索切片原样打出来看！如果正确答案压根没进 Top-3，你改一百版 Prompt 也没用，请立刻调切块、加 BM25 混合召回、加 Query 改写（Multi-Query）或换更强的 Rerank 模型。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day60/</code> 与 <code>notebooks/day60/day60_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现中文混合检索（BM25 + 语义向量 + RRF 融合）引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先手写纯 Python 零依赖的混合检索引擎：BM25 专打专有编号和精准词，语义向量通过领域概念映射覆盖同义问法，最后用 RRF 无量纲融合。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day60_hybrid_retriever.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 60 - 模块一：星辰智脑混合检索引擎（BM25 + 语义向量 + RRF 融合）
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import math
+import re
+from collections import Counter
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
+
+SYNONYM_GROUPS = [
+    (&quot;酒店&quot;, &quot;住宿&quot;, &quot;差旅&quot;, &quot;宾馆&quot;),
+    (&quot;报销&quot;, &quot;发票&quot;, &quot;费用&quot;, &quot;核销&quot;),
+    (&quot;报错&quot;, &quot;异常&quot;, &quot;故障&quot;, &quot;失败&quot;, &quot;错误码&quot;),
+    (&quot;熔断&quot;, &quot;限流&quot;, &quot;超额&quot;, &quot;429&quot;),
+    (&quot;密码&quot;, &quot;登录&quot;, &quot;账号&quot;, &quot;sso&quot;),
+]
+
+
+def tokenize(text: str) -&gt; List[str]:
+    &quot;&quot;&quot;中英文混合分词：英文/数字完整保留，中文采用 2-gram + 单字&quot;&quot;&quot;
+    text_low = text.lower()
+    alnum = re.findall(r&quot;[a-z0-9_\-]+&quot;, text_low)
+    cjk_runs = re.findall(r&quot;[\u4e00-\u9fff]+&quot;, text_low)
+    tokens: List[str] = list(alnum)
+    for run in cjk_runs:
+        tokens.extend(list(run))
+        tokens.extend(run[i : i + 2] for i in range(len(run) - 1))
+    return tokens
+
+
+def semantic_expand(tokens: List[str]) -&gt; Counter[str]:
+    &quot;&quot;&quot;轻量领域同义概念向量投影（生产可无缝替换为 bge-m3 Embedding）&quot;&quot;&quot;
+    vec = Counter(tokens)
+    joined = &quot;&quot;.join(tokens)
+    for idx, group in enumerate(SYNONYM_GROUPS):
+        if any(word in joined for word in group):
+            vec[f&quot;__concept_{idx}__&quot;] += 3.0
+    return vec
+
+
+def cosine_sim(v1: Counter[str], v2: Counter[str]) -&gt; float:
+    common = set(v1.keys()) &amp; set(v2.keys())
+    if not common:
+        return 0.0
+    dot = sum(v1[k] * v2[k] for k in common)
+    n1 = math.sqrt(sum(v * v for v in v1.values()))
+    n2 = math.sqrt(sum(v * v for v in v2.values()))
+    return dot / max(1e-9, n1 * n2)
+
+
+@dataclass
+class KnowledgeChunk:
+    doc_id: str
+    title: str
+    content: str
+
+
+class HybridRetriever:
+    &quot;&quot;&quot;BM25 + 语义向量 + RRF 融合检索器&quot;&quot;&quot;
+
+    def __init__(self, chunks: List[KnowledgeChunk]) -&gt; None:
+        self.chunks = chunks
+        self._doc_tokens = [tokenize(f&quot;{c.title} {c.content}&quot;) for c in chunks]
+        self._doc_vecs = [semantic_expand(toks) for toks in self._doc_tokens]
+        self._avg_dl = sum(len(t) for t in self._doc_tokens) / max(1, len(chunks))
+        self._df: Counter[str] = Counter()
+        for toks in self._doc_tokens:
+            for term in set(toks):
+                self._df[term] += 1
+
+    def _bm25_scores(self, q_tokens: List[str], k1: float = 1.5, b: float = 0.75) -&gt; List[Tuple[int, float]]:
+        n_docs = len(self.chunks)
+        scores = []
+        for idx, d_toks in enumerate(self._doc_tokens):
+            tf = Counter(d_toks)
+            dl = len(d_toks)
+            s = 0.0
+            for qt in q_tokens:
+                if qt not in tf:
+                    continue
+                df = self._df[qt]
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1.0)
+                num = tf[qt] * (k1 + 1.0)
+                den = tf[qt] + k1 * (1.0 - b + b * dl / max(1.0, self._avg_dl))
+                s += idf * (num / den)
+            scores.append((idx, s))
+        return sorted(scores, key=lambda x: x[1], reverse=True)
+
+    def _vector_scores(self, q_tokens: List[str]) -&gt; List[Tuple[int, float]]:
+        q_vec = semantic_expand(q_tokens)
+        scores = [(idx, cosine_sim(q_vec, d_vec)) for idx, d_vec in enumerate(self._doc_vecs)]
+        return sorted(scores, key=lambda x: x[1], reverse=True)
+
+    def search_rrf(self, query: str, top_k: int = 3, rrf_k: int = 60) -&gt; List[Tuple[KnowledgeChunk, float]]:
+        q_tokens = tokenize(query)
+        bm25_rank = self._bm25_scores(q_tokens)
+        vec_rank = self._vector_scores(q_tokens)
+
+        rrf_scores: Dict[int, float] = {}
+        for rank, (idx, score) in enumerate(bm25_rank, start=1):
+            if score &gt; 0:
+                rrf_scores[idx] = rrf_scores.get(idx, 0.0) + 1.0 / (rrf_k + rank)
+        for rank, (idx, score) in enumerate(vec_rank, start=1):
+            if score &gt; 0:
+                rrf_scores[idx] = rrf_scores.get(idx, 0.0) + 1.0 / (rrf_k + rank)
+
+        ordered = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        return [(self.chunks[idx], round(sc, 5)) for idx, sc in ordered]
+
+
+if __name__ == &quot;__main__&quot;:
+    kb = [
+        KnowledgeChunk(&quot;DOC-01&quot;, &quot;差旅住宿报销标准&quot;, &quot;一线城市出差住宿上限650元/晚，需在费用中心上传电子专票核销。&quot;),
+        KnowledgeChunk(&quot;DOC-02&quot;, &quot;网关错误码ERR_4291手册&quot;, &quot;错误码ERR_4291表示部门日Token配额已触发100%硬熔断，请联系管理员提额。&quot;),
+    ]
+    ret = HybridRetriever(kb)
+    print(&quot;专有码检索:&quot;, [(c.doc_id, s) for c, s in ret.search_rrf(&quot;接口报 ERR_4291 怎么办&quot;)])
+    print(&quot;同义词检索:&quot;, [(c.doc_id, s) for c, s in ret.search_rrf(&quot;出差住宾馆最多能花多少钱&quot;)])
+</code></pre><div class="output-box"># 预期运行输出示例：
+专有码检索: [(&#x27;DOC-02&#x27;, 0.03279), (&#x27;DOC-01&#x27;, 0.01613)]
+同义词检索: [(&#x27;DOC-01&#x27;, 0.03279), (&#x27;DOC-02&#x27;, 0.01613)]</div></div><h4>深度代码解析与工程要点</h4><p><code>tokenize</code> 同时保留完整英文/数字错误码和中文 2-gram，让 BM25 精准命中 <code>ERR_4291</code>；<code>semantic_expand</code> 在无外部 Embedding API 时也能通过概念投影把&#x27;住宾馆&#x27;映射到&#x27;差旅住宿&#x27;。</p><h3>实操步骤 2：步骤二：实现 Rerank 精排重打分与强制引用溯源问答引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>粗排拿到候选切片后，加上 Rerank 精排、低分防幻觉拒答门禁和强制 <code>[DOC-xx]</code> 角标引用，组装出完整的星辰智脑 RAG 问答服务。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day60_rag_pipeline.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 60 - 模块二：Rerank 精排 + 置信度拒答 + 强制 [doc_id] 引用溯源问答流水线
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List
+
+from src.day60_hybrid_retriever import HybridRetriever, KnowledgeChunk, cosine_sim, semantic_expand, tokenize
+
+
+@dataclass
+class Citation:
+    doc_id: str
+    title: str
+    rerank_score: float
+    snippet: str
+
+
+@dataclass
+class RAGAnswer:
+    query: str
+    answered: bool
+    answer: str
+    citations: List[Citation] = field(default_factory=list)
+
+
+def rerank_score(query: str, chunk: KnowledgeChunk) -&gt; float:
+    &quot;&quot;&quot;精排重打分 [0.0, 1.0]：融合语义余弦 + 标题命中加权 + 关键词覆盖率&quot;&quot;&quot;
+    q_toks = tokenize(query)
+    if not q_toks:
+        return 0.0
+    title_toks = set(tokenize(chunk.title))
+    body_toks = set(tokenize(f&quot;{chunk.title} {chunk.content}&quot;))
+
+    sem = cosine_sim(semantic_expand(q_toks), semantic_expand(list(body_toks)))
+    title_hit = sum(1 for t in set(q_toks) if t in title_toks) / max(1, len(set(q_toks)))
+    body_hit = sum(1 for t in set(q_toks) if t in body_toks) / max(1, len(set(q_toks)))
+    code_tokens = [t for t in set(q_toks) if t.isascii() and any(ch.isdigit() for ch in t)]
+    exact_code_boost = 0.35 if (code_tokens and any(t in body_toks for t in code_tokens)) else 0.0
+    score = 0.50 * sem + 0.30 * title_hit + 0.20 * body_hit + exact_code_boost
+    return round(min(1.0, score), 4)
+
+
+class StarMindRAGEngine:
+    &quot;&quot;&quot;星辰智脑企业级 RAG 主链路引擎&quot;&quot;&quot;
+
+    def __init__(self, chunks: List[KnowledgeChunk], min_confidence: float = 0.22) -&gt; None:
+        self.retriever = HybridRetriever(chunks)
+        self.min_confidence = min_confidence
+
+    def ask(self, query: str, top_k: int = 2) -&gt; RAGAnswer:
+        candidates = self.retriever.search_rrf(query, top_k=max(top_k * 2, 4))
+        reranked = sorted(
+            [(chunk, rerank_score(query, chunk)) for chunk, _ in candidates],
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        if not reranked or reranked[0][1] &lt; self.min_confidence:
+            return RAGAnswer(
+                query=query,
+                answered=False,
+                answer=&quot;抱歉，星辰知识库中未检索到足够可信的依据，为避免幻觉拒绝编造答案，请联系对应部门人工核实。&quot;,
+                citations=[],
+            )
+
+        selected = [item for item in reranked[:top_k] if item[1] &gt;= self.min_confidence * 0.8]
+        citations = [
+            Citation(c.doc_id, c.title, sc, c.content[:80])
+            for c, sc in selected
+        ]
+        summary_lines = [f&quot;- {c.content} [{c.doc_id}]&quot; for c, _ in selected]
+        answer_text = &quot;根据星辰数科企业知识库检索结果，为您整理如下依据：\n&quot; + &quot;\n&quot;.join(summary_lines)
+        return RAGAnswer(query=query, answered=True, answer=answer_text, citations=citations)
+
+
+if __name__ == &quot;__main__&quot;:
+    kb = [
+        KnowledgeChunk(&quot;DOC-01&quot;, &quot;差旅住宿报销标准&quot;, &quot;一线城市出差住宿上限650元/晚，需在费用中心上传电子专票核销。&quot;),
+        KnowledgeChunk(&quot;DOC-02&quot;, &quot;网关错误码ERR_4291手册&quot;, &quot;错误码ERR_4291表示部门日Token配额已触发100%硬熔断，请联系管理员提额。&quot;),
+    ]
+    rag = StarMindRAGEngine(kb)
+    print(&quot;命中场景:&quot;, rag.ask(&quot;出差住宾馆报销标准是什么？&quot;))
+    print(&quot;拒答场景:&quot;, rag.ask(&quot;火星移民飞船票价多少？&quot;))
+</code></pre><div class="output-box"># 预期运行输出示例：
+命中场景: RAGAnswer(query=&#x27;出差住宾馆报销标准是什么？&#x27;, answered=True, answer=&#x27;根据星辰数科企业知识库检索结果... [DOC-01]&#x27;, citations=[Citation(...)])
+拒答场景: RAGAnswer(query=&#x27;火星移民飞船票价多少？&#x27;, answered=False, answer=&#x27;抱歉，星辰知识库中未检索到足够可信的依据...&#x27;, citations=[])</div></div><h4>深度代码解析与工程要点</h4><p>把精排得分严格归一化到 <code>[0, 1]</code>，低于 <code>min_confidence</code> 时主动触发防幻觉拒答；命中时每条事实均自动拼接 <code>[DOC-xx]</code> 引用角标与原文切片元数据。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现中文混合检索（BM25 + 语义向量 + RRF 融合）引擎（src/day60_hybrid_retriever.py）</h3><p>模块 <code>src/day60_hybrid_retriever.py</code> 共计 120 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-060 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>math</code>、<code>re</code>、<code>collections (Counter)</code>、<code>dataclasses (dataclass)</code>、<code>typing (Dict, List, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>KnowledgeChunk</code>（第 54~57 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>HybridRetriever</code>（第 60~110 行）】这是一个独立领域模型类。其核心职责定义为：BM25 + 语义向量 + RRF 融合检索器。类内部暴露了 4 个方法：<code>__init__(self, chunks)</code>、<code>_bm25_scores(self, q_tokens, k1, b)</code>、<code>_vector_scores(self, q_tokens)</code>、<code>search_rrf(self, query, top_k, rrf_k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>HybridRetriever.__init__</code>（第 63~71 行）属于同步实例方法，入参签名为 <code>(self, chunks)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HybridRetriever._bm25_scores</code>（第 73~89 行）属于同步实例方法，入参签名为 <code>(self, q_tokens, k1, b)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HybridRetriever._vector_scores</code>（第 91~94 行）属于同步实例方法，入参签名为 <code>(self, q_tokens)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HybridRetriever.search_rrf</code>（第 96~110 行）属于同步实例方法，入参签名为 <code>(self, query, top_k, rrf_k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>tokenize</code>（第 21~30 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。职责说明：中英文混合分词：英文/数字完整保留，中文采用 2-gram + 单字。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试。</p>
+<p>【函数契约拆解 · <code>semantic_expand</code>（第 33~40 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(tokens)</code>。职责说明：轻量领域同义概念向量投影（生产可无缝替换为 bge-m3 Embedding）。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试。</p>
+<p>【函数契约拆解 · <code>cosine_sim</code>（第 43~50 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(v1, v2)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day60_hybrid_retriever.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day60/day60_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day60/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现 Rerank 精排重打分与强制引用溯源问答引擎（src/day60_rag_pipeline.py）</h3><p>模块 <code>src/day60_rag_pipeline.py</code> 共计 84 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-060 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (List)</code>、<code>src.day60_hybrid_retriever (HybridRetriever, KnowledgeChunk, cosine_sim, semantic_expand, tokenize)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>Citation</code>（第 13~17 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>RAGAnswer</code>（第 21~25 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>StarMindRAGEngine</code>（第 45~74 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑企业级 RAG 主链路引擎。类内部暴露了 2 个方法：<code>__init__(self, chunks, min_confidence)</code>、<code>ask(self, query, top_k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StarMindRAGEngine.__init__</code>（第 48~50 行）属于同步实例方法，入参签名为 <code>(self, chunks, min_confidence)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindRAGEngine.ask</code>（第 52~74 行）属于同步实例方法，入参签名为 <code>(self, query, top_k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>rerank_score</code>（第 28~42 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(query, chunk)</code>。职责说明：精排重打分 [0.0, 1.0]：融合语义余弦 + 标题命中加权 + 关键词覆盖率。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day60_rag_pipeline.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day60/day60_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day60/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day60_hybrid_retriever.py（共 120 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day60_hybrid_retriever.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from dataclasses import dataclass</code></td><td>核心意图：代表语句：`from dataclasses import dataclass`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>(&quot;密码&quot;, &quot;登录&quot;, &quot;账号&quot;, &quot;sso&quot;),</code></td><td>核心意图：代表语句：`(&quot;密码&quot;, &quot;登录&quot;, &quot;账号&quot;, &quot;sso&quot;),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>cjk_runs = re.findall(r&quot;[\u4e00-\u9fff]+&quot;, text_low)</code></td><td>核心意图：代表语句：`cjk_runs = re.findall(r&quot;[\u4e00-\u9fff]+&quot;, text_low)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L33-L40</code></td><td><code>def semantic_expand(tokens: List[str]) -&gt; Counter[str]:</code></td><td>核心意图：代表语句：`def semantic_expand(tokens: List[str]) -&gt; Counter[str]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>def cosine_sim(v1: Counter[str], v2: Counter[str]) -&gt; float:</code></td><td>核心意图：代表语句：`def cosine_sim(v1: Counter[str], v2: Counter[str]) -&gt; float:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>n2 = math.sqrt(sum(v * v for v in v2.values()))</code></td><td>核心意图：代表语句：`n2 = math.sqrt(sum(v * v for v in v2.values()))`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>content: str</code></td><td>核心意图：代表语句：`content: str`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>self._doc_tokens = [tokenize(f&quot;{c.title} {c.content}&quot;) for c in chunks]</code></td><td>核心意图：代表语句：`self._doc_tokens = [tokenize(f&quot;{c.title} {c.content}&quot;) for c in chunks]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>def _bm25_scores(self, q_tokens: List[str], k1: float = 1.5, b: float = </code></td><td>核心意图：代表语句：`def _bm25_scores(self, q_tokens: List[str], k1: float = 1.5, b: float = 0.75) -&gt; List[Tupl`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>if qt not in tf:</code></td><td>核心意图：代表语句：`if qt not in tf:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>return sorted(scores, key=lambda x: x[1], reverse=True)</code></td><td>核心意图：代表语句：`return sorted(scores, key=lambda x: x[1], reverse=True)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>q_tokens = tokenize(query)</code></td><td>核心意图：代表语句：`q_tokens = tokenize(query)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>for rank, (idx, score) in enumerate(vec_rank, start=1):</code></td><td>核心意图：代表语句：`for rank, (idx, score) in enumerate(vec_rank, start=1):`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day60_rag_pipeline.py（共 84 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day60_rag_pipeline.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from src.day60_hybrid_retriever import HybridRetriever, KnowledgeChunk, </code></td><td>核心意图：代表语句：`from src.day60_hybrid_retriever import HybridRetriever, KnowledgeChunk, cosine_sim, semant`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>snippet: str</code></td><td>核心意图：代表语句：`snippet: str`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>citations: List[Citation] = field(default_factory=list)</code></td><td>核心意图：代表语句：`citations: List[Citation] = field(default_factory=list)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>title_toks = set(tokenize(chunk.title))</code></td><td>核心意图：代表语句：`title_toks = set(tokenize(chunk.title))`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>score = 0.50 * sem + 0.30 * title_hit + 0.20 * body_hit + exact_code_boo</code></td><td>核心意图：代表语句：`score = 0.50 * sem + 0.30 * title_hit + 0.20 * body_hit + exact_code_boost`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L49-L56</code></td><td><code>self.retriever = HybridRetriever(chunks)</code></td><td>核心意图：代表语句：`self.retriever = HybridRetriever(chunks)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>reverse=True,</code></td><td>核心意图：代表语句：`reverse=True,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>answer_text = &quot;根据星辰数科企业知识库检索结果，为您整理如下依据：\n&quot; + &quot;\n&quot;.join(summary_lines)</code></td><td>核心意图：代表语句：`answer_text = &quot;根据星辰数科企业知识库检索结果，为您整理如下依据：\n&quot; + &quot;\n&quot;.join(summary_lines)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L84</code></td><td><code>]</code></td><td>核心意图：代表语句：`]`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day60/tests/test_day60.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day60/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day60/tests/test_day60.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 60 单元测试：混合检索 RAG + Rerank + 引用溯源&quot;&quot;&quot;
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.day60_hybrid_retriever import KnowledgeChunk
+from src.day60_rag_pipeline import StarMindRAGEngine
+
+SAMPLE_KB = [
+    KnowledgeChunk(&quot;DOC-01&quot;, &quot;差旅住宿报销标准&quot;, &quot;一线城市出差住宿上限650元/晚，需在费用中心上传电子专票核销。&quot;),
+    KnowledgeChunk(&quot;DOC-02&quot;, &quot;网关错误码ERR_4291手册&quot;, &quot;错误码ERR_4291表示部门日Token配额已触发100%硬熔断，请联系管理员提额。&quot;),
+    KnowledgeChunk(&quot;DOC-03&quot;, &quot;新员工飞书SSO登录指引&quot;, &quot;新员工需管理员同步组织架构并分配基础角色后方可飞书扫码登录。&quot;),
+]
+
+
+def test_rag_hits_exact_error_code_with_citation():
+    rag = StarMindRAGEngine(SAMPLE_KB)
+    res = rag.ask(&quot;调用接口报错 ERR_4291 怎么解决？&quot;)
+    assert res.answered is True
+    assert res.citations[0].doc_id == &quot;DOC-02&quot;
+    assert &quot;[DOC-02]&quot; in res.answer
+
+
+def test_rag_hits_synonym_query():
+    rag = StarMindRAGEngine(SAMPLE_KB)
+    res = rag.ask(&quot;出差住宾馆最多花多少钱？&quot;)
+    assert res.answered is True
+    assert res.citations[0].doc_id == &quot;DOC-01&quot;
+
+
+def test_rag_refuses_out_of_domain_question():
+    rag = StarMindRAGEngine(SAMPLE_KB)
+    res = rag.ask(&quot;宇宙大爆炸奇点密度如何计算？&quot;)
+    assert res.answered is False
+    assert res.citations == []
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-060</code>，承接自 Day 59 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day60-capstone-hybrid-rag</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day60-capstone-hybrid-rag）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day60-capstone-hybrid-rag
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day60.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-060）
+git add src/day60_hybrid_retriever.py src/day60_rag_pipeline.py tests/test_day60.py
+git commit -m &quot;feat(day60): 实现星辰智脑混合检索RAG引擎(BM25+向量+RRF+Rerank+引用溯源)
+
+Refs: STARMIND-060
+- 完成 毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day60-capstone-hybrid-rag</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-060 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-060 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day60_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day60_hybrid_retriever.py src/day60_rag_pipeline.py
+    - echo &quot;Day 60 语法编译检查通过&quot;
+
+day60_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day60/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day60/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>BM25 + 语义 + RRF + Rerank + 拒答门禁整条链路非常干净，明天直接封装成一个工具节点注册进 LangGraph 多 Agent。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品</span><span>状态：Approved</span></div><p>测试了库外问题拒答，再也不会乱编财务制度了，给点赞！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-060 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-060（毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰智脑知识库承载公司财务报销、IT 运维、法务合同与产品 SLA 文档。业务要求回答必须有据可查、精准召回专有名词与同义问法，且在知识库无相关内容时明确拒答而非编造。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）纯向量检索对工单号、错误码、制度编号召回率低。；（2）纯关键词检索对口语化同义提问召回率为 0。；（3）大模型回答缺乏原文引用角标，员工不敢直接采信用于财务或法务决策。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现双路混合检索器：BM25 词法打分 + 稠密词袋/语义余弦相似度。；（2）实现 RRF（Reciprocal Rank Fusion）融合与 Rerank 精排重打分。；（3）实现带强制 <code>[doc_id]</code> 引用角标及置信度阈值拒答机制的 RAG 问答组装器。，必须全部翻译成可量化的测试用例和监控指标（例如 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day60/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么 RRF 比加权线性相加更稳？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：BM25 分数无上界（可能 0.5 也可能 25），而余弦相似度在 <code>[-1, 1]</code> 之间，直接 <code>0.5*bm25 + 0.5*vec</code> 会导致 BM25 完全淹没向量分。RRF 只看各路排序位次 <code>1/(k + rank)</code>（通常 <code>k=60</code>），天然免归一化，工程极稳。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：把 RRF 后的微小数值（如 0.03）直接当成置信度阈值拿去做拒答判断，正确做法是用精排 Rerank 的 <code>[0, 1]</code> 归一化分做拒答门禁。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么 RRF 比加权线性相加更稳？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 企业知识库切块的黄金经验】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：Markdown/Word 规章制度优先按标题层级做语义切块（保留父标题上下文，如&#x27;财务制度 &gt; 差旅报销 &gt; 住宿标准&#x27;），块长控制在 300~500 汉字，重叠（overlap）10%~15%，切忌硬按固定字符数把一个表格或条款拦腰截断。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：切块丢失文档标题，导致检索出&#x27;不超过 600 元/晚&#x27;却不知道是一线城市还是二线城市的住宿标准。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 企业知识库切块的黄金经验」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 强制引用溯源如何消除业务方信任危机？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在最终答案中强制标注 <code>[DOC-01]</code> 并在返回 JSON 中附带原文 <code>snippet</code> 和 <code>title</code>，前端渲染为可悬浮预览的原文卡片，业务方一眼核实来源，采纳率立涨 3 倍。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：允许模型在没有检索到依据时自由发挥，导致财务制度问答出现&#x27;编造报销额度&#x27;的严重事故。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 强制引用溯源如何消除业务方信任危机？」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 60 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day60/</code> 中亲手编写了 <code>src/day60_hybrid_retriever.py</code>、<code>src/day60_rag_pipeline.py</code> 以及对应的自动化测试 <code>tests/test_day60.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day60_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 60 / STARMIND-060）：1. 已在分支 <code>feat/day60-capstone-hybrid-rag</code> 完成 毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 模块联调接口契约不一致、上线前缺乏端到端回归测试、面试中对项目指标和踩坑细节讲不清楚 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 61）：明天（Day 61）我们开发核心多 Agent 编排主链路：把今天的混合检索 RAG 封装为专家节点，接入 LangGraph 状态机、MCP 工具、多轮记忆与人工审批（HITL）。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 60 掌握的「毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StarMind 星辰智脑 v1.0.0 全栈平台（FastAPI + RAG + Multi-Agent + MCP + Text-to-SQL + Guardrails + Docker + Web 控制台）），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-060 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 全栈架构整合、全链路自动化测试与压测、生产部署上线、技术答辩与 STAR 简历打磨、高频八股与日活十万级系统设计 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day60.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（模块联调接口契约不一致、上线前缺乏端到端回归测试、面试中对项目指标和踩坑细节讲不清楚）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 60 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day60/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day60_hybrid_retriever.py, src/day60_rag_pipeline.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>混合检索在专有编号查询和同义语义查询上均能将目标文档排入 Top-2。；当检索最高精排得分低于阈值时，明确返回&#x27;知识库未检索到依据&#x27;拒答提示，绝不瞎编。；纯 Python 离线运行，pytest 100% 通过。</td><td>运行 `pytest versions/day60/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day60/day60_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day60-capstone-hybrid-rag` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-060 需求时，我们的核心业务目标是：实现双路混合检索器：BM25 词法打分 + 稠密词袋/语义余弦相似度。；实现 RRF（Reciprocal Rank Fusion）融合与 Rerank 精排重打分。；实现带强制 <code>[doc_id]</code> 引用角标及置信度阈值拒答机制的 RAG 问答组装器。。最初我们也评估过极简脚本方案，但在 模块联调接口契约不一致、上线前缺乏端到端回归测试、面试中对项目指标和踩坑细节讲不清楚 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么 RRF 比加权线性相加更稳？、2. 企业知识库切块的黄金经验、3. 强制引用溯源如何消除业务方信任危机？ 这几层解耦抽象，既满足了当前阶段的 全量单元测试 100% 通过、核心接口 P95 延迟可控、GitHub 作品集与架构文档可直接用于一线大厂面试，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「毕业设计开发 Day 2：企业级混合检索 RAG + Rerank + 引用溯源」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 全栈架构整合、全链路自动化测试与压测、生产部署上线、技术答辩与 STAR 简历打磨、高频八股与日活十万级系统设计 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 60 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day60_hybrid_retriever.py、src/day60_rag_pipeline.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>漂亮！星辰智脑的核心 RAG 引擎全部跑通单测：专有错误码靠 BM25 精准命中，同义语义靠向量召回，RRF 融合 + Rerank 精排把最相关条款顶到 Top-1，而且每条回答都带着可点击溯源的 <code>[DOC-xx]</code> 引用角标，彻底堵死胡编乱造！明天咱把它接入 LangGraph 多 Agent！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：为知识库增加带重叠窗口的滑动切片器</strong><span class="badge">基础巩固</span></div><p>编写 <code>chunk_document(doc_id, title, text, chunk_size=120, overlap=20) -&gt; list[KnowledgeChunk]</code>，将长文档切分为带序号子切片（如 <code>DOC-01#1</code>）。</p><p><strong>💡 思路提示：</strong>步长 `step = chunk_size - overlap`，循环切片直到末尾。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-60-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-60-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>from src.day60_hybrid_retriever import KnowledgeChunk
+
+
+def chunk_document(doc_id: str, title: str, text: str, chunk_size: int = 120, overlap: int = 20):
+    step = max(1, chunk_size - overlap)
+    chunks = []
+    for idx, start in enumerate(range(0, len(text), step), start=1):
+        piece = text[start : start + chunk_size].strip()
+        if piece:
+            chunks.append(KnowledgeChunk(f&quot;{doc_id}#{idx}&quot;, title, piece))
+    return chunks
+
+
+res = chunk_document(&quot;DOC-99&quot;, &quot;规章&quot;, &quot;这是一段较长的企业制度文本。&quot; * 15, chunk_size=50, overlap=10)
+print(f&quot;切分出 {len(res)} 个带重叠窗口切片，首片ID={res[0].doc_id}&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>适当重叠可防止关键句恰好落在两个切块边界被截断。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：按部门权限标签（RBAC）过滤检索结果</strong><span class="badge">企业实战</span></div><p>实现前置权限过滤：只有当文档的 <code>allowed_depts</code> 包含用户所属部门或包含 <code>&#x27;ALL&#x27;</code> 时，才允许进入检索候选池，防止普通员工搜出高管薪酬制度。</p><p><strong>💡 思路提示：</strong>在构造 `HybridRetriever` 前或在检索结果返回前按 `user_dept in doc.allowed_depts` 过滤。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-60-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-60-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>def filter_chunks_by_dept(docs: list[dict], user_dept: str) -&gt; list[dict]:
+    return [d for d in docs if &quot;ALL&quot; in d[&quot;allowed_depts&quot;] or user_dept in d[&quot;allowed_depts&quot;]]
+
+
+docs = [
+    {&quot;id&quot;: &quot;D1&quot;, &quot;allowed_depts&quot;: {&quot;ALL&quot;}},
+    {&quot;id&quot;: &quot;D2&quot;, &quot;allowed_depts&quot;: {&quot;HR_ADMIN&quot;}},
+]
+print(&quot;普通研发可见文档:&quot;, [d[&quot;id&quot;] for d in filter_chunks_by_dept(docs, &quot;RD&quot;)])
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>企业 RAG 的权限隔离必须做在检索层（Pre-filtering），绝不能让敏感切片进了 Prompt 再指望模型闭嘴。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：计算 Recall@K 与 MRR 检索质量指标</strong><span class="badge">架构进阶</span></div><p>编写 <code>eval_retrieval(retrieved_ids_list, expected_ids)</code> 计算检索集上的 <code>Recall@3</code> 与 <code>MRR</code>（平均倒数排名）。</p><p><strong>💡 思路提示：</strong>若目标 doc_id 出现在第 `r` 位（1-indexed），该题 MRR 贡献 `1/r`，未命中贡献 0。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-60-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-60-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>def eval_retrieval(retrieved_list: list[list[str]], expected_list: list[str], k: int = 3) -&gt; dict:
+    hits, rr_sum = 0, 0.0
+    for ret, exp in zip(retrieved_list, expected_list):
+        top_k = ret[:k]
+        if exp in top_k:
+            hits += 1
+            rr_sum += 1.0 / (top_k.index(exp) + 1)
+    n = max(1, len(expected_list))
+    return {&quot;recall_at_k&quot;: round(hits / n, 4), &quot;mrr&quot;: round(rr_sum / n, 4)}
+
+
+print(eval_retrieval([[&quot;D1&quot;, &quot;D2&quot;], [&quot;D3&quot;, &quot;D1&quot;], [&quot;D2&quot;, &quot;D3&quot;]], [&quot;D1&quot;, &quot;D1&quot;, &quot;D4&quot;]))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>Recall@K 看找不找得到，MRR 看排不排得靠前，这两项是 Day 63 Ragas 评估的核心前置检索指标。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day59/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day61/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

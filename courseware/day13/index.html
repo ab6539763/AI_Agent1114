@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 13：进阶语法与异步入门 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 2 周</span>
+      <span class="badge badge-ticket">STARMIND-013</span>
+      <span class="badge">Day 13 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="13" onclick="toggleDayComplete(13, this)">标记今日已完成</button>
+      <a class="btn" href="../day12/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day14/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day13-decorators-generators-asyncio</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day13/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day13/day13_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day13_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 2 周：第 2 周：面向对象、工程化与命令行 AI 助手实战</div>
+        <h1>Day 13：进阶语法与异步入门</h1>
+        <p class="hero-sub">掌握装饰器、yield 生成器、typing、python-dotenv 与 asyncio 并发，为 AI 客户端打造重试与超时护盾</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-013</span>
+          <span class="hero-tag">分支：feat/day13-decorators-generators-asyncio</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>今天（STARMIND-013）咱们给代码做一次「从新手脚本到工程组件」的脱胎换骨升级！<br/>回想昨天调大模型 API 遇到的三个真实痛点：1）万一遇到 429 限流或短暂网络抖动，总不能每次都在业务代码里手写 <code>for</code> 循环重试吧？用**装饰器** <code>@retry_with_backoff</code> 一行搞定！<br/>2）大模型生成几百字回答时用户不想傻等 10 秒，怎么像 ChatGPT 那样一个字一个字往外吐？靠 **<code>yield</code> 生成器**！<br/>3）运营要批量让 AI 总结 20 篇文档，同步串行一篇 2 秒要等 40 秒，用 **<code>asyncio</code> 异步并发** + <code>Semaphore</code> 限流 + <code>wait_for</code> 超时控制，3 秒全搞定！<br/>再加上 <code>python-dotenv</code> 安全管理 <code>.env</code> 里的密钥，今天学完你写出来的 Python 代码一眼就能看出是大厂工程师水准！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天咱们成功封装了 OpenAI 兼容 HTTP 客户端并跑通了本地 Mock 降级命令行问答，还用 <code>httpx.MockTransport</code> 覆盖了 401/429 异常测试。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 14）就是第一阶段收官大考！咱们要把前 13 天的全部内功融会贯通，独立交付阶段考核项目一——**命令行多轮对话 AI 助手（带上下文记忆、JSON 持久化与 <code>/clear</code> <code>/save</code> <code>/exit</code> 指令）**！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 13 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 13）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：昨天咱们成功封装了 OpenAI 兼容 HTTP 客户端并跑通了本地 Mock 降级命令行问答，还用 <code>httpx.MockTransport</code> 覆盖了 401/429 异常测试。 今天我们通过需求单 STARMIND-013，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day13/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 14）就是第一阶段收官大考！咱们要把前 13 天的全部内功融会贯通，独立交付阶段考核项目一——**命令行多轮对话 AI 助手（带上下文记忆、JSON 持久化与 <code>/clear</code> <code>/save</code> <code>/exit</code> 指令）**！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>装饰器、yield 生成器与 typing / python-dotenv</td><td>手写耗时与指数退避重试装饰器、流式分块生成器及 .env 安全配置加载器。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>asyncio 异步并发、超时控制与信号量限流</td><td>深入理解事件循环、await 挂起让权、asyncio.gather 并发与 wait_for 超时兜底。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>可靠性与异步并发单元测试</td><td>用 pytest 验证重试次数、异常透传、生成器惰性吐字、并发提速与超时降级。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>同步阻塞误区排查与课后作业</td><td>牢记 async 函数内严禁调 time.sleep，完成 3 道梯度课后作业。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-013）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>随着星辰智脑开始对接外部大模型接口与批量文档分析任务，团队需要一套通用的底层可靠性与性能组件：避免密钥泄露、自动应对接口偶发抖动、支持流式分块输出以及多任务异步并发提速。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>重试逻辑、耗时统计散落在各个业务函数里，代码重复臃肿。</li><li>API Key 容易被误写进源码提交到 GitLab 造成安全事故。</li><li>批量调用大模型采用同步串行方式，总耗时随任务数线性暴涨，且缺少单任务超时熔断。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>掌握 `functools.wraps` 编写带参数的指数退避重试装饰器与耗时统计装饰器。</li><li>掌握 `yield` 生成器实现低内存流式文本分块输出，配合 `typing` 清晰标注类型。</li><li>掌握 `python-dotenv` 安全读取 `.env` 配置，以及 `asyncio.gather`、`asyncio.wait_for`、`asyncio.Semaphore` 实现带超时与并发上限的异步调用。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>重试装饰器能在函数前 N-1 次抛异常、第 N 次成功时自动恢复，超过上限后准确抛出原异常。</li><li>`.env` 配置加载器能读取本地 `.env` 文件且在文件缺失时安全回退到默认配置。</li><li>`yield` 流式生成器返回标准 `Generator` 对象，逐块输出不一次性占用多余内存。</li><li>异步批量调度器能并发执行多个任务（总耗时远小于串行总和），并对超时的单个任务进行 `asyncio.TimeoutError` 隔离降级。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>重试延迟与异步模拟延时在测试中使用毫秒级数值，确保单元测试 1 秒内跑完。</li><li>所有公共函数与装饰器具备完整 `typing` 类型注解与文档字符串。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>今天构建的是星辰智脑的基础设施工具箱（Infrastructure Toolkit），采用完全解耦的两个模块：<br/>1. **配置与横切中间件模块（day13_decorators_and_env.py）**：<br/>   - 使用 <code>dotenv.dotenv_values()</code> 解析 <code>.env</code> 文件并映射到强类型 <code>EnvSettings</code> 数据类，避免直接污染全局 <code>os.environ</code>，天然适配多环境隔离与单元测试。<br/>   - 基于高阶函数闭包与 <code>@functools.wraps</code> 实现 <code>@retry_with_backoff</code>（指数退避重试）和 <code>@measure_latency</code>（耗时审计），实现业务逻辑与容错逻辑彻底解耦（AOP 思想）。<br/>   - 使用 <code>yield</code> 实现 <code>stream_text_chunks()</code> 流式生成器，模拟大模型 SSE 打字机逐块输出。<br/>2. **异步并发调度引擎（day13_async_llm_runner.py）**：<br/>   - 基于 Python 原生 <code>asyncio</code> 事件循环，组合 <code>asyncio.Semaphore</code>（控制最大并发数防止把大模型 API 打爆触发 429）、<code>asyncio.wait_for</code>（单请求超时熔断）与 <code>asyncio.gather</code>（并发汇聚结果），在单线程内实现极高 I/O 吞吐。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 13.1：指数退避重试装饰器（@retry_with_backoff）流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">指数退避重试装饰器（@retry_with_backoff）流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">调用被装饰函数</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">attempt = 0</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">是否抛出目标异常？</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">如 RuntimeError / Timeout</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">直接返回结果</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">调用成功</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">达到 max_retries？</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">检查剩余重试额度</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">指数退避休眠后重试</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">sleep(base * 2^attempt)</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">抛出最终异常</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">交由上层兜底</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="269.5" y="66.0" width="36" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">执行</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="537.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">否（成功）</text>
+<line x1="432.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="527.0" y="132.5" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">是（捕获异常）</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="528.5" y="202.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">否（继续重试）</text>
+<line x1="432.0" y1="258" x2="146.0" y2="45" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="211.0" y="132.5" width="156" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="289.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">attempt += 1</text>
+<line x1="608" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="397.5" y="202.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="433.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">是（耗尽）</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示函数调用失败后如何按 base_delay * 2^attempt 递增休眠并重试，直到成功或耗尽次数抛出异常。</div></div><div class="diagram-card"><div class="diagram-title">图 13.2：Python 工程化进阶组件协作架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Python 工程化进阶组件协作架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">.env 配置文件</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">python-dotenv 隔离密钥</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">装饰器中间件</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">@retry / @measure_latency</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">yield 流式生成器</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">低内存逐块吐字</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">asyncio 并发调度器</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">Semaphore + wait_for + gather</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">高可用 AI 业务层</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">快速、抗抖动、不泄露密钥</text>
+<line x1="430.0" y1="130" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">注入安全配置</text>
+<line x1="231.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">无侵入增强容错</text>
+<line x1="629.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="629.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">流式输出体验</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">批量 I/O 并发加速</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 .env 密钥加载、横切装饰器、yield 流式生成器与 asyncio 并发引擎在 AI 应用中的分层位置。</div></div><div class="diagram-card"><div class="diagram-title">图 13.3：同步串行 vs asyncio 异步并发耗时对比示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">同步串行 vs asyncio 异步并发耗时对比示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">同步串行模式</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">T1(50ms)-&gt;T2(50ms)-&gt;...-&gt;T5</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">同步总耗时</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">≈ 250ms（线性累加）</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">asyncio 事件循环</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">T1~T5 同时发起并在 await 让权</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">异步总耗时</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">≈ 50ms（约等于最慢单任务）</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>5 个各耗时 50ms 的 I/O 请求：同步串行需要累加等待 250ms，而 asyncio 在 await 等待期切换协程，总耗时仅约 50ms。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 装饰器（@decorator）与 functools.wraps</h3><p>装饰器本质是「接收一个函数、返回一个增强版新函数」的高阶函数。写带参数的装饰器（如 <code>@retry_with_backoff(max_retries=3)</code>）需要三层嵌套：<code>工厂层(参数) -&gt; 装饰器层(func) -&gt; 包装执行层(*args, **kwargs)</code>。<br/>务必在最内层 <code>wrapper</code> 上加 <code>@functools.wraps(func)</code>，否则原函数的 <code>__name__</code> 和 <code>__doc__</code> 会被覆盖成 <code>wrapper</code>，排查日志和生成文档时会一团糟。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>重试装饰器不要裸抓 `Exception` 后无脑重试所有错误——像参数写错的 `ValueError` 或 401 鉴权失败重试一百次也没用，应通过 `exceptions=(...)` 参数精准指定可重试的异常类型。</div><h3>2. 2. 生成器（yield）与惰性求值</h3><p>普通函数 <code>return</code> 会一次性把整个列表算完塞进内存；含 <code>yield</code> 的函数调用后返回一个生成器对象，每次 <code>next()</code> 或 <code>for</code> 循环才执行到下一个 <code>yield</code> 暂停并吐出一个元素。<br/>在 AI 开发中，大模型流式响应（SSE）和 GB 级语料逐行清洗几乎全部依赖生成器。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>生成器是**一次性消耗品**！遍历完一遍就空了，第二次 `for` 遍历什么都拿不到；如果确实需要多次复用，记得显式转为 `list()`（仅限小数据）。</div><h3>3. 3. python-dotenv 与 asyncio 异步入门</h3><p>- <code>python-dotenv</code>：把 <code>DEEPSEEK_API_KEY=...</code> 写在项目根目录的 <code>.env</code> 文件里（并将 <code>.env</code> 加入 <code>.gitignore</code> 永不提交），代码里用 <code>dotenv_values()</code> 或 <code>load_dotenv()</code> 读取。<br/>- <code>asyncio</code>：<code>async def</code> 定义协程函数，<code>await</code> 挂起当前协程把控制权交还给事件循环；<code>asyncio.gather(*tasks)</code> 并发跑多个协程；<code>asyncio.wait_for(coro, timeout=...)</code> 做超时控制；<code>asyncio.Semaphore(n)</code> 限制最大并发数。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>在 `async def` 协程里**绝对不要调用 `time.sleep()` 或同步 `requests.get()`**！它们会把整个事件循环线程卡死，所有并发瞬间退化成串行；请改用 `await asyncio.sleep()` 和 `httpx.AsyncClient`。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【源码级避坑：什么时候用 asyncio，什么时候用多进程 multiprocessing？】<br/>很多同学学完 <code>asyncio</code> 以为它能加速一切，结果拿它去跑 CPU 密集型的本地图片压缩或矩阵乘法，发现一点没变快！<br/>记住铁律：**<code>asyncio</code> 跑在单线程事件循环里，只加速 I/O 密集型任务（调大模型 API、查数据库、读网络文件）**，因为在 <code>await</code> 等网卡回包时 CPU 可以去伺候其他几百个请求；而纯 CPU 密集型计算（本地模型推理、大体积加密压缩）会霸占 CPU 不放权，必须交给 <code>ProcessPoolExecutor</code> 多进程或底层 C++/Rust 扩展去跑！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day13/</code> 与 <code>notebooks/day13/day13_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现 .env 配置加载、指数退避重试装饰器与 yield 流式生成器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先打造三件工程利器：<code>load_env_settings()</code> 安全加载 <code>.env</code>、<code>@retry_with_backoff</code> 实现指数退避重试、<code>stream_text_chunks()</code> 用 <code>yield</code> 模拟大模型流式分块吐字。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day13_decorators_and_env.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-013 模块一：dotenv 配置加载、指数退避重试装饰器与 yield 流式生成器。
+演示 python-dotenv、functools.wraps、typing 类型注解与生成器惰性求值。
+&quot;&quot;&quot;
+
+import functools
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Generator, Optional, Tuple, Type, TypeVar
+
+from dotenv import dotenv_values
+
+T = TypeVar(&quot;T&quot;)
+
+
+@dataclass
+class EnvSettings:
+    &quot;&quot;&quot;从 .env 安全加载的应用配置。&quot;&quot;&quot;
+
+    model_name: str = &quot;deepseek-chat&quot;
+    api_key: str = &quot;&quot;
+    timeout_sec: float = 15.0
+    max_retries: int = 3
+
+
+def load_env_settings(env_path: Optional[Path] = None) -&gt; EnvSettings:
+    &quot;&quot;&quot;
+    安全解析 .env 文件并返回强类型 EnvSettings。
+    文件不存在时平滑回退到默认配置，不污染全局 os.environ。
+    &quot;&quot;&quot;
+    raw: dict[str, Optional[str]] = {}
+    if env_path is not None and env_path.exists():
+        raw = dict(dotenv_values(env_path))
+
+    return EnvSettings(
+        model_name=(raw.get(&quot;STARMIND_MODEL&quot;) or &quot;deepseek-chat&quot;).strip(),
+        api_key=(raw.get(&quot;STARMIND_API_KEY&quot;) or &quot;&quot;).strip(),
+        timeout_sec=float(raw.get(&quot;STARMIND_TIMEOUT&quot;) or 15.0),
+        max_retries=int(raw.get(&quot;STARMIND_MAX_RETRIES&quot;) or 3),
+    )
+
+
+def retry_with_backoff(
+    max_retries: int = 3,
+    base_delay: float = 0.01,
+    exceptions: Tuple[Type[BaseException], ...] = (RuntimeError, TimeoutError),
+) -&gt; Callable[[Callable[..., T]], Callable[..., T]]:
+    &quot;&quot;&quot;
+    指数退避重试装饰器。
+    当被装饰函数抛出指定 exceptions 时，按 base_delay * 2^attempt 休眠后重试。
+    &quot;&quot;&quot;
+    if max_retries &lt; 1:
+        raise ValueError(&quot;max_retries 必须 &gt;= 1&quot;)
+
+    def decorator(func: Callable[..., T]) -&gt; Callable[..., T]:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -&gt; T:
+            last_exc: Optional[BaseException] = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as exc:
+                    last_exc = exc
+                    if attempt == max_retries - 1:
+                        break
+                    sleep_sec = base_delay * (2 ** attempt)
+                    if sleep_sec &gt; 0:
+                        time.sleep(sleep_sec)
+            assert last_exc is not None
+            raise last_exc
+
+        return wrapper
+
+    return decorator
+
+
+def stream_text_chunks(text: str, chunk_size: int = 4) -&gt; Generator[str, None, None]:
+    &quot;&quot;&quot;使用 yield 按固定块大小惰性吐出文本，模拟大模型流式输出。&quot;&quot;&quot;
+    if chunk_size &lt;= 0:
+        raise ValueError(&quot;chunk_size 必须为正整数&quot;)
+    for idx in range(0, len(text), chunk_size):
+        yield text[idx : idx + chunk_size]
+
+
+if __name__ == &quot;__main__&quot;:
+    # 1. 演示重试装饰器：前两次模拟接口抖动，第三次成功
+    state = {&quot;calls&quot;: 0}
+
+    @retry_with_backoff(max_retries=3, base_delay=0.005, exceptions=(RuntimeError,))
+    def flaky_api_call(prompt: str) -&gt; str:
+        state[&quot;calls&quot;] += 1
+        if state[&quot;calls&quot;] &lt; 3:
+            raise RuntimeError(f&quot;第 {state[&#x27;calls&#x27;]} 次调用触发临时限流&quot;)
+        return f&quot;第 {state[&#x27;calls&#x27;]} 次成功返回：{prompt}&quot;
+
+    print(flaky_api_call(&quot;总结星辰数科年假制度&quot;))
+
+    # 2. 演示 yield 流式分块输出
+    chunks = list(stream_text_chunks(&quot;星辰智脑正在流式生成回答！&quot;, chunk_size=4))
+    print(&quot;流式分块结果:&quot;, chunks)
+</code></pre><div class="output-box"># 预期运行输出示例：
+第 3 次成功返回：总结星辰数科年假制度
+流式分块结果: [&#x27;星辰智脑&#x27;, &#x27;正在流式&#x27;, &#x27;生成回答&#x27;, &#x27;！&#x27;]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>dotenv_values(env_path)</code> 只读取指定 <code>.env</code> 文件并返回字典，比全局修改环境变量的 <code>load_dotenv()</code> 更干净、更易于并发和测试隔离。<br/>2. <code>@retry_with_backoff</code> 保留了原函数元信息（<code>@functools.wraps</code>），并且仅重试 <code>exceptions</code> 元组中声明的可恢复异常。<br/>3. <code>stream_text_chunks</code> 的返回类型标注为 <code>Generator[str, None, None]</code>，配合 <code>yield</code> 实现按需产出，零多余内存拷贝。</p><h3>实操步骤 2：步骤二：编写基于 asyncio 的并发大模型批量调用与超时控制引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>接下来咱们用 <code>asyncio</code> 写一个批量并发调用引擎：用 <code>asyncio.Semaphore</code> 限制最大并发度，用 <code>asyncio.wait_for</code> 给每个请求戴上超时安全帽，单个超时绝不拖垮整批任务！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day13_async_llm_runner.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-013 模块二：asyncio 异步并发大模型调用与超时控制引擎。
+演示 async/await、asyncio.wait_for 超时兜底、asyncio.Semaphore 并发限流与 asyncio.gather。
+&quot;&quot;&quot;
+
+import asyncio
+import time
+from typing import Any, Dict, List
+
+
+async def async_mock_llm_call(prompt: str, delay_sec: float = 0.04) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;模拟异步大模型 I/O 推理请求（非阻塞等待）。&quot;&quot;&quot;
+    await asyncio.sleep(delay_sec)
+    return {
+        &quot;prompt&quot;: prompt,
+        &quot;status&quot;: &quot;ok&quot;,
+        &quot;answer&quot;: f&quot;[异步回复] 已处理：{prompt}&quot;,
+    }
+
+
+async def invoke_with_timeout(
+    prompt: str,
+    delay_sec: float,
+    timeout_sec: float,
+) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;为单次异步大模型调用增加超时保护，超时后优雅降级而不抛出未捕获异常。&quot;&quot;&quot;
+    try:
+        return await asyncio.wait_for(
+            async_mock_llm_call(prompt, delay_sec=delay_sec),
+            timeout=timeout_sec,
+        )
+    except asyncio.TimeoutError:
+        return {
+            &quot;prompt&quot;: prompt,
+            &quot;status&quot;: &quot;timeout&quot;,
+            &quot;answer&quot;: f&quot;请求超时（&gt;{timeout_sec}s），已触发降级兜底。&quot;,
+        }
+
+
+async def batch_ask_concurrently(
+    prompts: List[str],
+    delay_sec: float = 0.04,
+    timeout_sec: float = 0.2,
+    max_concurrency: int = 5,
+) -&gt; List[Dict[str, Any]]:
+    &quot;&quot;&quot;
+    带并发上限控制的异步批量提问调度器。
+    通过 asyncio.Semaphore 防止瞬时并发过高打爆上游 API 限流。
+    &quot;&quot;&quot;
+    if max_concurrency &lt; 1:
+        raise ValueError(&quot;max_concurrency 必须 &gt;= 1&quot;)
+
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def _bounded_task(p: str) -&gt; Dict[str, Any]:
+        async with semaphore:
+            return await invoke_with_timeout(
+                prompt=p,
+                delay_sec=delay_sec,
+                timeout_sec=timeout_sec,
+            )
+
+    tasks = [_bounded_task(p) for p in prompts]
+    return list(await asyncio.gather(*tasks))
+
+
+if __name__ == &quot;__main__&quot;:
+    questions = [f&quot;批量问题 #{i}&quot; for i in range(1, 6)]
+    t0 = time.perf_counter()
+    results = asyncio.run(
+        batch_ask_concurrently(questions, delay_sec=0.05, timeout_sec=0.3, max_concurrency=5)
+    )
+    elapsed = (time.perf_counter() - t0) * 1000
+    print(f&quot;并发完成 {len(results)} 个任务（单个 50ms），总耗时仅 {elapsed:.1f}ms&quot;)
+    print(&quot;首条结果:&quot;, results[0])
+</code></pre><div class="output-box"># 预期运行输出示例：
+并发完成 5 个任务（单个 50ms），总耗时仅 52.3ms
+首条结果: {&#x27;prompt&#x27;: &#x27;批量问题 #1&#x27;, &#x27;status&#x27;: &#x27;ok&#x27;, &#x27;answer&#x27;: &#x27;[异步回复] 已处理：批量问题 #1&#x27;}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>asyncio.Semaphore(max_concurrency)</code> 是生产环境必备保护阀：哪怕一次性丢进来 1000 篇文档，同一时刻也只会放行 <code>max_concurrency</code> 个请求去调 API，绝不把自己打进 429 黑名单。<br/>2. <code>asyncio.wait_for()</code> 在协程超过 <code>timeout_sec</code> 时会自动取消它并抛出 <code>asyncio.TimeoutError</code>，我们在函数内部接住并转成 <code>status=&#x27;timeout&#x27;</code> 结构化结果，保证其他 99 个正常任务不受牵连。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现 .env 配置加载、指数退避重试装饰器与 yield 流式生成器（src/day13_decorators_and_env.py）</h3><p>模块 <code>src/day13_decorators_and_env.py</code> 共计 101 行源码，其中包含 2 行中文工程注释（注释密度约 2.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-013 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>functools</code>、<code>time</code>、<code>dataclasses (dataclass)</code>、<code>pathlib (Path)</code>、<code>typing (Any, Callable, Generator, Optional, Tuple, Type, TypeVar)</code>、<code>dotenv (dotenv_values)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>EnvSettings</code>（第 18~24 行）】这是一个独立领域模型类。其核心职责定义为：从 .env 安全加载的应用配置。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>load_env_settings</code>（第 27~41 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(env_path)</code>。职责说明：安全解析 .env 文件并返回强类型 EnvSettings。<br/>文件不存在时平滑回退到默认配置，不污染全局 os.environ。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>retry_with_backoff</code>（第 44~75 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(max_retries, base_delay, exceptions)</code>。职责说明：指数退避重试装饰器。<br/>当被装饰函数抛出指定 exceptions 时，按 base_delay * 2^attempt 休眠后重试。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>stream_text_chunks</code>（第 78~83 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text, chunk_size)</code>。职责说明：使用 yield 按固定块大小惰性吐出文本，模拟大模型流式输出。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day13_decorators_and_env.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day13/day13_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day13/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：编写基于 asyncio 的并发大模型批量调用与超时控制引擎（src/day13_async_llm_runner.py）</h3><p>模块 <code>src/day13_async_llm_runner.py</code> 共计 75 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-013 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>asyncio</code>、<code>time</code>、<code>typing (Any, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>async_mock_llm_call</code>（第 11~18 行）】该函数为异步协程函数，参数列表为 <code>(prompt, delay_sec)</code>。职责说明：模拟异步大模型 I/O 推理请求（非阻塞等待）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>invoke_with_timeout</code>（第 21~37 行）】该函数为异步协程函数，参数列表为 <code>(prompt, delay_sec, timeout_sec)</code>。职责说明：为单次异步大模型调用增加超时保护，超时后优雅降级而不抛出未捕获异常。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>batch_ask_concurrently</code>（第 40~64 行）】该函数为异步协程函数，参数列表为 <code>(prompts, delay_sec, timeout_sec, max_concurrency)</code>。职责说明：带并发上限控制的异步批量提问调度器。<br/>通过 asyncio.Semaphore 防止瞬时并发过高打爆上游 API 限流。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day13_async_llm_runner.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day13/day13_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day13/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day13_decorators_and_env.py（共 101 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day13_decorators_and_env.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from pathlib import Path</code></td><td>核心意图：代表语句：`from pathlib import Path`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>def load_env_settings(env_path: Optional[Path] = None) -&gt; EnvSettings:</code></td><td>核心意图：代表语句：`def load_env_settings(env_path: Optional[Path] = None) -&gt; EnvSettings:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L33-L40</code></td><td><code>if env_path is not None and env_path.exists():</code></td><td>核心意图：代表语句：`if env_path is not None and env_path.exists():`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>@functools.wraps(func)</code></td><td>核心意图：代表语句：`@functools.wraps(func)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>if attempt == max_retries - 1:</code></td><td>核心意图：代表语句：`if attempt == max_retries - 1:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>return wrapper</code></td><td>核心意图：代表语句：`return wrapper`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>raise ValueError(&quot;chunk_size 必须为正整数&quot;)</code></td><td>核心意图：1. 演示重试装饰器：前两次模拟接口抖动，第三次成功。代表语句：`raise ValueError(&quot;chunk_size 必须为正整数&quot;)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>@retry_with_backoff(max_retries=3, base_delay=0.005, exceptions=(Runtime</code></td><td>核心意图：代表语句：`@retry_with_backoff(max_retries=3, base_delay=0.005, exceptions=(RuntimeError,))`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L101</code></td><td><code>print(flaky_api_call(&quot;总结星辰数科年假制度&quot;))</code></td><td>核心意图：2. 演示 yield 流式分块输出。代表语句：`print(flaky_api_call(&quot;总结星辰数科年假制度&quot;))`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day13_async_llm_runner.py（共 75 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day13_async_llm_runner.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L9-L16</code></td><td><code>async def async_mock_llm_call(prompt: str, delay_sec: float = 0.04) -&gt; D</code></td><td>核心意图：代表语句：`async def async_mock_llm_call(prompt: str, delay_sec: float = 0.04) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L17-L24</code></td><td><code>&quot;answer&quot;: f&quot;[异步回复] 已处理：{prompt}&quot;,</code></td><td>核心意图：代表语句：`&quot;answer&quot;: f&quot;[异步回复] 已处理：{prompt}&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`) -&gt; Dict[str, Any]:`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L33-L40</code></td><td><code>return {</code></td><td>核心意图：代表语句：`return {`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>prompts: List[str],</code></td><td>核心意图：代表语句：`prompts: List[str],`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L49-L56</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>return await invoke_with_timeout(</code></td><td>核心意图：代表语句：`return await invoke_with_timeout(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L75</code></td><td><code>elapsed = (time.perf_counter() - t0) * 1000</code></td><td>核心意图：代表语句：`elapsed = (time.perf_counter() - t0) * 1000`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day13/tests/test_day13.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day13/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day13/tests/test_day13.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-013 自动化单元测试。&quot;&quot;&quot;
+
+import asyncio
+import inspect
+import sys
+import time
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day13_decorators_and_env import (
+    load_env_settings,
+    retry_with_backoff,
+    stream_text_chunks,
+)
+from day13_async_llm_runner import batch_ask_concurrently, invoke_with_timeout
+
+
+def test_load_env_settings_with_and_without_file(tmp_path: Path):
+    # 缺失 .env 文件应平滑返回默认值
+    default_cfg = load_env_settings(tmp_path / &quot;missing.env&quot;)
+    assert default_cfg.model_name == &quot;deepseek-chat&quot;
+    assert default_cfg.api_key == &quot;&quot;
+
+    # 存在 .env 文件时正确解析
+    env_file = tmp_path / &quot;.env&quot;
+    env_file.write_text(
+        &quot;STARMIND_MODEL=qwen-plus\nSTARMIND_API_KEY=sk-local-123\nSTARMIND_TIMEOUT=25.5\nSTARMIND_MAX_RETRIES=4\n&quot;,
+        encoding=&quot;utf-8&quot;,
+    )
+    loaded = load_env_settings(env_file)
+    assert loaded.model_name == &quot;qwen-plus&quot;
+    assert loaded.api_key == &quot;sk-local-123&quot;
+    assert loaded.timeout_sec == 25.5
+    assert loaded.max_retries == 4
+
+
+def test_retry_with_backoff_success_and_exhaustion():
+    attempts = {&quot;n&quot;: 0}
+
+    @retry_with_backoff(max_retries=3, base_delay=0.001, exceptions=(RuntimeError,))
+    def recover_on_third() -&gt; str:
+        &quot;&quot;&quot;恢复测试文档字符串。&quot;&quot;&quot;
+        attempts[&quot;n&quot;] += 1
+        if attempts[&quot;n&quot;] &lt; 3:
+            raise RuntimeError(&quot;transient error&quot;)
+        return &quot;recovered&quot;
+
+    assert recover_on_third.__name__ == &quot;recover_on_third&quot;
+    assert recover_on_third() == &quot;recovered&quot;
+    assert attempts[&quot;n&quot;] == 3
+
+    @retry_with_backoff(max_retries=2, base_delay=0.001, exceptions=(RuntimeError,))
+    def always_fail() -&gt; str:
+        raise RuntimeError(&quot;permanent error&quot;)
+
+    with pytest.raises(RuntimeError, match=&quot;permanent error&quot;):
+        always_fail()
+
+
+def test_stream_text_chunks_generator():
+    gen = stream_text_chunks(&quot;星辰智脑AI助手&quot;, chunk_size=3)
+    assert inspect.isgenerator(gen)
+    parts = list(gen)
+    assert parts == [&quot;星辰智&quot;, &quot;脑AI&quot;, &quot;助手&quot;]
+    assert &quot;&quot;.join(parts) == &quot;星辰智脑AI助手&quot;
+
+
+def test_async_concurrent_batch_and_timeout():
+    prompts = [f&quot;Q{i}&quot; for i in range(5)]
+    start = time.perf_counter()
+    results = asyncio.run(
+        batch_ask_concurrently(prompts, delay_sec=0.04, timeout_sec=0.3, max_concurrency=5)
+    )
+    elapsed = time.perf_counter() - start
+    assert len(results) == 5
+    assert all(r[&quot;status&quot;] == &quot;ok&quot; for r in results)
+    # 5 个 40ms 任务并发执行，总耗时应明显小于串行的 200ms
+    assert elapsed &lt; 0.16
+
+    # 验证单请求超时优雅降级
+    timeout_res = asyncio.run(invoke_with_timeout(&quot;慢查询&quot;, delay_sec=0.1, timeout_sec=0.02))
+    assert timeout_res[&quot;status&quot;] == &quot;timeout&quot;
+    assert &quot;超时&quot; in timeout_res[&quot;answer&quot;]
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-013</code>，承接自 Day 12 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day13-decorators-generators-asyncio</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day13-decorators-generators-asyncio）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day13-decorators-generators-asyncio
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day13.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-013）
+git add src/day13_decorators_and_env.py src/day13_async_llm_runner.py tests/test_day13.py
+git commit -m &quot;feat(day13): 实现指数退避重试装饰器、yield流式生成器、dotenv配置加载与asyncio并发调度器
+
+Refs: STARMIND-013
+- 完成 进阶语法与异步入门 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day13-decorators-generators-asyncio</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-013 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-013 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day13_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day13_decorators_and_env.py src/day13_async_llm_runner.py
+    - echo &quot;Day 13 语法编译检查通过&quot;
+
+day13_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day13/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day13/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p><code>Semaphore</code> 并发限流 + <code>wait_for</code> 超时隔离 + <code>dotenv_values</code> 零污染加载，三板斧非常稳健，后面第二阶段写 FastAPI 异步网关可以直接搬过去！</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端主程)</span><span>状态：Approved</span></div><p>单测里不仅测了功能正确性，还校验了并发耗时确实小于串行总耗时，这种带性能断言的异步测试很赞。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-013 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-013（进阶语法与异步入门）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：随着星辰智脑开始对接外部大模型接口与批量文档分析任务，团队需要一套通用的底层可靠性与性能组件：避免密钥泄露、自动应对接口偶发抖动、支持流式分块输出以及多任务异步并发提速。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）重试逻辑、耗时统计散落在各个业务函数里，代码重复臃肿。；（2）API Key 容易被误写进源码提交到 GitLab 造成安全事故。；（3）批量调用大模型采用同步串行方式，总耗时随任务数线性暴涨，且缺少单任务超时熔断。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）掌握 <code>functools.wraps</code> 编写带参数的指数退避重试装饰器与耗时统计装饰器。；（2）掌握 <code>yield</code> 生成器实现低内存流式文本分块输出，配合 <code>typing</code> 清晰标注类型。；（3）掌握 <code>python-dotenv</code> 安全读取 <code>.env</code> 配置，以及 <code>asyncio.gather</code>、<code>asyncio.wait_for</code>、<code>asyncio.Semaphore</code> 实现带超时与并发上限的异步调用。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day13/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 装饰器（@decorator）与 functools.wraps】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：装饰器本质是「接收一个函数、返回一个增强版新函数」的高阶函数。写带参数的装饰器（如 <code>@retry_with_backoff(max_retries=3)</code>）需要三层嵌套：<code>工厂层(参数) -&gt; 装饰器层(func) -&gt; 包装执行层(*args, **kwargs)</code>。<br/>务必在最内层 <code>wrapper</code> 上加 <code>@functools.wraps(func)</code>，否则原函数的 <code>__name__</code> 和 <code>__doc__</code> 会被覆盖成 <code>wrapper</code>，排查日志和生成文档时会一团糟。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：重试装饰器不要裸抓 <code>Exception</code> 后无脑重试所有错误——像参数写错的 <code>ValueError</code> 或 401 鉴权失败重试一百次也没用，应通过 <code>exceptions=(...)</code> 参数精准指定可重试的异常类型。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 装饰器（@decorator）与 functools.wraps」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生成器（yield）与惰性求值】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：普通函数 <code>return</code> 会一次性把整个列表算完塞进内存；含 <code>yield</code> 的函数调用后返回一个生成器对象，每次 <code>next()</code> 或 <code>for</code> 循环才执行到下一个 <code>yield</code> 暂停并吐出一个元素。<br/>在 AI 开发中，大模型流式响应（SSE）和 GB 级语料逐行清洗几乎全部依赖生成器。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：生成器是**一次性消耗品**！遍历完一遍就空了，第二次 <code>for</code> 遍历什么都拿不到；如果确实需要多次复用，记得显式转为 <code>list()</code>（仅限小数据）。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生成器（yield）与惰性求值」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. python-dotenv 与 asyncio 异步入门】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：- <code>python-dotenv</code>：把 <code>DEEPSEEK_API_KEY=...</code> 写在项目根目录的 <code>.env</code> 文件里（并将 <code>.env</code> 加入 <code>.gitignore</code> 永不提交），代码里用 <code>dotenv_values()</code> 或 <code>load_dotenv()</code> 读取。<br/>- <code>asyncio</code>：<code>async def</code> 定义协程函数，<code>await</code> 挂起当前协程把控制权交还给事件循环；<code>asyncio.gather(*tasks)</code> 并发跑多个协程；<code>asyncio.wait_for(coro, timeout=...)</code> 做超时控制；<code>asyncio.Semaphore(n)</code> 限制最大并发数。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：在 <code>async def</code> 协程里**绝对不要调用 <code>time.sleep()</code> 或同步 <code>requests.get()</code>**！它们会把整个事件循环线程卡死，所有并发瞬间退化成串行；请改用 <code>await asyncio.sleep()</code> 和 <code>httpx.AsyncClient</code>。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. python-dotenv 与 asyncio 异步入门」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 13 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day13/</code> 中亲手编写了 <code>src/day13_decorators_and_env.py</code>、<code>src/day13_async_llm_runner.py</code> 以及对应的自动化测试 <code>tests/test_day13.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day13_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 13 / STARMIND-013）：1. 已在分支 <code>feat/day13-decorators-generators-asyncio</code> 完成 进阶语法与异步入门 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 14）：明天（Day 14）就是第一阶段收官大考！咱们要把前 13 天的全部内功融会贯通，独立交付阶段考核项目一——**命令行多轮对话 AI 助手（带上下文记忆、JSON 持久化与 <code>/clear</code> <code>/save</code> <code>/exit</code> 指令）**！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 13 掌握的「进阶语法与异步入门」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「进阶语法与异步入门」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：进阶语法与异步入门 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-013 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day13.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 13 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day13/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day13_decorators_and_env.py, src/day13_async_llm_runner.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>重试装饰器能在函数前 N-1 次抛异常、第 N 次成功时自动恢复，超过上限后准确抛出原异常。；`.env` 配置加载器能读取本地 `.env` 文件且在文件缺失时安全回退到默认配置。；`yield` 流式生成器返回标准 `Generator` 对象，逐块输出不一次性占用多余内存。；异步批量调度器能并发执行多个任务（总耗时远小于串行总和），并对超时的单个任务进行 `asyncio.TimeoutError` 隔离降级。</td><td>运行 `pytest versions/day13/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day13/day13_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day13-decorators-generators-asyncio` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「进阶语法与异步入门」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-013 需求时，我们的核心业务目标是：掌握 <code>functools.wraps</code> 编写带参数的指数退避重试装饰器与耗时统计装饰器。；掌握 <code>yield</code> 生成器实现低内存流式文本分块输出，配合 <code>typing</code> 清晰标注类型。；掌握 <code>python-dotenv</code> 安全读取 <code>.env</code> 配置，以及 <code>asyncio.gather</code>、<code>asyncio.wait_for</code>、<code>asyncio.Semaphore</code> 实现带超时与并发上限的异步调用。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 装饰器（@decorator）与 functools.wraps、2. 生成器（yield）与惰性求值、3. python-dotenv 与 asyncio 异步入门 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「进阶语法与异步入门」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 13 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day13_decorators_and_env.py、src/day13_async_llm_runner.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天这五把利器——**装饰器、<code>yield</code> 生成器、<code>typing</code> 类型注解、<code>python-dotenv</code>、<code>asyncio</code> 异步**——在后面第二阶段的 FastAPI、第三阶段的 RAG 批量向量化、第四阶段的 Agent 工具流里每天都会高频用到。<br/>回去把指数退避重试和 <code>asyncio.gather</code> 再手敲一遍，明天咱们直接上第一阶段毕业考核项目！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：带调用计数统计的装饰器 @count_calls</strong><span class="badge">基础巩固</span></div><p>编写一个装饰器 <code>count_calls(func)</code>，使用 <code>functools.wraps</code> 保留函数元信息，并在包装函数上维护 <code>wrapper.call_count</code> 属性，每次调用自动加 1。</p><p><strong>💡 思路提示：</strong>在定义完 `wrapper` 后初始化 `wrapper.call_count = 0`，在 `wrapper` 内部先 `wrapper.call_count += 1` 再调用原函数。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-13-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-13-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 13 课后题 1：函数调用次数统计装饰器。&quot;&quot;&quot;
+
+import functools
+from typing import Any, Callable
+
+
+def count_calls(func: Callable[..., Any]) -&gt; Callable[..., Any]:
+    &quot;&quot;&quot;统计被装饰函数的累计调用次数，挂载在 wrapper.call_count 属性上。&quot;&quot;&quot;
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -&gt; Any:
+        wrapper.call_count += 1  # type: ignore[attr-defined]
+        return func(*args, **kwargs)
+
+    wrapper.call_count = 0  # type: ignore[attr-defined]
+    return wrapper
+
+
+@count_calls
+def greet(name: str) -&gt; str:
+    return f&quot;你好，{name}&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    print(greet(&quot;林产品&quot;))
+    print(greet(&quot;阿杰&quot;))
+    print(&quot;累计调用次数:&quot;, greet.call_count)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>Python 中函数也是对象，可以直接挂载自定义属性（如 <code>call_count</code>），配合 <code>@functools.wraps</code> 既优雅又便于监控埋点。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：基于 yield 的流式错误日志过滤生成器</strong><span class="badge">企业实战</span></div><p>编写生成器函数 <code>iter_error_lines(lines: Iterable[str], level: str = &#x27;ERROR&#x27;) -&gt; Generator[str, None, None]</code>，惰性遍历海量日志行，仅 <code>yield</code> 去除首尾空白后包含 <code>[ERROR]</code>（或指定 level）的日志行。</p><p><strong>💡 思路提示：</strong>在 `for line in lines:` 中判断 `f&#x27;[{level.upper()}]&#x27; in line`，命中则 `yield line.strip()`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-13-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-13-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 13 课后题 2：低内存流式错误日志过滤生成器。&quot;&quot;&quot;
+
+from typing import Generator, Iterable
+
+
+def iter_error_lines(
+    lines: Iterable[str],
+    level: str = &quot;ERROR&quot;,
+) -&gt; Generator[str, None, None]:
+    &quot;&quot;&quot;惰性过滤包含指定日志级别的日志行，适合处理 GB 级大日志文件。&quot;&quot;&quot;
+    tag = f&quot;[{level.upper()}]&quot;
+    for line in lines:
+        if tag in line:
+            yield line.strip()
+
+
+if __name__ == &quot;__main__&quot;:
+    sample_logs = [
+        &quot;2026-05-13 10:00:01 [INFO] 服务启动完成\n&quot;,
+        &quot;2026-05-13 10:00:05 [ERROR] 模型接口返回 429 限流\n&quot;,
+        &quot;2026-05-13 10:00:08 [WARN] 响应延迟偏高\n&quot;,
+        &quot;2026-05-13 10:00:12 [ERROR] 数据库连接超时\n&quot;,
+    ]
+    for err in iter_error_lines(sample_logs):
+        print(&quot;捕获告警:&quot;, err)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>传入 <code>Iterable[str]</code>（既可以是打开的文件对象也可以是列表），配合 <code>yield</code> 实现 O(1) 恒定内存占用过滤大日志。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：带并发限流的异步多节点健康探活器</strong><span class="badge">架构进阶</span></div><p>编写异步函数 <code>async_health_check_all(services: list[tuple[str, float]], timeout_sec: float = 0.05, max_concurrency: int = 3) -&gt; dict[str, str]</code>。其中每个元组为 <code>(服务名, 模拟响应耗时秒数)</code>，在超时内响应记为 <code>&#x27;healthy&#x27;</code>，超时记为 <code>&#x27;unhealthy&#x27;</code>，返回服务名到状态的映射字典。</p><p><strong>💡 思路提示：</strong>结合 `asyncio.Semaphore(max_concurrency)`、`asyncio.wait_for(asyncio.sleep(delay), timeout=timeout_sec)` 和 `asyncio.gather`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-13-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-13-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 13 课后题 3：带并发限流与超时判定的异步服务探活器。&quot;&quot;&quot;
+
+import asyncio
+from typing import Dict, List, Tuple
+
+
+async def async_health_check_all(
+    services: List[Tuple[str, float]],
+    timeout_sec: float = 0.05,
+    max_concurrency: int = 3,
+) -&gt; Dict[str, str]:
+    &quot;&quot;&quot;并发探活多个微服务节点，按超时阈值标记 healthy / unhealthy。&quot;&quot;&quot;
+    sem = asyncio.Semaphore(max_concurrency)
+
+    async def _probe(name: str, latency: float) -&gt; Tuple[str, str]:
+        async with sem:
+            try:
+                await asyncio.wait_for(asyncio.sleep(latency), timeout=timeout_sec)
+                return name, &quot;healthy&quot;
+            except asyncio.TimeoutError:
+                return name, &quot;unhealthy&quot;
+
+    pairs = await asyncio.gather(*(_probe(n, d) for n, d in services))
+    return dict(pairs)
+
+
+if __name__ == &quot;__main__&quot;:
+    nodes = [
+        (&quot;deepseek-gateway&quot;, 0.01),
+        (&quot;qwen-gateway&quot;, 0.02),
+        (&quot;slow-legacy-rag&quot;, 0.12),
+    ]
+    print(asyncio.run(async_health_check_all(nodes, timeout_sec=0.05)))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>这道题直接对应生产级 AI 网关的定时探活后台协程：并发探测几十个上游模型节点，自动摘除超时慢节点。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day12/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day14/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

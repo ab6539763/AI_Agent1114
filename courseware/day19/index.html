@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 19：Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 2 阶段 · 第 3 周</span>
+      <span class="badge badge-ticket">STARMIND-019</span>
+      <span class="badge">Day 19 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="19" onclick="toggleDayComplete(19, this)">标记今日已完成</button>
+      <a class="btn" href="../day18/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day20/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day19-function-calling-loop</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day19/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day19/day19_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day19_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 2 阶段：第二阶段：大模型核心原理、Prompt工程与全栈 Web API · 第 3 周：第3周：大模型底层原理、Prompt 工程与工具调用实战</div>
+        <h1>Day 19：Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环</h1>
+        <p class="hero-sub">给大模型装上双手！亲手打通天气查询、安全计算器与星辰内部知识库的 Function Calling 闭环</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-019</span>
+          <span class="hero-tag">分支：feat/day19-function-calling-loop</span>
+          <span class="hero-tag">角色：能够独立封装大模型服务与前后端联调的初级 AI 应用开发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！今天是整个第二阶段最核心、含金量最高的**重点日**——Function Calling（工具调用，也叫 Tool Use）。为什么说它是 Agent 智能体的灵魂？因为没有工具调用，大模型顶多是个「嘴炮王者」；有了 Function Calling，它就能查实时天气、调高精度计算器、查公司 ERP 数据库、发钉钉告警！注意一个极其关键的底层真相：**大模型自己并不执行你的 Python 函数！**模型只是根据你提供的 JSON Schema，输出一段结构化的 <code>tool_calls</code> 申请书，真正执行代码的是咱们的后端循环，执行完把结果封装成 <code>role=&#x27;tool&#x27;</code> 喂回给模型，由模型汇总成自然语言。今天咱们不用任何重型框架，纯手写一套 100% 遵循 OpenAI Tool Protocol 的工具注册中心与多步闭环引擎！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 18）我们用 PromptGuard 守住了安全底线，用 CoT + JSON Mode 实现了高精度意图分类。但林产品提出一个直击灵魂的痛点：纯文本大模型既不知道今天杭州下不下雨，算 18750 * 0.13 税额偶尔会算错，也不知道咱们公司最新的报销差旅标准——它被困在训练截止日期的「鱼缸」里出不来！</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 20）我们将拓展大模型的「眼睛与语义记忆」：学习多模态图像理解/生成 API 封装，并手写 Embedding 向量化与余弦相似度语义匹配工具。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 19 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 19）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【能够独立封装大模型服务与前后端联调的初级 AI 应用开发工程师】，依托的工程底座是【DeepSeek / 通义千问 OpenAI 兼容接口 + FastAPI + Pydantic v2 + SQLite/SQLAlchemy + 原生前端 Fetch/SSE】。回顾昨天留下的上下文：昨天（Day 18）我们用 PromptGuard 守住了安全底线，用 CoT + JSON Mode 实现了高精度意图分类。但林产品提出一个直击灵魂的痛点：纯文本大模型既不知道今天杭州下不下雨，算 18750 * 0.13 税额偶尔会算错，也不知道咱们公司最新的报销差旅标准——它被困在训练截止日期的「鱼缸」里出不来！ 今天我们通过需求单 STARMIND-019，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day19/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 20）我们将拓展大模型的「眼睛与语义记忆」：学习多模态图像理解/生成 API 封装，并手写 Embedding 向量化与余弦相似度语义匹配工具。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>Function Calling 底层协议与完整四步交互时序</td><td>厘清「模型决策参数 vs 本地执行代码」的职责边界，精读 OpenAI `tools`、`tool_calls` 与 `role=&#x27;tool&#x27;` 协议字段。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>Tool Schema 注册中心与 AST 安全计算器实战</td><td>编写天气、AST 安全计算器、星辰内部知识库三大工具与统一 JSON Schema 导出器。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>纯 API 多步工具调用闭环引擎开发</td><td>手写 `while` 闭环调度器，支持单次并行调用多个工具、错误隔离与执行轨迹记录。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>安全防注入测试、闭环单测与 GitLab MR 评审</td><td>编写 pytest 验证并行工具调用、AST 防 RCE 注入与最大轮次熔断机制。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-019）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰智脑内部助手需要能够回答员工的实时办公与计算需求，例如「今天杭州天气怎么样、顺便算一下 12800 元不含税金额（税率 6%）以及查一下杭州出差住宿报销上限」。单靠大模型静态记忆会产生严重幻觉。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>大模型缺乏实时外部数据（天气、汇率、股价）与企业内部私有制度文档。</li><li>大模型做多位数精确财务计算极易出错，不能直接用于报销核算。</li><li>缺少标准化 Tool Schema 校验与异常隔离，一旦某个工具报错会导致整个对话崩溃。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现符合 OpenAI Tools 规范的 `ToolRegistry` 工具注册中心，内置 `get_weather`、`safe_calculator`、`search_internal_kb` 三大企业工具。</li><li>使用 Python `ast` 模块实现防代码注入的安全数学计算器，彻底杜绝 `eval()` RCE 漏洞。</li><li>实现完整的 Function Calling 自动多步执行闭环（含并行多工具调用、`tool_call_id` 精确匹配、最大轮次熔断与轨迹审计）。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>`export_openai_tools()` 导出的 Schema 100% 符合 OpenAI `type=&#x27;function&#x27;` 标准 JSON Schema 格式。</li><li>`safe_calculator` 能精确计算加减乘除与括号表达式，且对 `__import__(&#x27;os&#x27;).system(...)` 等恶意表达式直接拦截抛错。</li><li>复合问题（同时触发天气 + 计算 + 知识库查询）能在一轮或多轮闭环内完整执行所有工具并整合出准确最终答案。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>工具执行失败时不得抛出未捕获异常中断主循环，必须将错误信息规范封装进 `role=&#x27;tool&#x27;` 返回给模型做优雅降级。</li><li>默认设置 `max_rounds=5` 防止无限工具调用死循环。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>Function Calling 是现代 Agent 架构的基石。很多新手把工具调用写成一堆 <code>if/else</code> 硬编码，导致每加一个工具都要改调度主循环。在星辰智脑中，我们采用「注册中心 + 契约校验 + 沙箱执行 + 状态机循环」四层架构：<br/>1. **声明式工具注册中心（ToolRegistry）**：每个工具同时注册「元数据（name、description、JSON Schema parameters）」与「Python 可执行函数（handler）」。Schema 描述写得越清晰，模型填参准确率越高。<br/>2. **安全沙箱执行（Safe Execution）**：工具参数来自模型输出，本质上属于**不可信输入**。因此 <code>safe_calculator</code> 严格采用 <code>ast.parse(..., mode=&#x27;eval&#x27;)</code> 白名单节点求值，只允许数字常量与加减乘除幂运算，任何属性访问、函数调用一律拒绝。<br/>3. **标准闭环状态机（Tool Loop）**：<br/>   - Round 1：发送 <code>messages + tools</code> 给模型 -&gt; 模型返回 <code>assistant</code> 消息（含 <code>tool_calls: [{id, function: {name, arguments}}]</code>）；<br/>   - 本地执行：遍历 <code>tool_calls</code>，逐个反序列化 <code>arguments</code>、执行工具，并将结果以 <code>{&#x27;role&#x27;: &#x27;tool&#x27;, &#x27;tool_call_id&#x27;: call_id, &#x27;name&#x27;: name, &#x27;content&#x27;: json_str}</code> 追加到 <code>messages</code>；<br/>   - Round 2：把包含工具观察结果的完整 <code>messages</code> 再次发给模型 -&gt; 若无需再调工具，模型生成最终自然语言回复，循环终止！</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 19.1：Function Calling 完整四步交互时序图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 528" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="800" height="528" rx="12" fill="#fafafc"/>
+<text x="400.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">Function Calling 完整四步交互时序图</text>
+<rect x="58.0" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="130.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">员工提问</text>
+<line x1="130.0" y1="88" x2="130.0" y2="506" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="238.0" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="310.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">StarMind 闭环引擎</text>
+<line x1="310.0" y1="88" x2="310.0" y2="506" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="418.0" y="44" width="144" height="44" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="490.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">大模型 API</text>
+<line x1="490.0" y1="88" x2="490.0" y2="506" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="598.0" y="44" width="144" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="670.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95">本地/企业工具集</text>
+<line x1="670.0" y1="88" x2="670.0" y2="506" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="130.0" y1="122" x2="310.0" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="220.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. 1. 提交用户问题</text>
+<line x1="310.0" y1="174" x2="490.0" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. 2. 发送 messages + tools Schema</text>
+<line x1="490.0" y1="226" x2="310.0" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. 3. 返回 tool_calls (JSON参数)</text>
+<line x1="310.0" y1="278" x2="670.0" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="490.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. 4. 本地安全执行函数</text>
+<line x1="670.0" y1="330" x2="310.0" y2="330" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="490.0" y="322" text-anchor="middle" font-size="11.5" fill="#0f172a">5. 5. 返回结构化执行结果</text>
+<line x1="310.0" y1="382" x2="490.0" y2="382" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="374" text-anchor="middle" font-size="11.5" fill="#0f172a">6. 6. 追加 role=&#x27;tool&#x27; 再次请求</text>
+<line x1="490.0" y1="434" x2="130.0" y2="434" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="310.0" y="426" text-anchor="middle" font-size="11.5" fill="#0f172a">7. 7. 汇总输出最终精准答案</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>清晰展现大模型仅负责决定「调什么工具、传什么参数」，而本地应用负责真实执行并回传观察结果。</div></div><div class="diagram-card"><div class="diagram-title">图 19.2：ToolRegistry 工具注册与安全隔离架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">ToolRegistry 工具注册与安全隔离架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">ToolRegistry 注册中心</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">Schema 导出 + 路由分发</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">get_weather</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">实时城市天气查询</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">safe_calculator</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">AST 白名单安全算术引擎</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">search_internal_kb</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">星辰数科差旅/IT制度库</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">校验 city 参数</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">AST 安全求值</text>
+<line x1="430.0" y1="130" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">关键词检索制度</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>通过统一注册中心导出 OpenAI 规范 Schema，并在执行层完成参数校验与异常捕获隔离。</div></div><div class="diagram-card"><div class="diagram-title">图 19.3：多步工具调用循环与熔断控制流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">多步工具调用循环与熔断控制流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">初始化对话与 step=0</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">注入 System + User</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">请求模型决策</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">检查是否含 tool_calls</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">并行执行工具列表</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">try/except 异常转 JSON</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">step &lt; max_rounds?</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">防死循环熔断守卫</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">输出最终答案与轨迹</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">附带工具调用审计记录</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">进入循环</text>
+<line x1="432.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="324.0" y="132.5" width="216" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">无 tool_calls 直接回答</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="489.5" y="66.0" width="168" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">存在 tool_calls</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="514.0" y="132.5" width="408" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">回填 role=&#x27;tool&#x27;, step+=1</text>
+<line x1="718.0" y1="258" x2="432.0" y2="45" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="527.0" y="132.5" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">未超限继续推理</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="522.5" y="202.0" width="108" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">触发熔断优雅退出</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>在自动化循环中引入 max_rounds 熔断与单工具异常降级，确保企业级高可用。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. OpenAI 标准 Tool Schema 写法规范</h3><p>一个标准的 Function Calling 定义必须包含三要素：<code>name</code>（蛇形命名，如 <code>get_weather</code>）、<code>description</code>（告诉模型**什么时候**该调它，极其重要！）、<code>parameters</code>（标准 JSON Schema，明确 <code>type</code>、<code>properties</code>、每个参数的 <code>description</code> 以及 <code>required</code> 必填列表）。如果参数只有固定几个枚举值，一定要加上 <code>enum: [...]</code>，能把参数幻觉率降到几乎为零。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>常见坑：`description` 写得太敷衍（比如只写「查天气」），导致模型分不清该传「杭州」还是「杭州市西湖区」。建议在参数描述里直接给示例，如「城市中文名，例如：杭州、北京、上海」。</div><h3>2. 2. 并行工具调用（Parallel Tool Calling）与 tool_call_id 匹配</h3><p>现代模型（DeepSeek-V3、Qwen2.5、GPT-4o）支持在单次回复中同时返回多个 <code>tool_calls</code>（例如同时查杭州和北京天气）。后端必须为**每一个** <code>tool_call.id</code> 逐一追加对应的 <code>role=&#x27;tool&#x27;</code> 消息；哪怕其中某个工具执行失败，也要把错误说明放进 <code>content</code> 回传，绝不能漏掉任何一个 <code>tool_call_id</code>，否则下一次 API 请求会被直接拒收（HTTP 400）。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>生产必踩坑：只回传了成功的工具结果，丢弃了报错的工具 `tool_call_id`，导致接口报 `An assistant message with &#x27;tool_calls&#x27; must be followed by tool messages responding to each &#x27;tool_call_id&#x27;`。</div><h3>3. 3. 工具执行安全：为什么绝对禁止 `eval()`？</h3><p>很多教程教写计算器工具直接一行 <code>eval(expression)</code>，这在企业生产环境等于直接把服务器 Root Shell 送给黑客！一旦发生提示词注入，模型可能传入 <code>__import__(&#x27;os&#x27;).popen(&#x27;cat /etc/passwd&#x27;).read()</code>。必须使用 <code>ast.parse</code> 递归白名单求值，只放行 <code>ast.Constant</code>、<code>ast.BinOp</code>、<code>ast.UnaryOp</code> 及加减乘除运算符。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>还要防范拒绝服务攻击（DoS）：比如恶意表达式 `9 ** 9 ** 9` 会瞬间把 CPU 和内存打满，因此对幂运算 `**` 的指数必须做上限拦截（如指数绝对值 `&lt;= 100`）。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【从 Function Calling 到 MCP（Model Context Protocol）】<br/>今天咱们手写的 <code>ToolRegistry</code> 已经解决了单应用内工具定义和调用的问题。但当公司有 20 个不同团队开发的 AI 应用，都要接入同一个企业 Jira、钉钉、MySQL 工具时，难道每个项目都要复制粘贴一遍工具代码吗？这就是 Anthropic 提出并迅速成为行业标准的 **MCP（模型上下文协议）** 解决的痛点——它把 <code>ToolRegistry</code> 独立成标准化的 MCP Server，任何 Agent 客户端都能像插 USB-C 接口一样即插即用！第五阶段咱们会亲手实战 MCP Server 与 Client。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day19/</code> 与 <code>notebooks/day19/day19_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现 OpenAI 规范 ToolRegistry 与天气/AST计算器/内部知识库三大工具</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们先写 <code>src/day19_tool_registry.py</code>，把工具定义规范、AST 防注入安全计算器、天气查询和星辰数科内部知识库检索封装进统一的 <code>ToolRegistry</code>，并支持一键导出 OpenAI 标准 <code>tools</code> Schema 列表。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day19_tool_registry.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+StarMind Day 19 - 步骤一：OpenAI 规范 Tool Schema 注册中心与企业三大基础工具
+包含：get_weather（天气查询）、safe_calculator（AST安全计算器）、search_internal_kb（内部知识库）。
+&quot;&quot;&quot;
+
+import ast
+import json
+import operator
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List
+
+
+# AST 安全算术白名单映射
+_BIN_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_UNARY_OPS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+
+def safe_eval_math(expression: str) -&gt; float:
+    &quot;&quot;&quot;
+    基于 AST 抽象语法树白名单的安全数学表达式求值器。
+    彻底拒绝函数调用、属性访问、变量注入，并对超大幂运算做防 DoS 拦截。
+    &quot;&quot;&quot;
+    if not expression or len(expression) &gt; 120:
+        raise ValueError(&quot;数学表达式为空或过长（上限 120 字符）&quot;)
+
+    tree = ast.parse(expression, mode=&quot;eval&quot;)
+
+    def _eval_node(node: ast.AST) -&gt; float:
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+            return float(node.value)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
+            return _UNARY_OPS[type(node.op)](_eval_node(node.operand))
+        if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:
+            left = _eval_node(node.left)
+            right = _eval_node(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) &gt; 20:
+                raise ValueError(&quot;安全拦截：幂运算指数绝对值不允许超过 20&quot;)
+            if isinstance(node.op, ast.Div) and right == 0:
+                raise ZeroDivisionError(&quot;除数不能为 0&quot;)
+            return _BIN_OPS[type(node.op)](left, right)
+        raise ValueError(f&quot;安全拦截：不允许的表达式节点 {type(node).__name__}&quot;)
+
+    return round(_eval_node(tree), 6)
+
+
+def get_weather(city: str) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;查询指定城市实时天气（离线仿真企业气象网关数据）。&quot;&quot;&quot;
+    weather_db = {
+        &quot;杭州&quot;: {&quot;city&quot;: &quot;杭州&quot;, &quot;weather&quot;: &quot;多云转小雨&quot;, &quot;temp_c&quot;: 18, &quot;advice&quot;: &quot;建议携带折叠伞&quot;},
+        &quot;北京&quot;: {&quot;city&quot;: &quot;北京&quot;, &quot;weather&quot;: &quot;晴朗微风&quot;, &quot;temp_c&quot;: 11, &quot;advice&quot;: &quot;早晚温差大注意保暖&quot;},
+        &quot;上海&quot;: {&quot;city&quot;: &quot;上海&quot;, &quot;weather&quot;: &quot;阴天&quot;, &quot;temp_c&quot;: 19, &quot;advice&quot;: &quot;体感舒适&quot;},
+        &quot;深圳&quot;: {&quot;city&quot;: &quot;深圳&quot;, &quot;weather&quot;: &quot;晴间多云&quot;, &quot;temp_c&quot;: 26, &quot;advice&quot;: &quot;适合短袖出行&quot;},
+    }
+    clean_city = city.strip().replace(&quot;市&quot;, &quot;&quot;)
+    if clean_city in weather_db:
+        return {&quot;status&quot;: &quot;ok&quot;, **weather_db[clean_city]}
+    return {&quot;status&quot;: &quot;not_found&quot;, &quot;city&quot;: city, &quot;message&quot;: f&quot;暂未收录城市 {city} 的实时气象数据&quot;}
+
+
+def safe_calculator(expression: str) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;执行精确数学计算。&quot;&quot;&quot;
+    result = safe_eval_math(expression)
+    return {&quot;status&quot;: &quot;ok&quot;, &quot;expression&quot;: expression, &quot;result&quot;: result}
+
+
+def search_internal_kb(keyword: str) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;检索杭州星辰数科内部规章制度知识库。&quot;&quot;&quot;
+    kb_docs = [
+        {&quot;id&quot;: &quot;HR-001&quot;, &quot;title&quot;: &quot;差旅住宿报销标准&quot;, &quot;content&quot;: &quot;一线及新一线城市（北京/上海/深圳/杭州）住宿上限 600 元/晚，其余城市 400 元/晚，需提供增值税电子专票。&quot;},
+        {&quot;id&quot;: &quot;IT-002&quot;, &quot;title&quot;: &quot;内网 VPN 申请流程&quot;, &quot;content&quot;: &quot;新员工入职后在 OA 发起『IT权限申请』，直属主管审批后 30 分钟内自动开通 WireGuard VPN。&quot;},
+        {&quot;id&quot;: &quot;FIN-003&quot;, &quot;title&quot;: &quot;研发云资源预算规范&quot;, &quot;content&quot;: &quot;单项目调用大模型 API 月度预算超过 2000 元需提交架构委员会评审并开启 Prompt 缓存。&quot;},
+    ]
+    kw = keyword.strip().lower()
+    hits = [
+        doc for doc in kb_docs
+        if kw in doc[&quot;title&quot;].lower() or kw in doc[&quot;content&quot;].lower() or any(ch in doc[&quot;content&quot;] for ch in kw.split() if len(ch) &gt;= 2)
+    ]
+    return {&quot;status&quot;: &quot;ok&quot;, &quot;keyword&quot;: keyword, &quot;hits&quot;: hits, &quot;count&quot;: len(hits)}
+
+
+@dataclass
+class ToolSpec:
+    name: str
+    description: str
+    parameters: Dict[str, Any]
+    handler: Callable[..., Dict[str, Any]]
+
+    def to_openai_schema(self) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;导出 100% 符合 OpenAI Chat Completions tools 规范的 Schema 字典。&quot;&quot;&quot;
+        return {
+            &quot;type&quot;: &quot;function&quot;,
+            &quot;function&quot;: {
+                &quot;name&quot;: self.name,
+                &quot;description&quot;: self.description,
+                &quot;parameters&quot;: self.parameters,
+            },
+        }
+
+
+class ToolRegistry:
+    &quot;&quot;&quot;星辰智脑统一工具注册与安全调度中心。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._tools: Dict[str, ToolSpec] = {}
+
+    def register(self, spec: ToolSpec) -&gt; None:
+        self._tools[spec.name] = spec
+
+    def export_openai_tools(self) -&gt; List[Dict[str, Any]]:
+        return [spec.to_openai_schema() for spec in self._tools.values()]
+
+    def execute(self, name: str, raw_arguments: str | Dict[str, Any]) -&gt; str:
+        &quot;&quot;&quot;
+        安全执行指定工具：
+        - 自动反序列化 JSON 字符串参数
+        - 校验必填参数
+        - 捕获一切执行异常并包装为结构化错误 JSON，绝不中断主循环
+        &quot;&quot;&quot;
+        if name not in self._tools:
+            return json.dumps({&quot;status&quot;: &quot;error&quot;, &quot;error&quot;: f&quot;未注册的工具: {name}&quot;}, ensure_ascii=False)
+
+        spec = self._tools[name]
+        try:
+            args = json.loads(raw_arguments) if isinstance(raw_arguments, str) else dict(raw_arguments)
+            required = spec.parameters.get(&quot;required&quot;, [])
+            missing = [r for r in required if r not in args]
+            if missing:
+                return json.dumps({&quot;status&quot;: &quot;error&quot;, &quot;error&quot;: f&quot;缺少必填参数: {missing}&quot;}, ensure_ascii=False)
+            result = spec.handler(**args)
+            return json.dumps(result, ensure_ascii=False)
+        except Exception as exc:
+            return json.dumps({&quot;status&quot;: &quot;error&quot;, &quot;error&quot;: str(exc)}, ensure_ascii=False)
+
+
+def build_default_registry() -&gt; ToolRegistry:
+    &quot;&quot;&quot;装配星辰智脑默认三大业务工具。&quot;&quot;&quot;
+    reg = ToolRegistry()
+    reg.register(
+        ToolSpec(
+            name=&quot;get_weather&quot;,
+            description=&quot;查询指定中国城市的实时天气与出行建议。&quot;,
+            parameters={
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;properties&quot;: {
+                    &quot;city&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;城市中文名，例如：杭州、北京、上海、深圳&quot;},
+                },
+                &quot;required&quot;: [&quot;city&quot;],
+            },
+            handler=get_weather,
+        )
+    )
+    reg.register(
+        ToolSpec(
+            name=&quot;safe_calculator&quot;,
+            description=&quot;执行高精度四则运算与括号表达式计算（适用于金额、税率、折扣核算）。&quot;,
+            parameters={
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;properties&quot;: {
+                    &quot;expression&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;纯数学表达式，例如：(12800 / 1.06) * 0.06&quot;},
+                },
+                &quot;required&quot;: [&quot;expression&quot;],
+            },
+            handler=safe_calculator,
+        )
+    )
+    reg.register(
+        ToolSpec(
+            name=&quot;search_internal_kb&quot;,
+            description=&quot;检索杭州星辰数科内部规章制度（差旅报销、VPN申请、预算规范）。&quot;,
+            parameters={
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;properties&quot;: {
+                    &quot;keyword&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;检索关键词，例如：差旅、VPN、预算&quot;},
+                },
+                &quot;required&quot;: [&quot;keyword&quot;],
+            },
+            handler=search_internal_kb,
+        )
+    )
+    return reg
+
+
+if __name__ == &quot;__main__&quot;:
+    registry = build_default_registry()
+    print(&quot;导出的 OpenAI Tools Schema 数量:&quot;, len(registry.export_openai_tools()))
+    print(&quot;天气测试:&quot;, registry.execute(&quot;get_weather&quot;, &#x27;{&quot;city&quot;: &quot;杭州&quot;}&#x27;))
+    print(&quot;计算测试:&quot;, registry.execute(&quot;safe_calculator&quot;, &#x27;{&quot;expression&quot;: &quot;600 * 3 + 120&quot;}&#x27;))
+    print(&quot;知识库测试:&quot;, registry.execute(&quot;search_internal_kb&quot;, &#x27;{&quot;keyword&quot;: &quot;差旅&quot;}&#x27;))
+</code></pre><div class="output-box"># 预期运行输出示例：
+导出的 OpenAI Tools Schema 数量: 3
+天气测试: {&quot;status&quot;: &quot;ok&quot;, &quot;city&quot;: &quot;杭州&quot;, &quot;weather&quot;: &quot;多云转小雨&quot;, &quot;temp_c&quot;: 18, &quot;advice&quot;: &quot;建议携带折叠伞&quot;}
+计算测试: {&quot;status&quot;: &quot;ok&quot;, &quot;expression&quot;: &quot;600 * 3 + 120&quot;, &quot;result&quot;: 1920.0}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>safe_eval_math</code> 通过 <code>ast.parse(..., mode=&#x27;eval&#x27;)</code> 白名单求值，既能精确计算嵌套括号和浮点数，又能彻底免疫代码注入与超大幂运算 DoS。<br/>2. <code>ToolRegistry.execute</code> 把任何参数缺失或工具运行异常统一封装成 <code>{&quot;status&quot;: &quot;error&quot;, ...}</code> JSON 字符串，保障上游闭环引擎永远不会因为单个工具报错而崩溃。<br/>3. <code>export_openai_tools</code> 产出的结构可直接原封不动传给 <code>openai.OpenAI().chat.completions.create(tools=...)</code>。</p><h3>实操步骤 2：步骤二：实现纯 API Function Calling 多步闭环引擎（支持并行调用与熔断）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>接下来写 <code>src/day19_tool_loop_agent.py</code>！这里我们模拟了与 OpenAI <code>chat.completions.create</code> 完全一致的响应协议，实现 <code>user -&gt; model(tool_calls) -&gt; execute -&gt; role=&#x27;tool&#x27; -&gt; model(final_answer)</code> 的完整自动闭环，并记录每一步的执行轨迹供调试与审计。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day19_tool_loop_agent.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+StarMind Day 19 - 步骤二：纯 API Function Calling 多步工具调用闭环引擎
+完整实现 OpenAI tool_calls -&gt; 本地执行 -&gt; role=&quot;tool&quot; 回填 -&gt; 最终汇总的标准 Agent 闭环。
+&quot;&quot;&quot;
+
+import json
+import re
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
+
+from src.day19_tool_registry import ToolRegistry, build_default_registry
+
+
+@dataclass
+class LoopRunResult:
+    &quot;&quot;&quot;工具调用闭环运行结果与完整审计轨迹。&quot;&quot;&quot;
+    final_answer: str
+    rounds: int
+    tool_invocations: List[Dict[str, Any]] = field(default_factory=list)
+    messages: List[Dict[str, Any]] = field(default_factory=list)
+    stopped_by_limit: bool = False
+
+
+class MockToolCallingModel:
+    &quot;&quot;&quot;
+    离线仿真支持 Parallel Tool Calling 的大模型决策器。
+    - 第一轮：解析用户自然语言中的多意图，生成标准 OpenAI `tool_calls` 列表。
+    - 后续轮：读取 `role=&#x27;tool&#x27;` 的全部观察结果，汇总生成最终企业级答复。
+    &quot;&quot;&quot;
+
+    _MATH_EXPR_RE = re.compile(r&quot;[\d\.\(\)\+\-\*/\s]{3,}&quot;)
+
+    def create_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+    ) -&gt; Dict[str, Any]:
+        # 检查是否已经拿到工具观察结果
+        tool_msgs = [m for m in messages if m.get(&quot;role&quot;) == &quot;tool&quot;]
+        if tool_msgs:
+            summary_lines = [&quot;星辰智脑已为您完成实时工具核验，汇总结果如下：&quot;]
+            for tm in tool_msgs:
+                data = json.loads(tm[&quot;content&quot;])
+                t_name = tm.get(&quot;name&quot;, &quot;unknown&quot;)
+                if t_name == &quot;get_weather&quot; and data.get(&quot;status&quot;) == &quot;ok&quot;:
+                    summary_lines.append(
+                        f&quot;- 【天气】{data[&#x27;city&#x27;]}：{data[&#x27;weather&#x27;]}，{data[&#x27;temp_c&#x27;]}°C（{data[&#x27;advice&#x27;]}）。&quot;
+                    )
+                elif t_name == &quot;safe_calculator&quot; and data.get(&quot;status&quot;) == &quot;ok&quot;:
+                    summary_lines.append(
+                        f&quot;- 【计算结果】`{data[&#x27;expression&#x27;]}` = **{data[&#x27;result&#x27;]}**。&quot;
+                    )
+                elif t_name == &quot;search_internal_kb&quot; and data.get(&quot;status&quot;) == &quot;ok&quot;:
+                    hits = data.get(&quot;hits&quot;, [])
+                    if hits:
+                        summary_lines.append(f&quot;- 【内部制度】{hits[0][&#x27;title&#x27;]}：{hits[0][&#x27;content&#x27;]}&quot;)
+                    else:
+                        summary_lines.append(f&quot;- 【内部制度】未检索到与「{data.get(&#x27;keyword&#x27;)}」匹配的制度。&quot;)
+                else:
+                    summary_lines.append(f&quot;- 【工具异常({t_name})】{data.get(&#x27;error&#x27;, &#x27;执行失败&#x27;)}&quot;)
+            return {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;\n&quot;.join(summary_lines), &quot;tool_calls&quot;: []}
+
+        # 第一轮：根据最新 user 消息决定需要并行调用的工具集合
+        user_text = next((m[&quot;content&quot;] for m in reversed(messages) if m.get(&quot;role&quot;) == &quot;user&quot;), &quot;&quot;)
+        tool_calls: List[Dict[str, Any]] = []
+
+        # 1. 检测天气需求
+        for city in (&quot;杭州&quot;, &quot;北京&quot;, &quot;上海&quot;, &quot;深圳&quot;):
+            if city in user_text and (&quot;天气&quot; in user_text or &quot;下雨&quot; in user_text or &quot;温度&quot; in user_text):
+                tool_calls.append(self._make_call(&quot;get_weather&quot;, {&quot;city&quot;: city}))
+
+        # 2. 检测数学计算需求
+        math_matches = [m.strip() for m in self._MATH_EXPR_RE.findall(user_text) if any(op in m for op in &quot;+-*/&quot;)]
+        if math_matches:
+            tool_calls.append(self._make_call(&quot;safe_calculator&quot;, {&quot;expression&quot;: math_matches[0]}))
+
+        # 3. 检测企业内部知识库需求
+        for kb_kw in (&quot;差旅&quot;, &quot;报销&quot;, &quot;住宿&quot;, &quot;VPN&quot;, &quot;预算&quot;):
+            if kb_kw.lower() in user_text.lower():
+                tool_calls.append(self._make_call(&quot;search_internal_kb&quot;, {&quot;keyword&quot;: kb_kw}))
+                break
+
+        if tool_calls:
+            return {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: None, &quot;tool_calls&quot;: tool_calls}
+
+        return {
+            &quot;role&quot;: &quot;assistant&quot;,
+            &quot;content&quot;: f&quot;您好！您的问题「{user_text}」无需调用外部工具，星辰智脑直接为您解答：如需查询天气、计算报销或检索公司制度，随时告诉我。&quot;,
+            &quot;tool_calls&quot;: [],
+        }
+
+    @staticmethod
+    def _make_call(name: str, args: Dict[str, Any]) -&gt; Dict[str, Any]:
+        return {
+            &quot;id&quot;: f&quot;call_{uuid.uuid4().hex[:8]}&quot;,
+            &quot;type&quot;: &quot;function&quot;,
+            &quot;function&quot;: {
+                &quot;name&quot;: name,
+                &quot;arguments&quot;: json.dumps(args, ensure_ascii=False),
+            },
+        }
+
+
+class FunctionCallingLoopEngine:
+    &quot;&quot;&quot;标准纯 API Function Calling 多步执行闭环引擎。&quot;&quot;&quot;
+
+    def __init__(
+        self,
+        registry: ToolRegistry | None = None,
+        model: Any | None = None,
+        max_rounds: int = 5,
+    ) -&gt; None:
+        self.registry = registry or build_default_registry()
+        self.model = model or MockToolCallingModel()
+        self.max_rounds = max_rounds
+
+    def run(self, user_query: str, system_prompt: str = &quot;你是星辰智脑企业办公助手，请善用工具精准回答。&quot;) -&gt; LoopRunResult:
+        messages: List[Dict[str, Any]] = [
+            {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: system_prompt},
+            {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_query},
+        ]
+        tools_schema = self.registry.export_openai_tools()
+        invocations: List[Dict[str, Any]] = []
+
+        for round_idx in range(1, self.max_rounds + 1):
+            assistant_msg = self.model.create_completion(messages, tools_schema)
+            messages.append(assistant_msg)
+            tool_calls = assistant_msg.get(&quot;tool_calls&quot;) or []
+
+            if not tool_calls:
+                return LoopRunResult(
+                    final_answer=str(assistant_msg.get(&quot;content&quot;) or &quot;&quot;),
+                    rounds=round_idx,
+                    tool_invocations=invocations,
+                    messages=messages,
+                    stopped_by_limit=False,
+                )
+
+            # 严格按照 OpenAI 协议：逐一执行每个 tool_call 并回填对应 tool_call_id
+            for call in tool_calls:
+                call_id = call[&quot;id&quot;]
+                fn_name = call[&quot;function&quot;][&quot;name&quot;]
+                fn_args = call[&quot;function&quot;][&quot;arguments&quot;]
+                tool_output = self.registry.execute(fn_name, fn_args)
+
+                invocations.append({
+                    &quot;round&quot;: round_idx,
+                    &quot;tool_call_id&quot;: call_id,
+                    &quot;name&quot;: fn_name,
+                    &quot;arguments&quot;: fn_args,
+                    &quot;output&quot;: tool_output,
+                })
+                messages.append({
+                    &quot;role&quot;: &quot;tool&quot;,
+                    &quot;tool_call_id&quot;: call_id,
+                    &quot;name&quot;: fn_name,
+                    &quot;content&quot;: tool_output,
+                })
+
+        return LoopRunResult(
+            final_answer=&quot;⚠️ 工具调用轮次达到安全上限，已触发熔断机制，请简化问题后重试。&quot;,
+            rounds=self.max_rounds,
+            tool_invocations=invocations,
+            messages=messages,
+            stopped_by_limit=True,
+        )
+
+
+if __name__ == &quot;__main__&quot;:
+    engine = FunctionCallingLoopEngine()
+    query = &quot;我明天去杭州出差，帮我查下杭州天气、公司差旅住宿标准，顺便算一下 600 * 3 + 240 是多少钱？&quot;
+    res = engine.run(query)
+    print(f&quot;闭环轮次: {res.rounds} | 调用工具数: {len(res.tool_invocations)}&quot;)
+    print(res.final_answer)
+</code></pre><div class="output-box"># 预期运行输出示例：
+闭环轮次: 2 | 调用工具数: 3
+星辰智脑已为您完成实时工具核验，汇总结果如下：
+- 【天气】杭州：多云转小雨，18°C（建议携带折叠伞）。
+- 【计算结果】`600 * 3 + 240` = **2040.0**。
+- 【内部制度】差旅住宿报销标准：一线及新一线城市（北京/上海/深圳/杭州）住宿上限 600 元/晚...</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>FunctionCallingLoopEngine.run</code> 的循环体几乎和真实生产中调用 DeepSeek / OpenAI SDK 的代码 1:1 同构——只需把 <code>self.model.create_completion(...)</code> 换成 <code>openai_client.chat.completions.create(...)</code> 即可无缝上线。<br/>2. 支持单次并行触发多个工具（本例一次触发天气 + 计算器 + 内部知识库 3 个工具），并保证每个 <code>tool_call_id</code> 都有对应的 <code>role=&#x27;tool&#x27;</code> 消息回填。<br/>3. 循环外兜底 <code>stopped_by_limit=True</code>，实现生产级熔断保护。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现 OpenAI 规范 ToolRegistry 与天气/AST计算器/内部知识库三大工具（src/day19_tool_registry.py）</h3><p>模块 <code>src/day19_tool_registry.py</code> 共计 200 行源码，其中包含 1 行中文工程注释（注释密度约 0.5%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-019 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>ast</code>、<code>json</code>、<code>operator</code>、<code>dataclasses (dataclass)</code>、<code>typing (Any, Callable, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ToolSpec</code>（第 94~109 行）】这是一个独立领域模型类。类内部暴露了 1 个方法：<code>to_openai_schema(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ToolSpec.to_openai_schema</code>（第 100~109 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：导出 100% 符合 OpenAI Chat Completions tools 规范的 Schema 字典。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ToolRegistry</code>（第 112~144 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑统一工具注册与安全调度中心。。类内部暴露了 4 个方法：<code>__init__(self)</code>、<code>register(self, spec)</code>、<code>export_openai_tools(self)</code>、<code>execute(self, name, raw_arguments)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ToolRegistry.__init__</code>（第 115~116 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.register</code>（第 118~119 行）属于同步实例方法，入参签名为 <code>(self, spec)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.export_openai_tools</code>（第 121~122 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.execute</code>（第 124~144 行）属于同步实例方法，入参签名为 <code>(self, name, raw_arguments)</code>。文档说明：安全执行指定工具：<br/>- 自动反序列化 JSON 字符串参数<br/>- 校验必填参数<br/>- 捕获一切执行异常并包装为结构化错误 JSON，绝不中断主循环。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>safe_eval_math</code>（第 28~55 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(expression)</code>。职责说明：基于 AST 抽象语法树白名单的安全数学表达式求值器。<br/>彻底拒绝函数调用、属性访问、变量注入，并对超大幂运算做防 DoS 拦截。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</p>
+<p>【函数契约拆解 · <code>get_weather</code>（第 58~69 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(city)</code>。职责说明：查询指定城市实时天气（离线仿真企业气象网关数据）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</p>
+<p>【函数契约拆解 · <code>safe_calculator</code>（第 72~75 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(expression)</code>。职责说明：执行精确数学计算。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</p>
+<p>【函数契约拆解 · <code>search_internal_kb</code>（第 78~90 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(keyword)</code>。职责说明：检索杭州星辰数科内部规章制度知识库。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</p>
+<p>【函数契约拆解 · <code>build_default_registry</code>（第 147~192 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。职责说明：装配星辰智脑默认三大业务工具。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day19_tool_registry.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day19/day19_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day19/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现纯 API Function Calling 多步闭环引擎（支持并行调用与熔断）（src/day19_tool_loop_agent.py）</h3><p>模块 <code>src/day19_tool_loop_agent.py</code> 共计 175 行源码，其中包含 6 行中文工程注释（注释密度约 3.4%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-019 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>json</code>、<code>re</code>、<code>uuid</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Dict, List)</code>、<code>src.day19_tool_registry (ToolRegistry, build_default_registry)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>LoopRunResult</code>（第 16~22 行）】这是一个独立领域模型类。其核心职责定义为：工具调用闭环运行结果与完整审计轨迹。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>MockToolCallingModel</code>（第 25~102 行）】这是一个独立领域模型类。其核心职责定义为：离线仿真支持 Parallel Tool Calling 的大模型决策器。<br/>- 第一轮：解析用户自然语言中的多意图，生成标准 OpenAI <code>tool_calls</code> 列表。<br/>- 后续轮：读取 <code>role=&#x27;tool&#x27;</code> 的全部观察结果，汇总生成最终企业级答复。。类内部暴露了 2 个方法：<code>create_completion(self, messages, tools)</code>、<code>_make_call(name, args)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>MockToolCallingModel.create_completion</code>（第 34~91 行）属于同步实例方法，入参签名为 <code>(self, messages, tools)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MockToolCallingModel._make_call</code>（第 94~102 行）属于同步实例方法，入参签名为 <code>(name, args)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>FunctionCallingLoopEngine</code>（第 105~167 行）】这是一个独立领域模型类。其核心职责定义为：标准纯 API Function Calling 多步执行闭环引擎。。类内部暴露了 2 个方法：<code>__init__(self, registry, model, max_rounds)</code>、<code>run(self, user_query, system_prompt)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>FunctionCallingLoopEngine.__init__</code>（第 108~116 行）属于同步实例方法，入参签名为 <code>(self, registry, model, max_rounds)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>FunctionCallingLoopEngine.run</code>（第 118~167 行）属于同步实例方法，入参签名为 <code>(self, user_query, system_prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day19_tool_loop_agent.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day19/day19_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day19/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day19_tool_registry.py（共 200 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day19_tool_registry.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from dataclasses import dataclass</code></td><td>核心意图：AST 安全算术白名单映射。代表语句：`from dataclasses import dataclass`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>ast.Mult: operator.mul,</code></td><td>核心意图：代表语句：`ast.Mult: operator.mul,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L33-L40</code></td><td><code>if not expression or len(expression) &gt; 120:</code></td><td>核心意图：代表语句：`if not expression or len(expression) &gt; 120:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>if isinstance(node, ast.Constant) and isinstance(node.value, (int, float</code></td><td>核心意图：代表语句：`if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinsta`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>raise ValueError(&quot;安全拦截：幂运算指数绝对值不允许超过 20&quot;)</code></td><td>核心意图：代表语句：`raise ValueError(&quot;安全拦截：幂运算指数绝对值不允许超过 20&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>def get_weather(city: str) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`def get_weather(city: str) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;&quot;&quot;执行精确数学计算。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;执行精确数学计算。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>{&quot;id&quot;: &quot;HR-001&quot;, &quot;title&quot;: &quot;差旅住宿报销标准&quot;, &quot;content&quot;: &quot;一线及新一线城市（北京/上海/深圳/杭州）住</code></td><td>核心意图：代表语句：`{&quot;id&quot;: &quot;HR-001&quot;, &quot;title&quot;: &quot;差旅住宿报销标准&quot;, &quot;content&quot;: &quot;一线及新一线城市（北京/上海/深圳/杭州）住宿上限 600 元/晚，其余城市 4`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>]</code></td><td>核心意图：代表语句：`]`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L97-L104</code></td><td><code>parameters: Dict[str, Any]</code></td><td>核心意图：代表语句：`parameters: Dict[str, Any]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>&quot;name&quot;: self.name,</code></td><td>核心意图：代表语句：`&quot;name&quot;: self.name,`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L113-L120</code></td><td><code>&quot;&quot;&quot;星辰智脑统一工具注册与安全调度中心。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;星辰智脑统一工具注册与安全调度中心。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L121-L128</code></td><td><code>def export_openai_tools(self) -&gt; List[Dict[str, Any]]:</code></td><td>核心意图：代表语句：`def export_openai_tools(self) -&gt; List[Dict[str, Any]]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>- 捕获一切执行异常并包装为结构化错误 JSON，绝不中断主循环</code></td><td>核心意图：代表语句：`- 捕获一切执行异常并包装为结构化错误 JSON，绝不中断主循环`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>required = spec.parameters.get(&quot;required&quot;, [])</code></td><td>核心意图：代表语句：`required = spec.parameters.get(&quot;required&quot;, [])`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L145-L152</code></td><td><code>def build_default_registry() -&gt; ToolRegistry:</code></td><td>核心意图：代表语句：`def build_default_registry() -&gt; ToolRegistry:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L153-L160</code></td><td><code>description=&quot;查询指定中国城市的实时天气与出行建议。&quot;,</code></td><td>核心意图：代表语句：`description=&quot;查询指定中国城市的实时天气与出行建议。&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L168</code></td><td><code>handler=get_weather,</code></td><td>核心意图：代表语句：`handler=get_weather,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L169-L176</code></td><td><code>&quot;type&quot;: &quot;object&quot;,</code></td><td>核心意图：代表语句：`&quot;type&quot;: &quot;object&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L177-L184</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L185-L192</code></td><td><code>&quot;keyword&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;检索关键词，例如：差旅、VPN、预算&quot;},</code></td><td>核心意图：代表语句：`&quot;keyword&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;检索关键词，例如：差旅、VPN、预算&quot;},`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L193-L200</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day19_tool_loop_agent.py（共 175 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day19_tool_loop_agent.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from dataclasses import dataclass, field</code></td><td>核心意图：代表语句：`from dataclasses import dataclass, field`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>&quot;&quot;&quot;工具调用闭环运行结果与完整审计轨迹。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;工具调用闭环运行结果与完整审计轨迹。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>class MockToolCallingModel:</code></td><td>核心意图：代表语句：`class MockToolCallingModel:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>def create_completion(</code></td><td>核心意图：检查是否已经拿到工具观察结果。代表语句：`def create_completion(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>if tool_msgs:</code></td><td>核心意图：代表语句：`if tool_msgs:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>summary_lines.append(f&quot;- 【内部制度】{hits[0][&#x27;title&#x27;]}：{hits[0][&#x27;content&#x27;]}&quot;)</code></td><td>核心意图：第一轮：根据最新 user 消息决定需要并行调用的工具集合。代表语句：`summary_lines.append(f&quot;- 【内部制度】{hits[0][&#x27;title&#x27;]}：{hits[0][&#x27;content&#x27;]}&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>user_text = next((m[&quot;content&quot;] for m in reversed(messages) if m.get(&quot;rol</code></td><td>核心意图：1. 检测天气需求。代表语句：`user_text = next((m[&quot;content&quot;] for m in reversed(messages) if m.get(&quot;role&quot;) == &quot;user&quot;), &quot;&quot;`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>math_matches = [m.strip() for m in self._MATH_EXPR_RE.findall(user_text)</code></td><td>核心意图：2. 检测数学计算需求；3. 检测企业内部知识库需求。代表语句：`math_matches = [m.strip() for m in self._MATH_EXPR_RE.findall(user_text) if any(op in m fo`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>tool_calls.append(self._make_call(&quot;search_internal_kb&quot;, {&quot;keyword&quot;: kb_k</code></td><td>核心意图：代表语句：`tool_calls.append(self._make_call(&quot;search_internal_kb&quot;, {&quot;keyword&quot;: kb_kw}))`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>&quot;content&quot;: f&quot;您好！您的问题「{user_text}」无需调用外部工具，星辰智脑直接为您解答：如需查询天气、计算报销或检索公司制度，</code></td><td>核心意图：代表语句：`&quot;content&quot;: f&quot;您好！您的问题「{user_text}」无需调用外部工具，星辰智脑直接为您解答：如需查询天气、计算报销或检索公司制度，随时告诉我。&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L97-L104</code></td><td><code>&quot;type&quot;: &quot;function&quot;,</code></td><td>核心意图：代表语句：`&quot;type&quot;: &quot;function&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L105-L112</code></td><td><code>class FunctionCallingLoopEngine:</code></td><td>核心意图：代表语句：`class FunctionCallingLoopEngine:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L113-L120</code></td><td><code>) -&gt; None:</code></td><td>核心意图：代表语句：`) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L121-L128</code></td><td><code>{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_query},</code></td><td>核心意图：代表语句：`{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_query},`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>tool_calls = assistant_msg.get(&quot;tool_calls&quot;) or []</code></td><td>核心意图：代表语句：`tool_calls = assistant_msg.get(&quot;tool_calls&quot;) or []`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>stopped_by_limit=False,</code></td><td>核心意图：严格按照 OpenAI 协议：逐一执行每个 tool_call 并回填对应 tool_call_id。代表语句：`stopped_by_limit=False,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L145-L152</code></td><td><code>tool_output = self.registry.execute(fn_name, fn_args)</code></td><td>核心意图：代表语句：`tool_output = self.registry.execute(fn_name, fn_args)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L153-L160</code></td><td><code>})</code></td><td>核心意图：代表语句：`})`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L168</code></td><td><code>return LoopRunResult(</code></td><td>核心意图：代表语句：`return LoopRunResult(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L169-L175</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day19/tests/test_day19.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day19/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day19/tests/test_day19.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 19 自动化单元测试：验证 Tool Schema、AST 安全防注入与多步 Function Calling 闭环。&quot;&quot;&quot;
+
+import json
+import pytest
+from src.day19_tool_registry import build_default_registry, safe_eval_math
+from src.day19_tool_loop_agent import FunctionCallingLoopEngine
+
+
+def test_openai_tool_schema_and_safe_calculator():
+    reg = build_default_registry()
+    schemas = reg.export_openai_tools()
+    assert len(schemas) == 3
+    for s in schemas:
+        assert s[&quot;type&quot;] == &quot;function&quot;
+        assert &quot;name&quot; in s[&quot;function&quot;]
+        assert &quot;parameters&quot; in s[&quot;function&quot;]
+
+    assert safe_eval_math(&quot;(600 * 3 + 240) / 2&quot;) == pytest.approx(1020.0)
+    # 验证安全拦截代码注入与超大幂 DoS
+    with pytest.raises(ValueError):
+        safe_eval_math(&quot;__import__(&#x27;os&#x27;).system(&#x27;echo hacked&#x27;)&quot;)
+    with pytest.raises(ValueError):
+        safe_eval_math(&quot;9 ** 999&quot;)
+
+
+def test_tool_registry_error_isolation():
+    reg = build_default_registry()
+    err_json = reg.execute(&quot;safe_calculator&quot;, &#x27;{&quot;expression&quot;: &quot;10 / 0&quot;}&#x27;)
+    data = json.loads(err_json)
+    assert data[&quot;status&quot;] == &quot;error&quot;
+    assert &quot;0&quot; in data[&quot;error&quot;]
+
+    unknown_json = reg.execute(&quot;drop_database&quot;, &quot;{}&quot;)
+    assert json.loads(unknown_json)[&quot;status&quot;] == &quot;error&quot;
+
+
+def test_parallel_function_calling_loop():
+    engine = FunctionCallingLoopEngine()
+    res = engine.run(&quot;查一下杭州天气和公司差旅报销标准，并算下 600 * 3 + 150&quot;)
+    assert res.rounds == 2
+    assert res.stopped_by_limit is False
+    assert len(res.tool_invocations) == 3
+    called_names = {inv[&quot;name&quot;] for inv in res.tool_invocations}
+    assert called_names == {&quot;get_weather&quot;, &quot;safe_calculator&quot;, &quot;search_internal_kb&quot;}
+    assert &quot;1950.0&quot; in res.final_answer
+    assert &quot;杭州&quot; in res.final_answer
+    assert &quot;600 元/晚&quot; in res.final_answer
+
+
+def test_loop_circuit_breaker_max_rounds():
+    class InfiniteLoopModel:
+        def create_completion(self, messages, tools):
+            return {
+                &quot;role&quot;: &quot;assistant&quot;,
+                &quot;content&quot;: None,
+                &quot;tool_calls&quot;: [
+                    {&quot;id&quot;: &quot;call_loop&quot;, &quot;type&quot;: &quot;function&quot;, &quot;function&quot;: {&quot;name&quot;: &quot;get_weather&quot;, &quot;arguments&quot;: &#x27;{&quot;city&quot;:&quot;杭州&quot;}&#x27;}}
+                ],
+            }
+
+    engine = FunctionCallingLoopEngine(model=InfiniteLoopModel(), max_rounds=3)
+    res = engine.run(&quot;测试熔断&quot;)
+    assert res.stopped_by_limit is True
+    assert res.rounds == 3
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-019</code>，承接自 Day 18 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day19-function-calling-loop</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day19-function-calling-loop）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day19-function-calling-loop
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day19.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-019）
+git add src/day19_tool_registry.py src/day19_tool_loop_agent.py tests/test_day19.py
+git commit -m &quot;feat(day19): 实现OpenAI规范Tool Schema注册中心与多步Function Calling执行闭环
+
+Refs: STARMIND-019
+- 完成 Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day19-function-calling-loop</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-019 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-019 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day19_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day19_tool_registry.py src/day19_tool_loop_agent.py
+    - echo &quot;Day 19 语法编译检查通过&quot;
+
+day19_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day19/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day19/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>用 AST 写安全计算器还防了大幂运算 DoS，且单测专门构造了 <code>InfiniteLoopModel</code> 验证熔断，非常有大厂味！</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p><code>tool_invocations</code> 轨迹列表非常清晰，后面直接接 OpenTelemetry 或写入数据库就能做 Agent 链路追踪。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>员工问一句就能同时查天气、查差旅政策、算住宿费，这就是我们想要的星辰智脑！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-019 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-019（Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰智脑内部助手需要能够回答员工的实时办公与计算需求，例如「今天杭州天气怎么样、顺便算一下 12800 元不含税金额（税率 6%）以及查一下杭州出差住宿报销上限」。单靠大模型静态记忆会产生严重幻觉。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）大模型缺乏实时外部数据（天气、汇率、股价）与企业内部私有制度文档。；（2）大模型做多位数精确财务计算极易出错，不能直接用于报销核算。；（3）缺少标准化 Tool Schema 校验与异常隔离，一旦某个工具报错会导致整个对话崩溃。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现符合 OpenAI Tools 规范的 <code>ToolRegistry</code> 工具注册中心，内置 <code>get_weather</code>、<code>safe_calculator</code>、<code>search_internal_kb</code> 三大企业工具。；（2）使用 Python <code>ast</code> 模块实现防代码注入的安全数学计算器，彻底杜绝 <code>eval()</code> RCE 漏洞。；（3）实现完整的 Function Calling 自动多步执行闭环（含并行多工具调用、<code>tool_call_id</code> 精确匹配、最大轮次熔断与轨迹审计）。，必须全部翻译成可量化的测试用例和监控指标（例如 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day19/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. OpenAI 标准 Tool Schema 写法规范】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：一个标准的 Function Calling 定义必须包含三要素：<code>name</code>（蛇形命名，如 <code>get_weather</code>）、<code>description</code>（告诉模型**什么时候**该调它，极其重要！）、<code>parameters</code>（标准 JSON Schema，明确 <code>type</code>、<code>properties</code>、每个参数的 <code>description</code> 以及 <code>required</code> 必填列表）。如果参数只有固定几个枚举值，一定要加上 <code>enum: [...]</code>，能把参数幻觉率降到几乎为零。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：常见坑：<code>description</code> 写得太敷衍（比如只写「查天气」），导致模型分不清该传「杭州」还是「杭州市西湖区」。建议在参数描述里直接给示例，如「城市中文名，例如：杭州、北京、上海」。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. OpenAI 标准 Tool Schema 写法规范」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 并行工具调用（Parallel Tool Calling）与 tool_call_id 匹配】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：现代模型（DeepSeek-V3、Qwen2.5、GPT-4o）支持在单次回复中同时返回多个 <code>tool_calls</code>（例如同时查杭州和北京天气）。后端必须为**每一个** <code>tool_call.id</code> 逐一追加对应的 <code>role=&#x27;tool&#x27;</code> 消息；哪怕其中某个工具执行失败，也要把错误说明放进 <code>content</code> 回传，绝不能漏掉任何一个 <code>tool_call_id</code>，否则下一次 API 请求会被直接拒收（HTTP 400）。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：生产必踩坑：只回传了成功的工具结果，丢弃了报错的工具 <code>tool_call_id</code>，导致接口报 <code>An assistant message with &#x27;tool_calls&#x27; must be followed by tool messages responding to each &#x27;tool_call_id&#x27;</code>。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 并行工具调用（Parallel Tool Calling）与 tool_call_id 匹配」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 工具执行安全：为什么绝对禁止 <code>eval()</code>？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：很多教程教写计算器工具直接一行 <code>eval(expression)</code>，这在企业生产环境等于直接把服务器 Root Shell 送给黑客！一旦发生提示词注入，模型可能传入 <code>__import__(&#x27;os&#x27;).popen(&#x27;cat /etc/passwd&#x27;).read()</code>。必须使用 <code>ast.parse</code> 递归白名单求值，只放行 <code>ast.Constant</code>、<code>ast.BinOp</code>、<code>ast.UnaryOp</code> 及加减乘除运算符。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：还要防范拒绝服务攻击（DoS）：比如恶意表达式 <code>9 ** 9 ** 9</code> 会瞬间把 CPU 和内存打满，因此对幂运算 <code>**</code> 的指数必须做上限拦截（如指数绝对值 <code>&lt;= 100</code>）。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 工具执行安全：为什么绝对禁止 <code>eval()</code>？」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 19 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day19/</code> 中亲手编写了 <code>src/day19_tool_registry.py</code>、<code>src/day19_tool_loop_agent.py</code> 以及对应的自动化测试 <code>tests/test_day19.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day19_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 19 / STARMIND-019）：1. 已在分支 <code>feat/day19-function-calling-loop</code> 完成 Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Prompt 注入越狱、模型输出非合法 JSON 导致解析报错、流式 SSE 断连、CORS 跨域配置遗漏 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 20）：明天（Day 20）我们将拓展大模型的「眼睛与语义记忆」：学习多模态图像理解/生成 API 封装，并手写 Embedding 向量化与余弦相似度语义匹配工具。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 19 掌握的「Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（DeepSeek / 通义千问 OpenAI 兼容接口 + FastAPI + Pydantic v2 + SQLite/SQLAlchemy + 原生前端 Fetch/SSE），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-019 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Transformer 与 Token 成本核算、采样参数调优、Prompt 结构化工程、Function Calling、Embedding 语义计算与 FastAPI SSE 服务端开发 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day19.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Prompt 注入越狱、模型输出非合法 JSON 导致解析报错、流式 SSE 断连、CORS 跨域配置遗漏）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 19 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day19/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day19_tool_registry.py, src/day19_tool_loop_agent.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>`export_openai_tools()` 导出的 Schema 100% 符合 OpenAI `type=&#x27;function&#x27;` 标准 JSON Schema 格式。；`safe_calculator` 能精确计算加减乘除与括号表达式，且对 `__import__(&#x27;os&#x27;).system(...)` 等恶意表达式直接拦截抛错。；复合问题（同时触发天气 + 计算 + 知识库查询）能在一轮或多轮闭环内完整执行所有工具并整合出准确最终答案。</td><td>运行 `pytest versions/day19/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day19/day19_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day19-function-calling-loop` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-019 需求时，我们的核心业务目标是：实现符合 OpenAI Tools 规范的 <code>ToolRegistry</code> 工具注册中心，内置 <code>get_weather</code>、<code>safe_calculator</code>、<code>search_internal_kb</code> 三大企业工具。；使用 Python <code>ast</code> 模块实现防代码注入的安全数学计算器，彻底杜绝 <code>eval()</code> RCE 漏洞。；实现完整的 Function Calling 自动多步执行闭环（含并行多工具调用、<code>tool_call_id</code> 精确匹配、最大轮次熔断与轨迹审计）。。最初我们也评估过极简脚本方案，但在 Prompt 注入越狱、模型输出非合法 JSON 导致解析报错、流式 SSE 断连、CORS 跨域配置遗漏 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. OpenAI 标准 Tool Schema 写法规范、2. 并行工具调用（Parallel Tool Calling）与 tool_call_id 匹配、3. 工具执行安全：为什么绝对禁止 <code>eval()</code>？ 这几层解耦抽象，既满足了当前阶段的 首字延迟 TTFT &lt; 1.5s，结构化输出 JSON 合法率 &gt;= 99%，会话落库零丢失，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「Function Calling / Tool Use 重点日：工具协议与纯 API 调用闭环」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Transformer 与 Token 成本核算、采样参数调优、Prompt 结构化工程、Function Calling、Embedding 语义计算与 FastAPI SSE 服务端开发 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 19 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day19_tool_registry.py、src/day19_tool_loop_agent.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天把 Function Calling 闭环从头到尾手撸一遍，大家应该彻底打通任督二脉了！哪怕后面学 LangChain、LangGraph、MCP，底层跑的依然是今天这四步曲：<code>定义 Tool Schema -&gt; 模型返回 tool_calls -&gt; 本地安全执行并回填 role=&#x27;tool&#x27; -&gt; 模型二次总结</code>。记住两条生产保命原则：第一，计算器绝不能直接用 <code>eval()</code>，必须用 <code>ast</code> 安全求值；第二，工具循环必须设 <code>max_steps</code> 最大步数熔断，防止模型死循环烧光额度！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：为 ToolRegistry 新增企业货币汇率换算工具</strong><span class="badge">基础巩固</span></div><p>编写 <code>convert_currency(amount, from_currency, to_currency)</code> 函数（内置 CNY/USD/EUR/JPY 静态参考汇率），注册到 <code>ToolRegistry</code> 中并在 Schema 里用 <code>enum</code> 限制币种，完成调用测试。</p><p><strong>💡 思路提示：</strong>统一先换算为 CNY 基准金额，再除以目标币种汇率，保留 2 位小数。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-19-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-19-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import json
+from src.day19_tool_registry import ToolSpec, build_default_registry
+
+RATES_TO_CNY = {&quot;CNY&quot;: 1.0, &quot;USD&quot;: 7.25, &quot;EUR&quot;: 7.85, &quot;JPY&quot;: 0.048}
+
+
+def convert_currency(amount: float, from_currency: str, to_currency: str):
+    if from_currency not in RATES_TO_CNY or to_currency not in RATES_TO_CNY:
+        raise ValueError(&quot;不支持的币种&quot;)
+    cny = amount * RATES_TO_CNY[from_currency]
+    converted = round(cny / RATES_TO_CNY[to_currency], 2)
+    return {&quot;status&quot;: &quot;ok&quot;, &quot;amount&quot;: amount, &quot;from&quot;: from_currency, &quot;to&quot;: to_currency, &quot;converted&quot;: converted}
+
+
+if __name__ == &quot;__main__&quot;:
+    reg = build_default_registry()
+    reg.register(
+        ToolSpec(
+            name=&quot;convert_currency&quot;,
+            description=&quot;进行常用企业外币汇率换算&quot;,
+            parameters={
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;properties&quot;: {
+                    &quot;amount&quot;: {&quot;type&quot;: &quot;number&quot;},
+                    &quot;from_currency&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: list(RATES_TO_CNY)},
+                    &quot;to_currency&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: list(RATES_TO_CNY)},
+                },
+                &quot;required&quot;: [&quot;amount&quot;, &quot;from_currency&quot;, &quot;to_currency&quot;],
+            },
+            handler=convert_currency,
+        )
+    )
+    print(reg.execute(&quot;convert_currency&quot;, json.dumps({&quot;amount&quot;: 100, &quot;from_currency&quot;: &quot;USD&quot;, &quot;to_currency&quot;: &quot;CNY&quot;})))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>在 Schema 中使用 <code>enum</code> 约束离散枚举值，可以大幅减少模型传参拼写错误（如把 <code>CNY</code> 写成 <code>RMB</code>）。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：Python 函数签名自动转 OpenAI Tool Schema 装饰器</strong><span class="badge">企业实战</span></div><p>使用标准库 <code>inspect.signature</code> 和类型注解编写 <code>function_to_tool_schema(func)</code>，自动把一个带类型注解和 docstring 的 Python 函数转换为 OpenAI <code>type=&#x27;function&#x27;</code> Schema 字典。</p><p><strong>💡 思路提示：</strong>映射 `str -&gt; &#x27;string&#x27;`、`int -&gt; &#x27;integer&#x27;`、`float -&gt; &#x27;number&#x27;`、`bool -&gt; &#x27;boolean&#x27;`，无默认值的参数加入 `required`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-19-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-19-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import inspect
+from typing import Any, Callable, Dict
+
+PY_TO_JSON_TYPE = {str: &quot;string&quot;, int: &quot;integer&quot;, float: &quot;number&quot;, bool: &quot;boolean&quot;}
+
+
+def function_to_tool_schema(func: Callable[..., Any]) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;根据函数签名与类型注解自动生成 OpenAI Function Calling Schema。&quot;&quot;&quot;
+    sig = inspect.signature(func)
+    properties: Dict[str, Any] = {}
+    required = []
+    for name, param in sig.parameters.items():
+        json_type = PY_TO_JSON_TYPE.get(param.annotation, &quot;string&quot;)
+        properties[name] = {&quot;type&quot;: json_type}
+        if param.default is inspect.Parameter.empty:
+            required.append(name)
+    return {
+        &quot;type&quot;: &quot;function&quot;,
+        &quot;function&quot;: {
+            &quot;name&quot;: func.__name__,
+            &quot;description&quot;: (func.__doc__ or &quot;&quot;).strip(),
+            &quot;parameters&quot;: {&quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: properties, &quot;required&quot;: required},
+        },
+    }
+
+
+def create_jira_ticket(title: str, priority: int = 2) -&gt; dict:
+    &quot;&quot;&quot;在企业工单系统中创建一条新研发工单。&quot;&quot;&quot;
+    return {&quot;title&quot;: title, &quot;priority&quot;: priority}
+
+
+if __name__ == &quot;__main__&quot;:
+    print(function_to_tool_schema(create_jira_ticket))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>LangChain 的 <code>@tool</code> 装饰器和 FastMCP 底层正是利用 <code>inspect</code> + Pydantic 实现自动化 Schema 提取的！</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：高危工具人工确认拦截器（Human-in-the-Loop Gate）</strong><span class="badge">架构进阶</span></div><p>为 <code>ToolRegistry</code> 包装一层权限守卫：当调用高危工具（如 <code>approve_refund</code> 或 <code>send_mass_email</code>）时，若 <code>approval_callback(tool_name, args)</code> 返回 <code>False</code>，则拒绝执行并返回 <code>{&quot;status&quot;: &quot;rejected_by_human&quot;}</code>。</p><p><strong>💡 思路提示：</strong>定义一个 `GuardedToolExecutor`，维护 `sensitive_tools: set[str]`，执行前先触发回调函数。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-19-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-19-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import json
+from typing import Any, Callable, Dict, Set
+from src.day19_tool_registry import ToolRegistry, ToolSpec
+
+
+class GuardedToolExecutor:
+    &quot;&quot;&quot;带人工二次确认（Human-in-the-Loop）的高危工具执行守卫。&quot;&quot;&quot;
+
+    def __init__(self, registry: ToolRegistry, sensitive_tools: Set[str]) -&gt; None:
+        self.registry = registry
+        self.sensitive_tools = sensitive_tools
+
+    def execute_with_approval(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        approval_cb: Callable[[str, Dict[str, Any]], bool],
+    ) -&gt; str:
+        if name in self.sensitive_tools and not approval_cb(name, arguments):
+            return json.dumps(
+                {&quot;status&quot;: &quot;rejected_by_human&quot;, &quot;tool&quot;: name, &quot;message&quot;: &quot;操作已被人工审核员拒绝&quot;},
+                ensure_ascii=False,
+            )
+        return self.registry.execute(name, arguments)
+
+
+if __name__ == &quot;__main__&quot;:
+    reg = ToolRegistry()
+    reg.register(
+        ToolSpec(
+            name=&quot;approve_refund&quot;,
+            description=&quot;自动执行大额退款&quot;,
+            parameters={&quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {&quot;order_id&quot;: {&quot;type&quot;: &quot;string&quot;}}, &quot;required&quot;: [&quot;order_id&quot;]},
+            handler=lambda order_id: {&quot;status&quot;: &quot;refunded&quot;, &quot;order_id&quot;: order_id},
+        )
+    )
+    guard = GuardedToolExecutor(reg, sensitive_tools={&quot;approve_refund&quot;})
+    print(&quot;拒绝演示:&quot;, guard.execute_with_approval(&quot;approve_refund&quot;, {&quot;order_id&quot;: &quot;ORD-99&quot;}, lambda n, a: False))
+    print(&quot;批准演示:&quot;, guard.execute_with_approval(&quot;approve_refund&quot;, {&quot;order_id&quot;: &quot;ORD-99&quot;}, lambda n, a: True))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>所有涉及资金、发外部邮件、改库删表的 Agent 工具，在生产中都必须采用 Human-in-the-Loop 二次确认机制。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day18/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day20/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

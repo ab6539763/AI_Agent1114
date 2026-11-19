@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 39：Agent 概念与 ReAct 范式 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 4 阶段 · 第 6 周</span>
+      <span class="badge badge-ticket">STARMIND-039</span>
+      <span class="badge">Day 39 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="39" onclick="toggleDayComplete(39, this)">标记今日已完成</button>
+      <a class="btn" href="../day38/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day40/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day39-react-agent-from-scratch</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day39/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day39/day39_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day39_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 4 阶段：第四阶段：Agent 智能体开发与多 Agent 协同 · 第 6 周：Agent 基础、工具调用与 LangGraph 状态机</div>
+        <h1>Day 39：Agent 概念与 ReAct 范式</h1>
+        <p class="hero-sub">从固定流水线迈向自主决策：零框架手写企业级 ReAct 推理-行动循环</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-039</span>
+          <span class="hero-tag">分支：feat/day39-react-agent-from-scratch</span>
+          <span class="hero-tag">角色：负责复杂业务编排与多智能体协同的 Agent 核心研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！欢迎正式跨入第四阶段——Agent 智能体开发。前三十多天我们做的 Prompt 工程和 RAG，本质上都是“人把步骤写死，模型按流水线填空”；从今天开始，我们要把方向盘交出一半给大模型，让它自己看情况决定“下一步该查资料、该算账，还是直接给答案”。今天别急着上任何框架，老陈带大家用最纯粹的 Python 逐行手搓一个 ReAct 引擎。只有自己写过一遍 <code>Thought -&gt; Action -&gt; Observation</code> 的主循环，后面看 LangGraph、Dify 源码你才不会发懵。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 38）我们完成了阶段项目二「企业级 RAG 知识库问答系统」的答辩复盘。大家已经能够熟练搭建“检索 -&gt; 重排 -&gt; 生成”的固定链路（Chain），但在答辩中林产品提了一个尖锐问题：如果员工问“我下周去上海出差 3 天，按公司最新标准最多能报销多少住宿和餐补？”，单纯靠 RAG 只能搜出报销单价，大模型自己心算乘法经常算错，而且无法动态决定先查政策再算账。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 40）我们会把手写 ReAct 的痛点（正则解析脆弱、工具参数缺强校验）彻底解决，深入 LangChain 的 <code>@tool</code> 装饰器、JSON Schema 自动提取、<code>ToolCallingAgent</code> 与 <code>AgentExecutor</code> 回调观测体系。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 39 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 39）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责复杂业务编排与多智能体协同的 Agent 核心研发工程师】，依托的工程底座是【StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台】。回顾昨天留下的上下文：昨天（Day 38）我们完成了阶段项目二「企业级 RAG 知识库问答系统」的答辩复盘。大家已经能够熟练搭建“检索 -&gt; 重排 -&gt; 生成”的固定链路（Chain），但在答辩中林产品提了一个尖锐问题：如果员工问“我下周去上海出差 3 天，按公司最新标准最多能报销多少住宿和餐补？”，单纯靠 RAG 只能搜出报销单价，大模型自己心算乘法经常算错，而且无法动态决定先查政策再算账。 今天我们通过需求单 STARMIND-039，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day39/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 40）我们会把手写 ReAct 的痛点（正则解析脆弱、工具参数缺强校验）彻底解决，深入 LangChain 的 <code>@tool</code> 装饰器、JSON Schema 自动提取、<code>ToolCallingAgent</code> 与 <code>AgentExecutor</code> 回调观测体系。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:30 - 12:00</strong></td><td>Agent 核心范式与 ReAct 论文精讲</td><td>剖析 Chain vs Agent 本质区别、感知-规划-记忆-工具四大组件、ReAct 论文交替推理机制与真实生产 System Prompt 拆解。</td></tr>
+<tr><td><strong>下午 13:30 - 15:30</strong></td><td>动手实操（一）：工具注册表与安全计算器</td><td>编写 `src/day39_tools.py`，实现工具元信息管理、企业知识库检索工具及基于 AST 的安全四则运算器。</td></tr>
+<tr><td><strong>下午 15:45 - 17:30</strong></td><td>动手实操（二）：零框架手写 ReAct 引擎</td><td>编写 `src/day39_react_agent.py`，实现 ReAct 文本解析器、执行主循环、最大步数熔断及本地确定性 LLM 适配器。</td></tr>
+<tr><td><strong>晚间 19:00 - 20:30</strong></td><td>单元测试、Code Review 与梯度作业</td><td>运行 `pytest` 验证全链路，对照 GitLab MR 评审意见优化错误处理，完成 3 道课后进阶题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-039）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>杭州星辰数科行政与财务部每天收到 300+ 条员工关于差旅标准、补贴核算和年假折算的咨询。纯 RAG 问答只能返回静态条文，员工仍需手工计算天数和金额，体验割裂且易出错。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>传统 Chain 流程写死，无法根据问题复杂度动态决定调用 0 次、1 次还是多次外部工具。</li><li>大模型原生算术能力不可靠，涉及多天差旅、税费折扣等精确数值计算时频现幻觉。</li><li>直接引入重型 Agent 框架导致新人难以排查 Prompt 解析失败、死循环等底层故障。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>梳理 Chain 与 Agent 的架构差异，掌握感知-思考-行动（Observe-Think-Act）闭环原理。</li><li>零框架纯 Python 实现符合 ReAct 论文规范的推理引擎（Thought / Action / Action Input / Observation / Final Answer）。</li><li>接入企业内网制度搜索工具与安全四则运算工具，完成复合咨询问题的多步自动求解。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>输入复合差旅核算问题时，Agent 至少完成“先检索制度、再调用计算器、最后给出精确结论”三步闭环。</li><li>支持 `max_steps` 最大步数熔断机制，遇到未知工具名或格式异常时能向模型反馈纠偏信息而非崩溃。</li><li>所有核心代码与 `pytest` 单元测试无需外网 API Key 即可在本地 100% 运行通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>单步工具执行必须隔离异常，严禁使用不安全的原生 `eval` 执行未校验字符串。</li><li>完整记录每一步的推理轨迹（Trajectory），便于后续审计与 Bad Case 复盘。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>在企业级 AI 应用架构演进中，Chain（链）与 Agent（智能体）的分水岭在于“控制流（Control Flow）由谁决定”。在 Chain 中，控制流是程序员在代码里静态编排好的 DAG（有向无环图），模型只是图上的一个无状态文本生成节点；而在 Agent 中，模型本身充当了“动态路由器与规划器（Controller）”，每次根据当前上下文决定下一步是否调用外部工具、调用哪个工具、传什么参数，拿到环境返回的 <code>Observation</code> 后再次进入思考循环，直到满足终止条件。</p>
+<p>ReAct（Reasoning + Acting，Yao et al., ICLR 2023）是工业界最经典的 Agent 范式。它的核心洞察在于：纯 CoT（思维链）容易脱离外部事实产生幻觉，纯 Act（仅输出动作）缺乏显式推理容易迷失目标；将 <code>Thought</code>（显式推理）与 <code>Action</code>（外部行动）交替写入上下文，既能让模型先拆解子任务，又能用真实工具返回的 <code>Observation</code> 锚定推理方向。</p>
+<p>在零框架落地 ReAct 时，最核心的工程架构分为四层：1）**Prompt 模板层**：向模型注入可用工具清单（名称、用途、参数格式）与严格的停止词（Stop Sequence，如 <code>Observation:</code>，防止模型自己伪造工具输出）；2）**模型推理适配层**：抽象 <code>BaseLLM</code> 接口，生产环境对接 OpenAI/DeepSeek/Qwen，本地单测与 CI 对接可回放的确定性 Mock/Rule LLM；3）**协议解析与容错层**：用正则表达式提取 <code>Action</code> 和 <code>Action Input</code>，当模型输出走样时，不直接抛异常，而是将格式纠偏提示作为 <code>Observation</code> 塞回下一轮对话；4）**工具执行与熔断层**：统一注册表分发调用，强制 <code>max_steps</code> 上限和异常捕获，确保任何坏工具都不会拖垮主循环。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 39.1：ReAct 感知-思考-行动主循环流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 458" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="458" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">ReAct 感知-思考-行动主循环流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">用户提问</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">差旅3天报销总额</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">组装 ReAct Prompt</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">注入工具清单+历史轨迹</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">LLM 推理生成</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">输出 Thought + Action</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">解析器判定</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">是否包含 Final Answer?</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">工具执行器</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">检索政策 / AST安全计算</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">追加 Observation</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">检查步数 &lt; max_steps</text>
+<rect x="36" y="320" width="220" height="74" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="2"/>
+<text x="146.0" y="350" text-anchor="middle" font-size="13.5" font-weight="700" fill="#831843">输出最终答复</text>
+<text x="146.0" y="372" text-anchor="middle" font-size="11.5" fill="#475569">附带完整推理轨迹</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="245.5" y="66.0" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">初始化上下文</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="381.5" y="66.0" width="384" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">Stop=[&#x27;Observation:&#x27;]</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">正则提取</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="540.5" y="202.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">需调用工具</text>
+<line x1="322" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="248.5" y="202.0" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="290.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">返回真实结果</text>
+<line x1="146.0" y1="258" x2="432.0" y2="45" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="241.0" y="132.5" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="289.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">进入下一轮迭代</text>
+<line x1="718.0" y1="258" x2="146.0" y2="317" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="360.0" y="268.5" width="144" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="280.5" text-anchor="middle" font-size="11" fill="#334155">已得出结论/超步数熔断</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 ReAct 引擎从接收用户问题开始，如何通过 Thought -&gt; Action -&gt; Observation 循环迭代，并在达到 Final Answer 或 max_steps 时安全退出。</div></div><div class="diagram-card"><div class="diagram-title">图 39.2：Chain 与 Agent 控制流架构对比图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 552" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="552" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Chain 与 Agent 控制流架构对比图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Chain: 固定检索</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">硬编码顺序执行</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Chain: 模板拼接</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">单次 Prompt 组装</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Chain: LLM 生成</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">一次出结果，无法纠偏</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">Agent: 决策大脑</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">动态规划与工具路由</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">Agent: 工具生态</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">搜索/计算/SQL/API</text>
+<rect x="24" y="400" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="414" width="540" height="76" rx="9" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="430.0" y="444" text-anchor="middle" font-size="14" font-weight="700" fill="#075985">Agent: 轨迹记忆</text>
+<text x="430.0" y="468" text-anchor="middle" font-size="12" fill="#475569">Scratchpad 持续累积</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">固定链路</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">单向传递</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">自主选工具</text>
+<line x1="629.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入 Observation</text>
+<line x1="430.0" y1="490" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">反思再决策</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>对比传统 RAG Chain 的静态单向流水线与 ReAct Agent 的动态闭环控制架构，明确 LLM 角色从“文本生成器”向“决策大脑”的跃迁。</div></div><div class="diagram-card"><div class="diagram-title">图 39.3：星辰差旅咨询 ReAct 执行时序图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 985 366" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="985" height="366" rx="12" fill="#fafafc"/>
+<text x="492.5" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">星辰差旅咨询 ReAct 执行时序图</text>
+<rect x="58.5" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="130.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">Step 1 思考</text>
+<line x1="130.5" y1="88" x2="130.5" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="239.5" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="311.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">调用 internal_search</text>
+<line x1="311.5" y1="88" x2="311.5" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="420.5" y="44" width="144" height="44" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="492.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">Step 2 思考</text>
+<line x1="492.5" y1="88" x2="492.5" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="601.5" y="44" width="144" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="673.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95">调用 safe_calculator</text>
+<line x1="673.5" y1="88" x2="673.5" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="782.5" y="44" width="144" height="44" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="854.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#991b1b">Step 3 终结</text>
+<line x1="854.5" y1="88" x2="854.5" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="130.5" y1="122" x2="311.5" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="221.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. Action</text>
+<line x1="311.5" y1="174" x2="492.5" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="402.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. Obs: 600元/晚, 120元/天</text>
+<line x1="492.5" y1="226" x2="673.5" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="583.0" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. Action</text>
+<line x1="673.5" y1="278" x2="854.5" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="764.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. Obs: 2160</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>还原员工咨询“上海出差3天最多报销多少”时，ReAct 引擎在两轮工具调用后精准产出答案的完整时序。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 什么是真正的 Agent？四个核心要素缺一不可</h3><p>OpenAI 前应用研究负责人 Lilian Weng 提出过经典的 Agent 公式：<code>Agent = LLM + Planning（规划） + Memory（记忆） + Tool Use（工具使用）</code>。在工程落地时，我们用最朴素的标准区分：如果一段代码在运行前你就能确定它一定会调用哪几个函数、调用几次，那就是 Workflow/Chain；如果调用路径依赖大模型在运行时根据中间反馈动态决定，那才是 Agent。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：很多团队把普通的“意图分类 if-else”包装成 Agent 卖概念，或者反过来把简单固定流程强行交给自由 ReAct 循环，导致原本 1 次 LLM 调用能解决的事变成 5 次调用，延迟翻 5 倍、成本飙升。</div><h3>2. 2. ReAct 协议与 Stop Sequence（停止词）的关键作用</h3><p>标准 ReAct Prompt 要求模型严格按 <code>Thought:</code> -&gt; <code>Action:</code> -&gt; <code>Action Input:</code> 输出，并在真实调用 OpenAI / DeepSeek / Qwen 接口时传入 <code>stop=[&#x27;Observation:&#x27;, &#x27;\nObservation:&#x27;]</code>。这样模型一旦吐出 <code>Action Input</code> 后准备自己瞎编 <code>Observation:</code> 时，API 会立刻截断生成，把控制权交回我们的 Python 代码去执行真实工具。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：如果忘记配置 `stop` 参数，大模型经常会一口气把 `Observation:` 和 `Final Answer:` 全自己编出来，也就是所谓的“幻觉自问自答”，外部工具根本没被真实调用。</div><h3>3. 3. 为什么严禁在工具里直接用 eval() 做计算器？</h3><p>网上很多入门教程写计算器工具直接 <code>return str(eval(expr))</code>，这在企业内网是 P0 级高危漏洞！只要用户在提问里夹带提示词注入（Prompt Injection），诱导模型传入 <code>__import__(&#x27;os&#x27;).system(&#x27;cat /etc/passwd&#x27;)</code>，你的服务器就直接沦陷。生产级安全计算器必须基于 Python <code>ast.parse(..., mode=&#x27;eval&#x27;)</code> 白名单遍历，仅允许数字常量与加减乘除幂运算符。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：还要防指数炸弹，例如 `9**9**9` 会瞬间打满 CPU 和内存，因此 AST 计算器必须对幂运算指数大小做上限校验（如 `abs(right) &gt; 100` 直接拒绝）。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈踩坑实录：文本解析 ReAct 在生产环境的三大死穴】<br/>虽然今天手写的文本 ReAct 清晰优雅，但我们在杭州某大厂客服项目里踩过三个巨坑：第一，国产小参数模型（如 7B/14B）经常把 <code>Action Input:</code> 写成中文冒号 <code>Action Input：</code> 或在工具名两边加反引号 `<code> </code>safe_calculator<code> </code><code>，导致正则匹配失败；第二，当工具需要 3 个以上复杂参数（例如查订单要传 </code>user_id<code>、</code>start_date<code>、</code>status<code> 列表）时，单字符串 </code>Action Input<code> 极易出错；第三，模型一旦输出长思考链，容易忘记加 </code>Final Answer:` 前缀。正因如此，2024 年之后工业界主流已全面转向模型原生支持的 **Function Calling / Tool Calling**（结构化 JSON 参数输出），这也是我们明天 Day 40 要攻克的核心战场。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day39/</code> 与 <code>notebooks/day39/day39_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：构建企业工具注册表与 AST 安全计算器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先别急着写主循环，老陈带你把“武器库”搭稳。这里我们封装两个星辰数科最常用的本地工具：一个是模拟内网规章制度搜索 <code>internal_search</code>，另一个是基于 <code>ast</code> 抽象语法树白名单的安全计算器 <code>safe_calculator</code>，再配一个 <code>ToolRegistry</code> 统一生成给大模型看的 Prompt 工具说明书。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day39_tools.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 39 - 步骤一：企业工具注册表、内网知识搜索与 AST 安全计算器。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import ast
+import operator
+from dataclasses import dataclass
+from typing import Callable, Dict, List
+
+
+# AST 允许的安全二元运算与一元运算白名单
+_BINARY_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_UNARY_OPS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+# 模拟星辰数科企业内网知识库条目
+INTERNAL_KB: List[Dict[str, str]] = [
+    {
+        &quot;title&quot;: &quot;杭州星辰数科2026差旅报销标准&quot;,
+        &quot;keywords&quot;: &quot;上海 北京 深圳 一线 差旅 住宿 餐补 报销 标准&quot;,
+        &quot;content&quot;: &quot;一线城市（北京、上海、深圳、广州）住宿标准上限 600 元/晚，餐补 120 元/天，市内交通实报实销上限 80 元/天。&quot;,
+    },
+    {
+        &quot;title&quot;: &quot;杭州星辰数科二线城市差旅标准&quot;,
+        &quot;keywords&quot;: &quot;杭州 南京 成都 武汉 二线 差旅 住宿 餐补 报销&quot;,
+        &quot;content&quot;: &quot;二线城市（杭州、南京、成都、武汉等）住宿标准上限 450 元/晚，餐补 100 元/天。&quot;,
+    },
+    {
+        &quot;title&quot;: &quot;星辰数科年假与加班调休管理办法&quot;,
+        &quot;keywords&quot;: &quot;年假 调休 请假 工龄 天数&quot;,
+        &quot;content&quot;: &quot;入职满 1 年享 5 天带薪年假，满 3 年享 10 天；法定节假日加班按日薪 300% 核算。&quot;,
+    },
+]
+
+
+def _eval_ast_node(node: ast.AST) -&gt; float:
+    &quot;&quot;&quot;递归安全求值 AST 节点，严禁函数调用、属性访问与变量读取。&quot;&quot;&quot;
+    if isinstance(node, ast.Expression):
+        return _eval_ast_node(node.body)
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
+        return _UNARY_OPS[type(node.op)](_eval_ast_node(node.operand))
+    if isinstance(node, ast.BinOp) and type(node.op) in _BINARY_OPS:
+        left = _eval_ast_node(node.left)
+        right = _eval_ast_node(node.right)
+        if isinstance(node.op, ast.Pow) and abs(right) &gt; 100:
+            raise ValueError(&quot;指数绝对值不能超过 100，已拦截潜在资源耗尽攻击&quot;)
+        if isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)) and right == 0:
+            raise ValueError(&quot;除数不能为 0&quot;)
+        return _BINARY_OPS[type(node.op)](left, right)
+    raise ValueError(f&quot;不允许的表达式节点: {type(node).__name__}&quot;)
+
+
+def safe_calculator(expression: str) -&gt; str:
+    &quot;&quot;&quot;安全数学计算器：仅支持数字和 + - * / // % ** 括号运算。&quot;&quot;&quot;
+    cleaned = expression.strip()
+    if not cleaned:
+        return &quot;错误：表达式不能为空&quot;
+    try:
+        tree = ast.parse(cleaned, mode=&quot;eval&quot;)
+        value = _eval_ast_node(tree)
+        # 整数结果去除多余的 .0，保留清晰可读性
+        if value.is_integer():
+            return str(int(value))
+        return f&quot;{value:.2f}&quot;
+    except Exception as exc:
+        return f&quot;计算失败：{exc}&quot;
+
+
+def internal_search(query: str) -&gt; str:
+    &quot;&quot;&quot;检索星辰数科企业内网规章制度，按关键词命中数排序返回最相关条文。&quot;&quot;&quot;
+    tokens = [t.strip() for t in query.replace(&quot;，&quot;, &quot; &quot;).replace(&quot;,&quot;, &quot; &quot;).split() if t.strip()]
+    if not tokens:
+        return &quot;未提供检索关键词。&quot;
+    scored: List[tuple[int, Dict[str, str]]] = []
+    for doc in INTERNAL_KB:
+        haystack = f&quot;{doc[&#x27;title&#x27;]} {doc[&#x27;keywords&#x27;]} {doc[&#x27;content&#x27;]}&quot;
+        score = sum(1 for tok in tokens if tok in haystack)
+        if score &gt; 0:
+            scored.append((score, doc))
+    if not scored:
+        return f&quot;未在内网知识库中找到与“{query}”相关的制度条文。&quot;
+    scored.sort(key=lambda item: item[0], reverse=True)
+    top_doc = scored[0][1]
+    return f&quot;《{top_doc[&#x27;title&#x27;]}》：{top_doc[&#x27;content&#x27;]}&quot;
+
+
+@dataclass
+class SimpleTool:
+    &quot;&quot;&quot;极简工具元数据包装类。&quot;&quot;&quot;
+
+    name: str
+    description: str
+    func: Callable[[str], str]
+
+
+class ToolRegistry:
+    &quot;&quot;&quot;工具注册中心：统一管理工具注册、Prompt 文档渲染与安全调用。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._tools: Dict[str, SimpleTool] = {}
+
+    def register(self, name: str, description: str, func: Callable[[str], str]) -&gt; None:
+        self._tools[name] = SimpleTool(name=name, description=description, func=func)
+
+    def get(self, name: str) -&gt; SimpleTool | None:
+        return self._tools.get(name)
+
+    def list_names(self) -&gt; List[str]:
+        return list(self._tools.keys())
+
+    def render_prompt_docs(self) -&gt; str:
+        &quot;&quot;&quot;渲染给大模型阅读的工具说明书。&quot;&quot;&quot;
+        lines = [f&quot;- {t.name}: {t.description}&quot; for t in self._tools.values()]
+        return &quot;\\n&quot;.join(lines)
+
+    def execute(self, name: str, action_input: str) -&gt; str:
+        tool = self._tools.get(name)
+        if tool is None:
+            available = &quot;, &quot;.join(self.list_names())
+            return f&quot;工具调用失败：未知工具 &#x27;{name}&#x27;。当前可用工具仅包括：[{available}]。&quot;
+        try:
+            return tool.func(action_input)
+        except Exception as exc:
+            return f&quot;工具 &#x27;{name}&#x27; 执行异常：{exc}&quot;
+
+
+def build_default_registry() -&gt; ToolRegistry:
+    &quot;&quot;&quot;构建星辰数科默认工具集。&quot;&quot;&quot;
+    registry = ToolRegistry()
+    registry.register(
+        name=&quot;internal_search&quot;,
+        description=&quot;搜索星辰数科内网制度（差旅标准、年假规定等），输入空格分隔的关键词。&quot;,
+        func=internal_search,
+    )
+    registry.register(
+        name=&quot;safe_calculator&quot;,
+        description=&quot;精确计算数学表达式（支持加减乘除与括号），例如 &#x27;(600 + 120) * 3&#x27;。&quot;,
+        func=safe_calculator,
+    )
+    return registry
+
+
+if __name__ == &quot;__main__&quot;:
+    reg = build_default_registry()
+    print(&quot;=== 已注册工具说明书 ===&quot;)
+    print(reg.render_prompt_docs())
+    print(&quot;搜索测试:&quot;, reg.execute(&quot;internal_search&quot;, &quot;上海 差旅 住宿&quot;))
+    print(&quot;计算测试:&quot;, reg.execute(&quot;safe_calculator&quot;, &quot;(600 + 120) * 3&quot;))
+    print(&quot;恶意注入拦截:&quot;, reg.execute(&quot;safe_calculator&quot;, &quot;__import__(&#x27;os&#x27;).system(&#x27;ls&#x27;)&quot;))
+</code></pre><div class="output-box"># 预期运行输出示例：
+=== 已注册工具说明书 ===
+- internal_search: 搜索星辰数科内网制度（差旅标准、年假规定等），输入空格分隔的关键词。
+- safe_calculator: 精确计算数学表达式（支持加减乘除与括号），例如 &#x27;(600 + 120) * 3&#x27;。
+搜索测试: 《杭州星辰数科2026差旅报销标准》：一线城市（北京、上海、深圳、广州）住宿标准上限 600 元/晚，餐补 120 元/天，市内交通实报实销上限 80 元/天。
+计算测试: 2160
+恶意注入拦截: 计算失败：不允许的表达式节点: Call</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>_eval_ast_node</code> 严格采用白名单模式解析数学表达式，拒绝一切 <code>ast.Call</code>（函数调用）和 <code>ast.Name</code>（变量读取），从根源上杜绝 <code>eval</code> 代码注入。<br/>2. <code>ToolRegistry.execute</code> 在找不到工具时不会 <code>raise KeyError</code>，而是返回包含可用工具列表的自然语言提示——这是 Agent 工程中非常重要的“让模型自我纠错”技巧。<br/>3. <code>render_prompt_docs()</code> 会被直接嵌入 ReAct System Prompt 中，工具的 <code>description</code> 写得越清晰，模型选错工具的概率就越低。</p><h3>实操步骤 2：步骤二：零框架手写 ReAct 推理-行动循环引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在来写今天的核心引擎 <code>ReActAgent</code>。为了让代码在没有外网 API Key 的本地也能 100% 跑出真实的 multi-step 轨迹，我们定义了一个 <code>LLMCallable</code> 接口，并提供 <code>DeterministicReActLLM</code> 模拟真实大模型在每一轮看到 <code>Observation</code> 后的推理行为；注释里老陈也标明了生产环境替换成 OpenAI/Qwen 客户端的位置。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day39_react_agent.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 39 - 步骤二：零框架纯 Python 手写 ReAct Agent 引擎。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Callable, List, Optional, Tuple
+
+try:
+    from src.day39_tools import ToolRegistry, build_default_registry
+except ImportError:
+    from day39_tools import ToolRegistry, build_default_registry
+
+
+REACT_SYSTEM_PROMPT = &quot;&quot;&quot;你是杭州星辰数科的企业智能助手「星辰智脑」。
+请严格使用以下 ReAct 格式逐步推理并调用工具回答问题：
+
+可用工具列表：
+{tool_docs}
+
+输出格式规范：
+Thought: 你的当前思考过程
+Action: 要调用的工具名称（必须是 [{tool_names}] 之一）
+Action Input: 传给工具的输入参数
+Observation: （由系统自动填入工具执行结果，严禁你自行编造）
+...（可重复多轮 Thought/Action/Action Input/Observation）
+Thought: 我已经掌握足够信息，可以给出最终答复
+Final Answer: 给用户的清晰、准确的最终答复
+
+用户问题：{question}
+{scratchpad}&quot;&quot;&quot;
+
+
+@dataclass
+class AgentStep:
+    &quot;&quot;&quot;记录 ReAct 单步执行轨迹，便于追踪与调试。&quot;&quot;&quot;
+
+    step_index: int
+    thought: str
+    action: Optional[str] = None
+    action_input: Optional[str] = None
+    observation: Optional[str] = None
+
+
+@dataclass
+class AgentResult:
+    &quot;&quot;&quot;Agent 执行总结果。&quot;&quot;&quot;
+
+    final_answer: str
+    steps: List[AgentStep] = field(default_factory=list)
+    stopped_reason: str = &quot;completed&quot;  # completed | max_steps_reached
+
+
+def parse_react_output(text: str) -&gt; Tuple[str, Optional[str], Optional[str], Optional[str]]:
+    &quot;&quot;&quot;
+    解析模型输出的 ReAct 文本。
+    返回: (thought, action, action_input, final_answer)
+    &quot;&quot;&quot;
+    thought_match = re.search(r&quot;Thought:\s*(.*?)(?=\n(?:Action:|Final Answer:)|$)&quot;, text, re.S)
+    thought = thought_match.group(1).strip() if thought_match else &quot;&quot;
+
+    final_match = re.search(r&quot;Final Answer:\s*(.*)&quot;, text, re.S)
+    if final_match:
+        return thought, None, None, final_match.group(1).strip()
+
+    action_match = re.search(r&quot;Action:\s*([^\n]+)&quot;, text)
+    input_match = re.search(r&quot;Action Input:\s*([^\n]+)&quot;, text)
+    action = action_match.group(1).strip() if action_match else None
+    action_input = input_match.group(1).strip() if input_match else None
+    return thought, action, action_input, None
+
+
+class DeterministicReActLLM:
+    &quot;&quot;&quot;
+    本地确定性 ReAct LLM 模拟器（零外网依赖，用于教学演示与 CI 单元测试）。
+    生产环境替换为：
+        client.chat.completions.create(
+            model=&quot;qwen-plus&quot;, messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0, stop=[&quot;Observation:&quot;, &quot;\\nObservation:&quot;]
+        ).choices[0].message.content
+    &quot;&quot;&quot;
+
+    def __call__(self, prompt: str) -&gt; str:
+        # 场景 1：上海差旅 3 天报销核算
+        if &quot;上海&quot; in prompt and &quot;3&quot; in prompt and &quot;报销&quot; in prompt:
+            if &quot;600 元/晚&quot; not in prompt:
+                return (
+                    &quot;Thought: 员工询问去上海出差 3 天的住宿和餐补报销总额，我需要先查询公司上海差旅标准。\n&quot;
+                    &quot;Action: internal_search\n&quot;
+                    &quot;Action Input: 上海 差旅 住宿 餐补&quot;
+                )
+            if &quot;2160&quot; not in prompt:
+                return (
+                    &quot;Thought: 已查到上海住宿上限 600 元/晚，餐补 120 元/天。为避免心算出错，调用安全计算器算 3 天总额。\n&quot;
+                    &quot;Action: safe_calculator\n&quot;
+                    &quot;Action Input: (600 + 120) * 3&quot;
+                )
+            return (
+                &quot;Thought: 计算器返回 2160，信息已完整，可以给员工答复。\n&quot;
+                &quot;Final Answer: 根据《杭州星辰数科2026差旅报销标准》，上海（一线城市）住宿上限 600 元/晚、餐补 120 元/天，&quot;
+                &quot;出差 3 天住宿加餐补最高可报销 2160 元（市内交通另按实报实销上限 80 元/天计算）。&quot;
+            )
+
+        # 场景 2：纯数学计算问题
+        if &quot;计算&quot; in prompt and &quot;Observation:&quot; not in prompt:
+            expr_match = re.search(r&quot;计算[：:\s]*([0-9+\-*/().\s]+)&quot;, prompt)
+            expr = expr_match.group(1).strip() if expr_match else &quot;1+1&quot;
+            return (
+                f&quot;Thought: 这是一个纯数学计算请求，直接调用 safe_calculator 工具计算 {expr}。\n&quot;
+                f&quot;Action: safe_calculator\n&quot;
+                f&quot;Action Input: {expr}&quot;
+            )
+        if &quot;计算&quot; in prompt and &quot;Observation:&quot; in prompt:
+            obs_vals = re.findall(r&quot;Observation:\s*(.+)&quot;, prompt)
+            ans = obs_vals[-1].strip() if obs_vals else &quot;未知&quot;
+            return (
+                &quot;Thought: 计算器已经返回精确结果。\n&quot;
+                f&quot;Final Answer: 计算结果为 {ans}。&quot;
+            )
+
+        return (
+            &quot;Thought: 当前问题无需调用外部工具，直接作答。\n&quot;
+            &quot;Final Answer: 抱歉，我暂未在知识库中找到对应场景，请联系星辰数科行政部。&quot;
+        )
+
+
+class ReActAgent:
+    &quot;&quot;&quot;零框架手写 ReAct 智能体主引擎。&quot;&quot;&quot;
+
+    def __init__(
+        self,
+        llm: Callable[[str], str],
+        registry: ToolRegistry,
+        max_steps: int = 5,
+    ) -&gt; None:
+        self.llm = llm
+        self.registry = registry
+        self.max_steps = max_steps
+
+    def run(self, question: str) -&gt; AgentResult:
+        scratchpad_parts: List[str] = []
+        steps: List[AgentStep] = []
+
+        for step_idx in range(1, self.max_steps + 1):
+            prompt = REACT_SYSTEM_PROMPT.format(
+                tool_docs=self.registry.render_prompt_docs(),
+                tool_names=&quot;, &quot;.join(self.registry.list_names()),
+                question=question,
+                scratchpad=&quot;\n&quot;.join(scratchpad_parts),
+            )
+            raw_output = self.llm(prompt)
+            thought, action, action_input, final_answer = parse_react_output(raw_output)
+
+            if final_answer is not None:
+                steps.append(AgentStep(step_index=step_idx, thought=thought))
+                return AgentResult(final_answer=final_answer, steps=steps, stopped_reason=&quot;completed&quot;)
+
+            if not action:
+                # 协议解析失败，不崩溃，将纠偏提示写回 Observation 引导下一轮修正
+                obs = &quot;格式错误：请严格输出 Action 与 Action Input，或直接输出 Final Answer。&quot;
+                steps.append(AgentStep(step_index=step_idx, thought=thought, observation=obs))
+                scratchpad_parts.append(f&quot;Thought: {thought}\nObservation: {obs}&quot;)
+                continue
+
+            observation = self.registry.execute(action, action_input or &quot;&quot;)
+            steps.append(
+                AgentStep(
+                    step_index=step_idx,
+                    thought=thought,
+                    action=action,
+                    action_input=action_input,
+                    observation=observation,
+                )
+            )
+            scratchpad_parts.append(
+                f&quot;Thought: {thought}\nAction: {action}\nAction Input: {action_input}\nObservation: {observation}&quot;
+            )
+
+        return AgentResult(
+            final_answer=f&quot;已达到最大推理步数上限（{self.max_steps}步），任务安全中止，请缩小问题范围后重试。&quot;,
+            steps=steps,
+            stopped_reason=&quot;max_steps_reached&quot;,
+        )
+
+
+if __name__ == &quot;__main__&quot;:
+    agent = ReActAgent(llm=DeterministicReActLLM(), registry=build_default_registry(), max_steps=5)
+    result = agent.run(&quot;我下周去上海出差 3 天，按公司标准住宿加餐补最多能报销多少钱？&quot;)
+    for s in result.steps:
+        print(f&quot;[Step {s.step_index}] Thought: {s.thought}&quot;)
+        if s.action:
+            print(f&quot;         Action: {s.action}({s.action_input}) -&gt; Obs: {s.observation}&quot;)
+    print(&quot;\n&gt;&gt;&gt; Final Answer:&quot;, result.final_answer)
+</code></pre><div class="output-box"># 预期运行输出示例：
+[Step 1] Thought: 员工询问去上海出差 3 天的住宿和餐补报销总额，我需要先查询公司上海差旅标准。
+         Action: internal_search(上海 差旅 住宿 餐补) -&gt; Obs: 《杭州星辰数科2026差旅报销标准》：一线城市（北京、上海、深圳、广州）住宿标准上限 600 元/晚，餐补 120 元/天，市内交通实报实销上限 80 元/天。
+[Step 2] Thought: 已查到上海住宿上限 600 元/晚，餐补 120 元/天。为避免心算出错，调用安全计算器算 3 天总额。
+         Action: safe_calculator((600 + 120) * 3) -&gt; Obs: 2160
+[Step 3] Thought: 计算器返回 2160，信息已完整，可以给员工答复。
+
+&gt;&gt;&gt; Final Answer: 根据《杭州星辰数科2026差旅报销标准》，上海（一线城市）住宿上限 600 元/晚、餐补 120 元/天，出差 3 天住宿加餐补最高可报销 2160 元（市内交通另按实报实销上限 80 元/天计算）。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>scratchpad_parts</code> 充当了 Agent 的短期工作记忆（Scratchpad），每一轮都把 <code>Thought/Action/Action Input/Observation</code> 追加进去，重新喂给 LLM。<br/>2. <code>parse_react_output</code> 兼容多行 <code>Thought</code> 与 <code>Final Answer</code>，且当模型漏掉 <code>Action</code> 时走“软纠偏”路径，把报错作为 <code>Observation</code> 反馈给模型。<br/>3. <code>max_steps=5</code> 是生产环境底线：永远不要写 <code>while True:</code> 的 Agent，否则模型陷入死循环一晚上能烧掉几千块 Token 费。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：构建企业工具注册表与 AST 安全计算器（src/day39_tools.py）</h3><p>模块 <code>src/day39_tools.py</code> 共计 161 行源码，其中包含 3 行中文工程注释（注释密度约 1.9%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-039 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>ast</code>、<code>operator</code>、<code>dataclasses (dataclass)</code>、<code>typing (Callable, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>SimpleTool</code>（第 100~105 行）】这是一个独立领域模型类。其核心职责定义为：极简工具元数据包装类。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>ToolRegistry</code>（第 108~136 行）】这是一个独立领域模型类。其核心职责定义为：工具注册中心：统一管理工具注册、Prompt 文档渲染与安全调用。。类内部暴露了 6 个方法：<code>__init__(self)</code>、<code>register(self, name, description, func)</code>、<code>get(self, name)</code>、<code>list_names(self)</code>、<code>render_prompt_docs(self)</code>、<code>execute(self, name, action_input)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ToolRegistry.__init__</code>（第 111~112 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.register</code>（第 114~115 行）属于同步实例方法，入参签名为 <code>(self, name, description, func)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.get</code>（第 117~118 行）属于同步实例方法，入参签名为 <code>(self, name)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.list_names</code>（第 120~121 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.render_prompt_docs</code>（第 123~126 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：渲染给大模型阅读的工具说明书。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ToolRegistry.execute</code>（第 128~136 行）属于同步实例方法，入参签名为 <code>(self, name, action_input)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>_eval_ast_node</code>（第 46~62 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(node)</code>。职责说明：递归安全求值 AST 节点，严禁函数调用、属性访问与变量读取。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【函数契约拆解 · <code>safe_calculator</code>（第 65~78 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(expression)</code>。职责说明：安全数学计算器：仅支持数字和 + - * / // % ** 括号运算。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【函数契约拆解 · <code>internal_search</code>（第 81~96 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(query)</code>。职责说明：检索星辰数科企业内网规章制度，按关键词命中数排序返回最相关条文。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【函数契约拆解 · <code>build_default_registry</code>（第 139~152 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。职责说明：构建星辰数科默认工具集。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day39_tools.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day39/day39_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day39/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：零框架手写 ReAct 推理-行动循环引擎（src/day39_react_agent.py）</h3><p>模块 <code>src/day39_react_agent.py</code> 共计 193 行源码，其中包含 3 行中文工程注释（注释密度约 1.6%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-039 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Callable, List, Optional, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>AgentStep</code>（第 35~42 行）】这是一个独立领域模型类。其核心职责定义为：记录 ReAct 单步执行轨迹，便于追踪与调试。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>AgentResult</code>（第 46~51 行）】这是一个独立领域模型类。其核心职责定义为：Agent 执行总结果。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>DeterministicReActLLM</code>（第 73~124 行）】这是一个独立领域模型类。其核心职责定义为：本地确定性 ReAct LLM 模拟器（零外网依赖，用于教学演示与 CI 单元测试）。<br/>生产环境替换为：<br/>    client.chat.completions.create(<br/>        model=&quot;qwen-plus&quot;, messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],<br/>        temperature=0, stop=[&quot;Observation:&quot;, &quot;\nObservation:&quot;]<br/>    ).choices[0].message.content。类内部暴露了 1 个方法：<code>__call__(self, prompt)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>DeterministicReActLLM.__call__</code>（第 83~124 行）属于同步实例方法，入参签名为 <code>(self, prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ReActAgent</code>（第 127~183 行）】这是一个独立领域模型类。其核心职责定义为：零框架手写 ReAct 智能体主引擎。。类内部暴露了 2 个方法：<code>__init__(self, llm, registry, max_steps)</code>、<code>run(self, question)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ReActAgent.__init__</code>（第 130~138 行）属于同步实例方法，入参签名为 <code>(self, llm, registry, max_steps)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ReActAgent.run</code>（第 140~183 行）属于同步实例方法，入参签名为 <code>(self, question)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>parse_react_output</code>（第 54~70 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。职责说明：解析模型输出的 ReAct 文本。<br/>返回: (thought, action, action_input, final_answer)。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day39_react_agent.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day39/day39_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day39/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day39_tools.py（共 161 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day39_tools.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 39 - 步骤一：企业工具注册表、内网知识搜索与 AST 安全计算器。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 39 - 步骤一：企业工具注册表、内网知识搜索与 AST 安全计算器。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>_BINARY_OPS = {</code></td><td>核心意图：AST 允许的安全二元运算与一元运算白名单。代表语句：`_BINARY_OPS = {`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>ast.FloorDiv: operator.floordiv,</code></td><td>核心意图：代表语句：`ast.FloorDiv: operator.floordiv,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>INTERNAL_KB: List[Dict[str, str]] = [</code></td><td>核心意图：模拟星辰数科企业内网知识库条目。代表语句：`INTERNAL_KB: List[Dict[str, str]] = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;content&quot;: &quot;入职满 1 年享 5 天带薪年假，满 3 年享 10 天；法定节假日加班按日薪 300% 核算。&quot;,</code></td><td>核心意图：代表语句：`&quot;content&quot;: &quot;入职满 1 年享 5 天带薪年假，满 3 年享 10 天；法定节假日加班按日薪 300% 核算。&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>return _eval_ast_node(node.body)</code></td><td>核心意图：代表语句：`return _eval_ast_node(node.body)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>if isinstance(node.op, ast.Pow) and abs(right) &gt; 100:</code></td><td>核心意图：代表语句：`if isinstance(node.op, ast.Pow) and abs(right) &gt; 100:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>def safe_calculator(expression: str) -&gt; str:</code></td><td>核心意图：代表语句：`def safe_calculator(expression: str) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>if value.is_integer():</code></td><td>核心意图：整数结果去除多余的 .0，保留清晰可读性。代表语句：`if value.is_integer():`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>def internal_search(query: str) -&gt; str:</code></td><td>核心意图：代表语句：`def internal_search(query: str) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>score = sum(1 for tok in tokens if tok in haystack)</code></td><td>核心意图：代表语句：`score = sum(1 for tok in tokens if tok in haystack)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L105-L112</code></td><td><code>func: Callable[[str], str]</code></td><td>核心意图：代表语句：`func: Callable[[str], str]`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L113-L120</code></td><td><code>def register(self, name: str, description: str, func: Callable[[str], st</code></td><td>核心意图：代表语句：`def register(self, name: str, description: str, func: Callable[[str], str]) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L121-L128</code></td><td><code>return list(self._tools.keys())</code></td><td>核心意图：代表语句：`return list(self._tools.keys())`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>tool = self._tools.get(name)</code></td><td>核心意图：代表语句：`tool = self._tools.get(name)`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>def build_default_registry() -&gt; ToolRegistry:</code></td><td>核心意图：代表语句：`def build_default_registry() -&gt; ToolRegistry:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L145-L152</code></td><td><code>func=internal_search,</code></td><td>核心意图：代表语句：`func=internal_search,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L153-L160</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L161</code></td><td><code>print(&quot;恶意注入拦截:&quot;, reg.execute(&quot;safe_calculator&quot;, &quot;__import__(&#x27;os&#x27;).system</code></td><td>核心意图：代表语句：`print(&quot;恶意注入拦截:&quot;, reg.execute(&quot;safe_calculator&quot;, &quot;__import__(&#x27;os&#x27;).system(&#x27;ls&#x27;)&quot;))`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day39_react_agent.py（共 193 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day39_react_agent.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 39 - 步骤二：零框架纯 Python 手写 ReAct Agent 引擎。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 39 - 步骤二：零框架纯 Python 手写 ReAct Agent 引擎。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>try:</code></td><td>核心意图：代表语句：`try:`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L17-L24</code></td><td><code>可用工具列表：</code></td><td>核心意图：代表语句：`可用工具列表：`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>Observation: （由系统自动填入工具执行结果，严禁你自行编造）</code></td><td>核心意图：代表语句：`Observation: （由系统自动填入工具执行结果，严禁你自行编造）`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L41-L48</code></td><td><code>action_input: Optional[str] = None</code></td><td>核心意图：代表语句：`action_input: Optional[str] = None`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L49-L56</code></td><td><code>final_answer: str</code></td><td>核心意图：代表语句：`final_answer: str`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L57-L64</code></td><td><code>返回: (thought, action, action_input, final_answer)</code></td><td>核心意图：代表语句：`返回: (thought, action, action_input, final_answer)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>action_match = re.search(r&quot;Action:\s*([^\n]+)&quot;, text)</code></td><td>核心意图：代表语句：`action_match = re.search(r&quot;Action:\s*([^\n]+)&quot;, text)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>class DeterministicReActLLM:</code></td><td>核心意图：代表语句：`class DeterministicReActLLM:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L81-L88</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：场景 1：上海差旅 3 天报销核算。代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>&quot;Action: internal_search\n&quot;</code></td><td>核心意图：代表语句：`&quot;Action: internal_search\n&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>)</code></td><td>核心意图：场景 2：纯数学计算问题。代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>if &quot;计算&quot; in prompt and &quot;Observation:&quot; not in prompt:</code></td><td>核心意图：代表语句：`if &quot;计算&quot; in prompt and &quot;Observation:&quot; not in prompt:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>if &quot;计算&quot; in prompt and &quot;Observation:&quot; in prompt:</code></td><td>核心意图：代表语句：`if &quot;计算&quot; in prompt and &quot;Observation:&quot; in prompt:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>return (</code></td><td>核心意图：代表语句：`return (`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L129-L136</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L137-L144</code></td><td><code>self.registry = registry</code></td><td>核心意图：代表语句：`self.registry = registry`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L145-L152</code></td><td><code>prompt = REACT_SYSTEM_PROMPT.format(</code></td><td>核心意图：代表语句：`prompt = REACT_SYSTEM_PROMPT.format(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L153-L160</code></td><td><code>if final_answer is not None:</code></td><td>核心意图：协议解析失败，不崩溃，将纠偏提示写回 Observation 引导下一轮修正。代表语句：`if final_answer is not None:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>steps.append(AgentStep(step_index=step_idx, thought=thought, observation</code></td><td>核心意图：代表语句：`steps.append(AgentStep(step_index=step_idx, thought=thought, observation=obs))`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L169-L176</code></td><td><code>thought=thought,</code></td><td>核心意图：代表语句：`thought=thought,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L177-L184</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L185-L192</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L193-L193</code></td><td><code>print(&quot;\n&gt;&gt;&gt; Final Answer:&quot;, result.final_answer)</code></td><td>核心意图：代表语句：`print(&quot;\n&gt;&gt;&gt; Final Answer:&quot;, result.final_answer)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day39/tests/test_day39.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day39/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day39/tests/test_day39.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 39 自动化单元测试：验证 AST 安全计算器、工具注册表与 ReAct 引擎全链路。&quot;&quot;&quot;
+
+import pytest
+from src.day39_tools import build_default_registry, safe_calculator, internal_search
+from src.day39_react_agent import ReActAgent, DeterministicReActLLM, parse_react_output
+
+
+def test_safe_calculator_normal_and_security():
+    assert safe_calculator(&quot;(600 + 120) * 3&quot;) == &quot;2160&quot;
+    assert safe_calculator(&quot;10 / 4&quot;) == &quot;2.50&quot;
+    assert &quot;计算失败&quot; in safe_calculator(&quot;__import__(&#x27;os&#x27;).system(&#x27;echo pwned&#x27;)&quot;)
+    assert &quot;指数绝对值不能超过&quot; in safe_calculator(&quot;9 ** 999&quot;)
+    assert &quot;除数不能为 0&quot; in safe_calculator(&quot;100 / 0&quot;)
+
+
+def test_internal_search_hit_and_miss():
+    res = internal_search(&quot;上海 差旅&quot;)
+    assert &quot;600&quot; in res and &quot;120&quot; in res
+    miss = internal_search(&quot;外星人福利&quot;)
+    assert &quot;未在内网知识库中找到&quot; in miss
+
+
+def test_react_agent_multi_step_travel_reimbursement():
+    agent = ReActAgent(llm=DeterministicReActLLM(), registry=build_default_registry(), max_steps=5)
+    result = agent.run(&quot;我下周去上海出差 3 天，住宿和餐补最多报销多少？&quot;)
+    assert result.stopped_reason == &quot;completed&quot;
+    assert &quot;2160&quot; in result.final_answer
+    assert len(result.steps) == 3
+    assert result.steps[0].action == &quot;internal_search&quot;
+    assert result.steps[1].action == &quot;safe_calculator&quot;
+
+
+def test_react_agent_max_steps_circuit_breaker():
+    # 模拟一个陷入死循环的模型
+    def looping_llm(_prompt: str) -&gt; str:
+        return &quot;Thought: 继续查\nAction: internal_search\nAction Input: 上海&quot;
+
+    agent = ReActAgent(llm=looping_llm, registry=build_default_registry(), max_steps=3)
+    result = agent.run(&quot;测试死循环&quot;)
+    assert result.stopped_reason == &quot;max_steps_reached&quot;
+    assert len(result.steps) == 3
+
+
+def test_react_agent_unknown_tool_recovery():
+    calls = {&quot;n&quot;: 0}
+
+    def recovering_llm(prompt: str) -&gt; str:
+        calls[&quot;n&quot;] += 1
+        if calls[&quot;n&quot;] == 1:
+            return &quot;Thought: 试试不存在的工具\nAction: magic_tool\nAction Input: test&quot;
+        assert &quot;未知工具 &#x27;magic_tool&#x27;&quot; in prompt
+        return &quot;Thought: 工具名错了，改用直接回复\nFinal Answer: 已修正错误并安全返回&quot;
+
+    agent = ReActAgent(llm=recovering_llm, registry=build_default_registry(), max_steps=4)
+    result = agent.run(&quot;测试未知工具恢复&quot;)
+    assert result.stopped_reason == &quot;completed&quot;
+    assert &quot;已修正&quot; in result.final_answer
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-039</code>，承接自 Day 38 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day39-react-agent-from-scratch</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day39-react-agent-from-scratch）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day39-react-agent-from-scratch
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day39.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-039）
+git add src/day39_tools.py src/day39_react_agent.py tests/test_day39.py
+git commit -m &quot;feat(day39): 零框架手写ReAct智能体引擎并接入企业检索与安全计算工具
+
+Refs: STARMIND-039
+- 完成 Agent 概念与 ReAct 范式 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day39-react-agent-from-scratch</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-039 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-039 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day39_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day39_tools.py src/day39_react_agent.py
+    - echo &quot;Day 39 语法编译检查通过&quot;
+
+day39_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day39/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day39/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (AI 架构师)</span><span>状态：Approved</span></div><p>AST 计算器加了指数上限保护非常细致！不过注意 <code>parse_react_output</code> 里 <code>Action Input</code> 目前只匹配单行 <code>[^\n]+</code>，后续如果工具需要传入多行 JSON，记得升级成结构化 Function Calling（明天重点讲）。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p><code>ReActAgent.run</code> 把每一步封装成 <code>AgentStep</code> 列表返回，前端做“思考过程折叠面板”时直接遍历渲染就行，数据结构很干净。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>上海出差 3 天报销的 Case 跑得很准！希望能再补充一个“杭州二线城市”的测试用例，明天给财务部同事演示。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-039 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-039（Agent 概念与 ReAct 范式）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：杭州星辰数科行政与财务部每天收到 300+ 条员工关于差旅标准、补贴核算和年假折算的咨询。纯 RAG 问答只能返回静态条文，员工仍需手工计算天数和金额，体验割裂且易出错。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）传统 Chain 流程写死，无法根据问题复杂度动态决定调用 0 次、1 次还是多次外部工具。；（2）大模型原生算术能力不可靠，涉及多天差旅、税费折扣等精确数值计算时频现幻觉。；（3）直接引入重型 Agent 框架导致新人难以排查 Prompt 解析失败、死循环等底层故障。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）梳理 Chain 与 Agent 的架构差异，掌握感知-思考-行动（Observe-Think-Act）闭环原理。；（2）零框架纯 Python 实现符合 ReAct 论文规范的推理引擎（Thought / Action / Action Input / Observation / Final Answer）。；（3）接入企业内网制度搜索工具与安全四则运算工具，完成复合咨询问题的多步自动求解。，必须全部翻译成可量化的测试用例和监控指标（例如 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day39/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 什么是真正的 Agent？四个核心要素缺一不可】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：OpenAI 前应用研究负责人 Lilian Weng 提出过经典的 Agent 公式：<code>Agent = LLM + Planning（规划） + Memory（记忆） + Tool Use（工具使用）</code>。在工程落地时，我们用最朴素的标准区分：如果一段代码在运行前你就能确定它一定会调用哪几个函数、调用几次，那就是 Workflow/Chain；如果调用路径依赖大模型在运行时根据中间反馈动态决定，那才是 Agent。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：很多团队把普通的“意图分类 if-else”包装成 Agent 卖概念，或者反过来把简单固定流程强行交给自由 ReAct 循环，导致原本 1 次 LLM 调用能解决的事变成 5 次调用，延迟翻 5 倍、成本飙升。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 什么是真正的 Agent？四个核心要素缺一不可」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. ReAct 协议与 Stop Sequence（停止词）的关键作用】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：标准 ReAct Prompt 要求模型严格按 <code>Thought:</code> -&gt; <code>Action:</code> -&gt; <code>Action Input:</code> 输出，并在真实调用 OpenAI / DeepSeek / Qwen 接口时传入 <code>stop=[&#x27;Observation:&#x27;, &#x27;\nObservation:&#x27;]</code>。这样模型一旦吐出 <code>Action Input</code> 后准备自己瞎编 <code>Observation:</code> 时，API 会立刻截断生成，把控制权交回我们的 Python 代码去执行真实工具。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：如果忘记配置 <code>stop</code> 参数，大模型经常会一口气把 <code>Observation:</code> 和 <code>Final Answer:</code> 全自己编出来，也就是所谓的“幻觉自问自答”，外部工具根本没被真实调用。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. ReAct 协议与 Stop Sequence（停止词）的关键作用」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 为什么严禁在工具里直接用 eval() 做计算器？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：网上很多入门教程写计算器工具直接 <code>return str(eval(expr))</code>，这在企业内网是 P0 级高危漏洞！只要用户在提问里夹带提示词注入（Prompt Injection），诱导模型传入 <code>__import__(&#x27;os&#x27;).system(&#x27;cat /etc/passwd&#x27;)</code>，你的服务器就直接沦陷。生产级安全计算器必须基于 Python <code>ast.parse(..., mode=&#x27;eval&#x27;)</code> 白名单遍历，仅允许数字常量与加减乘除幂运算符。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：还要防指数炸弹，例如 <code>9**9**9</code> 会瞬间打满 CPU 和内存，因此 AST 计算器必须对幂运算指数大小做上限校验（如 <code>abs(right) &gt; 100</code> 直接拒绝）。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 为什么严禁在工具里直接用 eval() 做计算器？」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 39 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day39/</code> 中亲手编写了 <code>src/day39_tools.py</code>、<code>src/day39_react_agent.py</code> 以及对应的自动化测试 <code>tests/test_day39.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day39_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 39 / STARMIND-039）：1. 已在分支 <code>feat/day39-react-agent-from-scratch</code> 完成 Agent 概念与 ReAct 范式 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 40）：明天（Day 40）我们会把手写 ReAct 的痛点（正则解析脆弱、工具参数缺强校验）彻底解决，深入 LangChain 的 <code>@tool</code> 装饰器、JSON Schema 自动提取、<code>ToolCallingAgent</code> 与 <code>AgentExecutor</code> 回调观测体系。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 39 掌握的「Agent 概念与 ReAct 范式」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「Agent 概念与 ReAct 范式」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：Agent 概念与 ReAct 范式 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-039 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day39.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 39 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day39/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day39_tools.py, src/day39_react_agent.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>输入复合差旅核算问题时，Agent 至少完成“先检索制度、再调用计算器、最后给出精确结论”三步闭环。；支持 `max_steps` 最大步数熔断机制，遇到未知工具名或格式异常时能向模型反馈纠偏信息而非崩溃。；所有核心代码与 `pytest` 单元测试无需外网 API Key 即可在本地 100% 运行通过。</td><td>运行 `pytest versions/day39/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day39/day39_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day39-react-agent-from-scratch` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「Agent 概念与 ReAct 范式」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-039 需求时，我们的核心业务目标是：梳理 Chain 与 Agent 的架构差异，掌握感知-思考-行动（Observe-Think-Act）闭环原理。；零框架纯 Python 实现符合 ReAct 论文规范的推理引擎（Thought / Action / Action Input / Observation / Final Answer）。；接入企业内网制度搜索工具与安全四则运算工具，完成复合咨询问题的多步自动求解。。最初我们也评估过极简脚本方案，但在 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 什么是真正的 Agent？四个核心要素缺一不可、2. ReAct 协议与 Stop Sequence（停止词）的关键作用、3. 为什么严禁在工具里直接用 eval() 做计算器？ 这几层解耦抽象，既满足了当前阶段的 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「Agent 概念与 ReAct 范式」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 39 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day39_tools.py、src/day39_react_agent.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天干得漂亮！大家亲眼看到了，哪怕不用一行第三方 Agent 框架，200 行标准库 Python 就能跑通“查制度 -&gt; 算总额 -&gt; 汇总答复”的自主推理闭环。记住老陈一句话：Agent 不是魔法，它就是 <code>while</code> 循环 + 结构化工具调用 + 严格的熔断边界。下班前把 MR 提上来，明天我们升级到工业级工具 Schema 体系。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：扩展企业日期工作日计算工具</strong><span class="badge">基础巩固</span></div><p>为星辰数科 ReAct 工具注册表新增一个 <code>workday_counter</code> 工具，接收形如 <code>&#x27;2026-05-01,2026-05-10&#x27;</code> 的起止日期字符串，统计区间内周一至周五的工作日天数并注册到 <code>ToolRegistry</code> 中。</p><p><strong>💡 思路提示：</strong>使用 Python 标准库 `datetime.date.fromisoformat` 与 `timedelta(days=1)` 遍历日期，`weekday() &lt; 5` 即为工作日。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-39-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-39-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 39 作业 1 参考答案：工作日计算工具。&quot;&quot;&quot;
+
+from datetime import date, timedelta
+
+
+def workday_counter(date_range: str) -&gt; str:
+    &quot;&quot;&quot;计算起止日期（含两端）之间的周一至周五工作日天数。&quot;&quot;&quot;
+    try:
+        start_str, end_str = [p.strip() for p in date_range.split(&quot;,&quot;)]
+        start = date.fromisoformat(start_str)
+        end = date.fromisoformat(end_str)
+        if end &lt; start:
+            return &quot;错误：结束日期不能早于开始日期&quot;
+        days = 0
+        cur = start
+        while cur &lt;= end:
+            if cur.weekday() &lt; 5:
+                days += 1
+            cur += timedelta(days=1)
+        return f&quot;{start_str} 至 {end_str} 共有 {days} 个工作日&quot;
+    except Exception as exc:
+        return f&quot;日期格式错误（期望 YYYY-MM-DD,YYYY-MM-DD）：{exc}&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    print(workday_counter(&quot;2026-05-01,2026-05-10&quot;))
+    assert &quot;6 个工作日&quot; in workday_counter(&quot;2026-05-01,2026-05-10&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>核心考察工具的输入边界校验（起止日期倒挂、非法格式异常捕获）与清晰的自然语言返回，确保 LLM 读到 <code>Observation</code> 后能直接引用结论。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：为 ReAct 引擎增加单步耗时监控与轨迹 JSON 导出</strong><span class="badge">企业实战</span></div><p>扩展 <code>ReActAgent</code>，为每个 <code>AgentStep</code> 增加 <code>latency_ms: float</code> 字段，统计每轮模型思考与工具执行耗时，并提供 <code>to_trace_json()</code> 方法将完整轨迹导出为 JSON 字符串。</p><p><strong>💡 思路提示：</strong>使用 `time.perf_counter()` 计算毫秒差值，利用 `dataclasses.asdict` 与 `json.dumps(..., ensure_ascii=False, indent=2)` 序列化。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-39-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-39-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 39 作业 2 参考答案：带耗时统计的轨迹追踪器。&quot;&quot;&quot;
+
+import json
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Callable, List
+
+
+@dataclass
+class TimedStep:
+    step: int
+    action: str
+    observation: str
+    latency_ms: float
+
+
+@dataclass
+class TimedTrace:
+    question: str
+    steps: List[TimedStep] = field(default_factory=list)
+
+    def to_trace_json(self) -&gt; str:
+        return json.dumps(asdict(self), ensure_ascii=False, indent=2)
+
+
+def run_timed_tool(func: Callable[[str], str], arg: str) -&gt; tuple[str, float]:
+    t0 = time.perf_counter()
+    res = func(arg)
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 3)
+    return res, elapsed_ms
+
+
+if __name__ == &quot;__main__&quot;:
+    obs, ms = run_timed_tool(lambda x: f&quot;echo:{x}&quot;, &quot;星辰数科&quot;)
+    trace = TimedTrace(question=&quot;测试耗时&quot;, steps=[TimedStep(1, &quot;echo&quot;, obs, ms)])
+    payload = trace.to_trace_json()
+    print(payload)
+    assert &quot;latency_ms&quot; in payload
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>生产环境中 Agent 往往比普通问答慢 3-5 倍，只有把每一步 LLM 与工具的耗时精确到毫秒记录下来，才能定位瓶颈是出在模型慢还是数据库查询慢。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：实现“连续重复动作”提前熔断器</strong><span class="badge">架构进阶</span></div><p>大模型有时会在 <code>max_steps</code> 还没耗尽时就连续两次调用完全相同的 <code>(action, action_input)</code>。请编写一个 <code>LoopGuard</code> 类，当同一动作和参数连续出现 2 次时触发警告并强制拦截。</p><p><strong>💡 思路提示：</strong>维护一个历史调用签名列表 `(action, normalized_input)`，每次调用前比对最近一次签名。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-39-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-39-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 39 作业 3 参考答案：ReAct 重复动作熔断器。&quot;&quot;&quot;
+
+from typing import List, Tuple
+
+
+class LoopGuard:
+    &quot;&quot;&quot;检测并拦截 Agent 连续重复调用同一工具与参数的死循环。&quot;&quot;&quot;
+
+    def __init__(self, max_consecutive_repeats: int = 2) -&gt; None:
+        self.max_consecutive_repeats = max_consecutive_repeats
+        self._history: List[Tuple[str, str]] = []
+
+    def check_and_record(self, action: str, action_input: str) -&gt; tuple[bool, str]:
+        sig = (action.strip(), action_input.strip())
+        self._history.append(sig)
+        if len(self._history) &gt;= self.max_consecutive_repeats:
+            recent = self._history[-self.max_consecutive_repeats :]
+            if all(item == sig for item in recent):
+                return (
+                    False,
+                    f&quot;熔断拦截：检测到连续 {self.max_consecutive_repeats} 次重复调用 &quot;
+                    f&quot;{sig[0]}({sig[1]})，请更换策略或直接总结已有信息输出 Final Answer。&quot;,
+                )
+        return True, &quot;OK&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    guard = LoopGuard(max_consecutive_repeats=2)
+    assert guard.check_and_record(&quot;internal_search&quot;, &quot;上海&quot;)[0] is True
+    ok, msg = guard.check_and_record(&quot;internal_search&quot;, &quot;上海&quot;)
+    print(&quot;第二次相同调用:&quot;, ok, msg)
+    assert ok is False and &quot;熔断拦截&quot; in msg
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>相比傻等 <code>max_steps=10</code> 烧完 Token，<code>LoopGuard</code> 在第 2 次原地打转时就能立刻给出纠偏信号，直接节省 60% 以上的无效推理成本。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day38/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day40/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

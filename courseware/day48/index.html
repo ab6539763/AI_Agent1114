@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 48：阶段项目三(上)——多 Agent 智能办公助手 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 4 阶段 · 第 7 周</span>
+      <span class="badge badge-ticket">STARMIND-048</span>
+      <span class="badge">Day 48 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="48" onclick="toggleDayComplete(48, this)">标记今日已完成</button>
+      <a class="btn" href="../day47/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day49/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day48-project3-office-tools-agents</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day48/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day48/day48_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day48_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 4 阶段：第四阶段：Agent 智能体开发与多 Agent 协同 · 第 7 周：Agent 工程化护栏、行业场景与多 Agent 办公助手实战</div>
+        <h1>Day 48：阶段项目三(上)——多 Agent 智能办公助手</h1>
+        <p class="hero-sub">星辰办公助手整体架构设计、专家 Agent 角色划分与 5 大企业办公工具集实现</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-048</span>
+          <span class="hero-tag">分支：feat/day48-project3-office-tools-agents</span>
+          <span class="hero-tag">角色：负责复杂业务编排与多智能体协同的 Agent 核心研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！今天正式开干**阶段项目三（上）——多 Agent 智能办公助手**！这是咱们第四阶段的综合大考，也是写进简历里最硬核的企业级 Agent 项目。需求来自星辰数科全体员工的真实日常：每天要查公司制度、搜行业资讯、约跨部门会议、写对外合作邮件、还要填报销和请假审批单。今天（上集）我们先把架构蓝图定死，亲手写完 **5 大企业办公工具**（日程冲突检测与预定、邮件草拟与校验、行业资讯搜索、内部文档 RAG、费用/请假审批单）以及 **3 位职责隔离的领域专家 Agent**，并给每个高危操作贴好安全风险标签！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>前面九天我们把 ReAct、LangGraph、Checkpointer/HITL、多 Agent Supervisor、MCP、Guardrails 和 Text-to-SQL 全部练熟了。从今天开始，我们要把所有技能融会贯通，打造第四阶段毕业大项目——**星辰智脑「多 Agent 智能办公助手」**！</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 49）进入阶段项目三（下）：把今天建好的 5 大工具和 3 名专家 Agent 装配进带 SQLite Checkpointer + 高危动作 HITL 人工确认的状态图编排器，并封装生产级 FastAPI 服务完成全链路联调测试！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 48 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 48）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责复杂业务编排与多智能体协同的 Agent 核心研发工程师】，依托的工程底座是【StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台】。回顾昨天留下的上下文：前面九天我们把 ReAct、LangGraph、Checkpointer/HITL、多 Agent Supervisor、MCP、Guardrails 和 Text-to-SQL 全部练熟了。从今天开始，我们要把所有技能融会贯通，打造第四阶段毕业大项目——**星辰智脑「多 Agent 智能办公助手」**！ 今天我们通过需求单 STARMIND-048，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day48/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 49）进入阶段项目三（下）：把今天建好的 5 大工具和 3 名专家 Agent 装配进带 SQLite Checkpointer + 高危动作 HITL 人工确认的状态图编排器，并封装生产级 FastAPI 服务完成全链路联调测试！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:30 - 12:00</strong></td><td>项目三架构评审、领域建模与风险分级设计</td><td>明确四层架构、三大专家 Agent 职责与工具白名单、LOW / HIGH_RISK 动作分级规范及统一 `ToolResult` 协议。</td></tr>
+<tr><td><strong>下午 13:30 - 15:30</strong></td><td>动手实操（一）：5 大企业办公工具集与数据底座</td><td>编写 `src/day48_office_tools.py`，实现日程冲突检测、邮件草拟校验、资讯搜索、文档 RAG 检索与审批单引擎。</td></tr>
+<tr><td><strong>下午 15:45 - 17:30</strong></td><td>动手实操（二）：三大领域专家 Agent 与工具路由</td><td>编写 `src/day48_office_agents.py`，封装 `SchedulerAgent`、`KnowledgeAgent`、`ApprovalAgent` 并输出结构化执行计划。</td></tr>
+<tr><td><strong>晚间 19:00 - 20:30</strong></td><td>工具边界单元测试与 MR 评审</td><td>运行 `pytest` 覆盖日程冲突、非法邮箱、高额审批标记与文档召回等全部边界条件，完成 3 道项目预研题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-048）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科员工日常办公分散在 OA 审批、企业日历、企业邮箱、Confluence 知识库和外部资讯 5 个孤立系统中，完成一次“查差旅标准 -&gt; 约评审会 -&gt; 发邮件通知 -&gt; 提报销单”的复合任务平均需要切换 4 个网页耗时 25 分钟。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>多套办公系统割裂，员工频繁切换入口、重复填写会议时间与审批字段。</li><li>单 Agent 挂载全部办公工具极易误触发外发邮件或错提财务审批，风险不可控。</li><li>缺少统一的工具返回契约（`ToolResult`）与操作风险分级，后续编排层无法识别哪些动作必须人工确认。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>完成「多 Agent 智能办公助手」整体四层架构设计（API 网关层 -&gt; 编排与 HITL 持久层 -&gt; 专家 Agent 层 -&gt; 企业工具与数据层）。</li><li>实现 5 个完整可本地运行的企业办公工具：`calendar_tool`、`email_draft_tool`、`web_search_tool`、`doc_rag_tool`、`approval_tool`。</li><li>实现 3 位领域专家 Agent：`SchedulerAgent`（日程/邮件）、`KnowledgeAgent`（文档 RAG/资讯搜索）、`ApprovalAgent`（审批单），并输出明确的风险等级标记。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>日程工具支持检测会议室/参会人时间冲突，冲突时拒绝预定并给出冲突详情；空闲时段预定成功。</li><li>邮件工具校验收件人邮箱格式合法性并生成草稿（标记为 `HIGH_RISK`，等待人工确认后才真正外发）。</li><li>审批工具支持请假与报销单创建，金额 &gt; 5000 元自动标记 `HIGH_RISK` 需总监人工复核；文档 RAG 与搜索工具可精准召回相关条目，所有单测本地 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>所有工具返回统一 `ToolResult(ok, tool_name, risk_level, data, message)`，便于上层编排器与 Trace 统一观测。</li><li>所有状态数据保存在独立实例对象（`OfficeWorkspaceStore`）中，确保并发测试与多租户隔离互不干扰。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>阶段项目三「多 Agent 智能办公助手」是星辰智脑中台最具代表性的综合工程项目，采用经典的**四层清晰解耦架构**：</p>
+<p>1. **入口与安全网关层（Day 49 落地）**：FastAPI REST 接口 + <code>GuardrailsEngine</code>（Prompt 注入拦截 + 输出 PII 脱敏）。<br/>2. **多 Agent 编排与持久层（Day 49 落地）**：Supervisor 意图路由 + SQLite Checkpointer + 高危动作 <code>HITL</code> 人工确认中断/恢复。<br/>3. **领域专家 Agent 层（今天落地）**：按企业职能拆分为三位职责清晰、工具权限严格隔离的专家：<br/>   - <code>KnowledgeAgent</code>（只读低风险）：绑定 <code>doc_rag_tool</code> + <code>web_search_tool</code>，负责制度查询与行业情报检索；<br/>   - <code>SchedulerAgent</code>（写操作混合风险）：绑定 <code>calendar_tool</code>（日程冲突校验预定）+ <code>email_draft_tool</code>（邮件草拟，外发标记 <code>HIGH_RISK</code>）；<br/>   - <code>ApprovalAgent</code>（强合规高风险）：绑定 <code>approval_tool</code>，负责请假/报销单草拟与提交，大额报销（&gt; ¥5000）自动升级为 <code>HIGH_RISK</code> 强制人工复核。<br/>4. **企业工具与工作区存储层（今天落地）**：全部 5 个工具共享统一 <code>ToolResult</code> 数据契约与可注入的 <code>OfficeWorkspaceStore</code>，既杜绝全局可变状态污染单测，又方便明天无缝接入编排器和 FastAPI。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 48.1：多 Agent 智能办公助手四层系统架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 552" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="552" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">多 Agent 智能办公助手四层系统架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">FastAPI 网关 + Guardrails</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">鉴权 / 注入拦截 / PII 脱敏</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">OfficeSupervisor + Checkpointer</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">意图路由 + 高危 HITL 断点</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">KnowledgeAgent</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">doc_rag + web_search (LOW)</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">SchedulerAgent</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">calendar + email_draft (MIXED)</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">ApprovalAgent</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">approval_tool (HIGH_RISK)</text>
+<rect x="24" y="400" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="414" width="540" height="76" rx="9" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="430.0" y="444" text-anchor="middle" font-size="14" font-weight="700" fill="#075985">OfficeWorkspaceStore</text>
+<text x="430.0" y="468" text-anchor="middle" font-size="12" fill="#475569">日程/邮件/知识库/审批单底座</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">校验后请求</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">查制度/行业资讯</text>
+<line x1="231.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="231.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">约会议/草拟邮件</text>
+<line x1="231.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">提报销/请假审批</text>
+<line x1="629.0" y1="250" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="326.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">只读检索</text>
+<line x1="231.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">校验冲突/存草稿</text>
+<line x1="629.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">创建待审单据</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示项目三从 FastAPI 入口、Supervisor 编排与 HITL 持久层，到三大领域专家 Agent 及 5 大企业办公工具的完整分层。</div></div><div class="diagram-card"><div class="diagram-title">图 48.2：5 大企业办公工具风险分级矩阵图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">5 大企业办公工具风险分级矩阵图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">doc_rag_tool / web_search_tool</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">只读检索 -&gt; LOW (直接执行)</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">calendar_tool</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">内部预定 -&gt; LOW (冲突拦截)</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">email_draft_tool</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">对外发信 -&gt; HIGH_RISK (需确认)</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">approval_tool (&gt;5000元)</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">财务支出 -&gt; HIGH_RISK (需总监复核)</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>明确划分只读低风险工具与具备外部副作用/财务影响的高风险工具，为 Day 49 自动触发 HITL 确认提供依据。</div></div><div class="diagram-card"><div class="diagram-title">图 48.3：日程冲突检测与预定流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">日程冲突检测与预定流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">接收会议请求</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">date / start / end / attendees</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">校验时间合法性</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">start &lt; end ?</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">扫描已有日程</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">检查同日区间重叠 (s1&lt;e2 and s2&lt;e1)</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">写入新会议记录</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">返回 meeting_id 与确认详情</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">拒绝并返回冲突</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">提示冲突会议主题与时段</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">参数校验</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="555.5" y="66.0" width="36" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">合法</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="694.0" y="132.5" width="48" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">无冲突</text>
+<line x1="718.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="545.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">时间重叠</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 calendar_tool 在预定新会议前如何校验时间区间重叠，防止出现双 booked 撞车事故。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么必须统一 `ToolResult` 契约？</h3><p>如果日程工具返回字符串、审批工具返回 dict、邮件工具直接抛异常，上层 Multi-Agent 编排器很快会写满丑陋的 <code>isinstance</code> 兼容代码。统一封装 <code>ToolResult(ok, tool_name, risk_level, data, message)</code> 后，编排器只需判断 <code>result.risk_level == &#x27;HIGH_RISK&#x27;</code> 即可通用地触发 HITL 审批断点！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：不要把业务可预期失败（如“会议时间冲突”“邮箱格式错误”）当成未捕获异常直接 500 炸掉，而应返回 `ToolResult(ok=False, message=&#x27;...&#x27;)`，让 Agent 看懂原因并主动换时间或向用户追问。</div><h3>2. 2. 经典时间区间重叠判定公式</h3><p>判断两个时间段 <code>[start1, end1)</code> 与 <code>[start2, end2)</code> 是否冲突，最简洁无 Bug 的数学条件是：<code>start1 &lt; end2 and start2 &lt; end1</code>（注意使用半开区间，这样 10:00-11:00 与 11:00-12:00 紧密衔接时不会误判冲突）。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：把比较符号写成 `&lt;=` 会导致两场首尾相接的会议被错误判定为冲突！</div><h3>3. 3. 邮件草拟与外发分离（Draft-First Pattern）</h3><p>企业办公助手里**永远不要给 Agent 提供“一键直接外发外部邮件”的无保护工具**！标准做法是拆成两步：专家 Agent 只能调用 <code>email_draft_tool</code> 生成草稿并标记 <code>HIGH_RISK</code>，待用户在审批界面确认收件人和正文后，再由后端确定性代码执行实际发送。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：大模型偶尔会把“抄送给王总”幻觉成 `wang@gmail.com` 等外部错误邮箱，必须用域名/格式正则校验并展示给人工二次核对。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈项目实战贴士：为什么项目三要拆成“工具层 + 专家层 + 编排层”？】<br/>很多同学做大项目喜欢把 FastAPI 路由、Prompt、工具函数、SQLite 读写全揉在一个 <code>app.py</code> 里，写到 500 行就彻底改不动了。今天我们坚持把 **工具底座 (<code>day48_office_tools.py</code>)** 与 **领域专家 (<code>day48_office_agents.py</code>)** 独立出来，明天只需写干净的 **编排层 (<code>day49_office_orchestrator.py</code>)** 和 **薄如蝉翼的 API 层 (<code>day49_office_api.py</code>)**。这叫“六边形架构思想”——哪天公司要从 FastAPI 换成钉钉机器人回调或企业微信长连接，核心工具和专家代码一行都不用改！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day48/</code> 与 <code>notebooks/day48/day48_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现 5 大企业办公工具集与统一工作区底座</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>我们一口气把项目三的 5 大核心企业工具全部高质量实现出来：日程冲突检测与预定、邮件草拟与邮箱校验、行业资讯搜索、企业文档 RAG 检索、以及请假/报销审批单管理，全部挂载在可隔离的 <code>OfficeWorkspaceStore</code> 上！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day48_office_tools.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 48 - 步骤一：阶段项目三 5 大企业办公工具集与统一工作区底座。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
+
+EMAIL_RE = re.compile(r&quot;^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$&quot;)
+
+
+@dataclass
+class ToolResult:
+    ok: bool
+    tool_name: str
+    risk_level: str  # &quot;LOW&quot; | &quot;HIGH_RISK&quot;
+    data: Dict[str, Any] = field(default_factory=dict)
+    message: str = &quot;&quot;
+
+
+class OfficeWorkspaceStore:
+    &quot;&quot;&quot;可隔离的企业办公内存工作区（日程/邮件草稿/知识文档/外部资讯/审批单）。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self.meetings: List[Dict[str, Any]] = [
+            {
+                &quot;meeting_id&quot;: &quot;MTG-001&quot;,
+                &quot;title&quot;: &quot;星辰智脑架构周会&quot;,
+                &quot;date&quot;: &quot;2026-11-20&quot;,
+                &quot;start_hour&quot;: 10,
+                &quot;end_hour&quot;: 11,
+                &quot;attendees&quot;: [&quot;老陈&quot;, &quot;阿杰&quot;, &quot;林产品&quot;],
+            }
+        ]
+        self.email_drafts: Dict[str, Dict[str, Any]] = {}
+        self.approvals: Dict[str, Dict[str, Any]] = {}
+        self.audit_logs: List[Dict[str, Any]] = []
+        self.internal_docs: List[Dict[str, str]] = [
+            {
+                &quot;doc_id&quot;: &quot;DOC-TRAVEL-2026&quot;,
+                &quot;title&quot;: &quot;2026年星辰数科差旅报销管理制度&quot;,
+                &quot;content&quot;: &quot;一线城市住宿上限 600 元/晚，餐补 120 元/天；单笔报销超过 5000 元须经部门总监人工复核。&quot;,
+            },
+            {
+                &quot;doc_id&quot;: &quot;DOC-LEAVE-2026&quot;,
+                &quot;title&quot;: &quot;员工年假与病假审批规范&quot;,
+                &quot;content&quot;: &quot;年假 3 天及以内由直属主管审批，超过 3 天须部门负责人审批；需提前至少 1 个工作日提交 OA 审批单。&quot;,
+            },
+            {
+                &quot;doc_id&quot;: &quot;DOC-SECURITY-2026&quot;,
+                &quot;title&quot;: &quot;AI 办公助手数据安全红线&quot;,
+                &quot;content&quot;: &quot;禁止对外发邮件中包含未脱敏客户手机号与内部密钥；高危写操作必须经过 Human-in-the-loop 人工确认。&quot;,
+            },
+        ]
+        self.web_news: List[Dict[str, str]] = [
+            {
+                &quot;title&quot;: &quot;2026 企业级多 Agent 协同落地白皮书发布&quot;,
+                &quot;snippet&quot;: &quot;报告指出采用 LangGraph 状态机与 MCP 协议的企业，AI 办公自动化交付周期缩短 45%。&quot;,
+            },
+            {
+                &quot;title&quot;: &quot;金融与政企加速推进 Text-to-SQL 只读安全问数&quot;,
+                &quot;snippet&quot;: &quot;双重只读防护与语义指标宽表成为企业智能问数标配架构。&quot;,
+            },
+        ]
+
+    def log_audit(self, tool_name: str, actor: str, status: str, detail: str) -&gt; None:
+        self.audit_logs.append(
+            {&quot;tool&quot;: tool_name, &quot;actor&quot;: actor, &quot;status&quot;: status, &quot;detail&quot;: detail}
+        )
+
+
+class EnterpriseOfficeToolkit:
+    &quot;&quot;&quot;封装 5 大企业办公工具：日程、邮件草拟、资讯搜索、文档 RAG、审批单。&quot;&quot;&quot;
+
+    def __init__(self, store: OfficeWorkspaceStore) -&gt; None:
+        self.store = store
+
+    # 工具 1：日程冲突检测与会议预定
+    def calendar_tool(
+        self,
+        title: str,
+        date: str,
+        start_hour: int,
+        end_hour: int,
+        attendees: List[str],
+        actor: str = &quot;employee&quot;,
+    ) -&gt; ToolResult:
+        if start_hour &gt;= end_hour or not (0 &lt;= start_hour &lt;= 23 and 1 &lt;= end_hour &lt;= 24):
+            self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;REJECTED&quot;, &quot;非法会议时段&quot;)
+            return ToolResult(False, &quot;calendar_tool&quot;, &quot;LOW&quot;, {}, &quot;会议起止时间不合法，要求 start_hour &lt; end_hour&quot;)
+
+        for m in self.store.meetings:
+            if m[&quot;date&quot;] == date and (start_hour &lt; m[&quot;end_hour&quot;] and m[&quot;start_hour&quot;] &lt; end_hour):
+                self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;CONFLICT&quot;, f&quot;与 {m[&#x27;meeting_id&#x27;]} 冲突&quot;)
+                return ToolResult(
+                    False,
+                    &quot;calendar_tool&quot;,
+                    &quot;LOW&quot;,
+                    {&quot;conflict_with&quot;: m},
+                    f&quot;日程冲突：{date} {start_hour}:00-{end_hour}:00 与《{m[&#x27;title&#x27;]}》({m[&#x27;start_hour&#x27;]}:00-{m[&#x27;end_hour&#x27;]}:00) 重叠&quot;,
+                )
+
+        mtg_id = f&quot;MTG-{len(self.store.meetings) + 1:03d}&quot;
+        record = {
+            &quot;meeting_id&quot;: mtg_id,
+            &quot;title&quot;: title,
+            &quot;date&quot;: date,
+            &quot;start_hour&quot;: start_hour,
+            &quot;end_hour&quot;: end_hour,
+            &quot;attendees&quot;: attendees,
+        }
+        self.store.meetings.append(record)
+        self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;OK&quot;, f&quot;已预定 {mtg_id}&quot;)
+        return ToolResult(True, &quot;calendar_tool&quot;, &quot;LOW&quot;, record, f&quot;会议《{title}》预定成功（编号 {mtg_id}）&quot;)
+
+    # 工具 2：邮件草拟与收件人校验（标记为 HIGH_RISK，需人工确认外发）
+    def email_draft_tool(
+        self,
+        to_email: str,
+        subject: str,
+        body: str,
+        actor: str = &quot;employee&quot;,
+    ) -&gt; ToolResult:
+        if not EMAIL_RE.match(to_email.strip()):
+            self.store.log_audit(&quot;email_draft_tool&quot;, actor, &quot;REJECTED&quot;, f&quot;非法邮箱 {to_email}&quot;)
+            return ToolResult(False, &quot;email_draft_tool&quot;, &quot;HIGH_RISK&quot;, {}, f&quot;收件人邮箱格式非法: {to_email}&quot;)
+
+        draft_id = f&quot;MAIL-{len(self.store.email_drafts) + 1:03d}&quot;
+        draft = {
+            &quot;draft_id&quot;: draft_id,
+            &quot;to&quot;: to_email.strip(),
+            &quot;subject&quot;: subject.strip(),
+            &quot;body&quot;: body.strip(),
+            &quot;status&quot;: &quot;PENDING_CONFIRMATION&quot;,
+        }
+        self.store.email_drafts[draft_id] = draft
+        self.store.log_audit(&quot;email_draft_tool&quot;, actor, &quot;DRAFTED&quot;, f&quot;草稿 {draft_id} 待人工确认&quot;)
+        return ToolResult(
+            True,
+            &quot;email_draft_tool&quot;,
+            &quot;HIGH_RISK&quot;,
+            draft,
+            f&quot;已生成待确认邮件草稿 {draft_id}（收件人: {draft[&#x27;to&#x27;]}），等待人工确认后外发&quot;,
+        )
+
+    # 工具 3：行业资讯模拟网络搜索
+    def web_search_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolResult:
+        q_chars = {c for c in query.lower() if c.strip()}
+        hits = []
+        for item in self.store.web_news:
+            text = (item[&quot;title&quot;] + item[&quot;snippet&quot;]).lower()
+            score = sum(1 for c in q_chars if c in text)
+            if score &gt; 0:
+                hits.append((score, item))
+        hits.sort(key=lambda x: x[0], reverse=True)
+        matched = [x[1] for x in hits[:2]]
+        self.store.log_audit(&quot;web_search_tool&quot;, actor, &quot;OK&quot;, f&quot;命中 {len(matched)} 条资讯&quot;)
+        return ToolResult(True, &quot;web_search_tool&quot;, &quot;LOW&quot;, {&quot;results&quot;: matched}, f&quot;检索到 {len(matched)} 条行业资讯&quot;)
+
+    # 工具 4：内部企业文档 RAG 检索
+    def doc_rag_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolResult:
+        q_chars = {c for c in query.lower() if c.strip()}
+        scored = []
+        for doc in self.store.internal_docs:
+            text = (doc[&quot;title&quot;] + doc[&quot;content&quot;]).lower()
+            overlap = sum(1 for c in q_chars if c in text)
+            if overlap &gt; 0:
+                scored.append((overlap, doc))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top_docs = [x[1] for x in scored[:2]]
+        self.store.log_audit(&quot;doc_rag_tool&quot;, actor, &quot;OK&quot;, f&quot;召回 {len(top_docs)} 篇制度文档&quot;)
+        return ToolResult(True, &quot;doc_rag_tool&quot;, &quot;LOW&quot;, {&quot;docs&quot;: top_docs}, f&quot;召回 {len(top_docs)} 篇企业制度文档&quot;)
+
+    # 工具 5：费用/请假审批单创建
+    def approval_tool(
+        self,
+        approval_type: str,  # &quot;expense&quot; | &quot;leave&quot;
+        applicant: str,
+        amount_or_days: float,
+        reason: str,
+    ) -&gt; ToolResult:
+        if approval_type not in (&quot;expense&quot;, &quot;leave&quot;) or amount_or_days &lt;= 0:
+            return ToolResult(False, &quot;approval_tool&quot;, &quot;HIGH_RISK&quot;, {}, &quot;审批类型必须为 expense/leave 且数值大于 0&quot;)
+
+        is_high_risk = (approval_type == &quot;expense&quot; and amount_or_days &gt; 5000) or (
+            approval_type == &quot;leave&quot; and amount_or_days &gt; 3
+        )
+        risk = &quot;HIGH_RISK&quot; if is_high_risk else &quot;LOW&quot;
+        app_id = f&quot;OA-{len(self.store.approvals) + 1:03d}&quot;
+        record = {
+            &quot;approval_id&quot;: app_id,
+            &quot;type&quot;: approval_type,
+            &quot;applicant&quot;: applicant,
+            &quot;value&quot;: amount_or_days,
+            &quot;reason&quot;: reason,
+            &quot;status&quot;: &quot;PENDING_HUMAN_APPROVAL&quot; if is_high_risk else &quot;AUTO_SUBMITTED&quot;,
+        }
+        self.store.approvals[app_id] = record
+        self.store.log_audit(&quot;approval_tool&quot;, applicant, record[&quot;status&quot;], f&quot;{app_id} ({risk})&quot;)
+        return ToolResult(
+            True,
+            &quot;approval_tool&quot;,
+            risk,
+            record,
+            f&quot;审批单 {app_id} 已创建（风险等级: {risk}，状态: {record[&#x27;status&#x27;]}）&quot;,
+        )
+
+
+if __name__ == &quot;__main__&quot;:
+    store = OfficeWorkspaceStore()
+    kit = EnterpriseOfficeToolkit(store)
+    print(kit.doc_rag_tool(&quot;差旅住宿报销标准&quot;))
+    print(kit.calendar_tool(&quot;项目三评审&quot;, &quot;2026-11-20&quot;, 14, 15, [&quot;老陈&quot;, &quot;林产品&quot;]))
+    print(kit.email_draft_tool(&quot;partner@client.com&quot;, &quot;合作方案确认&quot;, &quot;您好，附件为星辰智脑方案。&quot;))
+    print(kit.approval_tool(&quot;expense&quot;, &quot;阿杰&quot;, 6800.0, &quot;华东客户现场实施差旅费&quot;))
+</code></pre><div class="output-box"># 预期运行输出示例：
+ToolResult(ok=True, tool_name=&#x27;doc_rag_tool&#x27;, risk_level=&#x27;LOW&#x27;, ...)
+ToolResult(ok=True, tool_name=&#x27;calendar_tool&#x27;, risk_level=&#x27;LOW&#x27;, ..., message=&#x27;会议《项目三评审》预定成功（编号 MTG-002）&#x27;)
+ToolResult(ok=True, tool_name=&#x27;email_draft_tool&#x27;, risk_level=&#x27;HIGH_RISK&#x27;, ..., message=&#x27;已生成待确认邮件草稿 MAIL-001（收件人: partner@client.com），等待人工确认后外发&#x27;)
+ToolResult(ok=True, tool_name=&#x27;approval_tool&#x27;, risk_level=&#x27;HIGH_RISK&#x27;, ..., message=&#x27;审批单 OA-001 已创建（风险等级: HIGH_RISK，状态: PENDING_HUMAN_APPROVAL）&#x27;)</div></div><h4>深度代码解析与工程要点</h4><p>1. 五大工具全部返回标准 <code>ToolResult</code>，清楚标明 <code>ok</code> 与 <code>risk_level</code>（<code>LOW</code> / <code>HIGH_RISK</code>）。<br/>2. 每次工具调用都会自动写入 <code>store.audit_logs</code>，满足企业内控审计要求。<br/>3. <code>calendar_tool</code> 使用严格半开区间重叠公式，<code>email_draft_tool</code> 采用 Draft-First 模式，<code>approval_tool</code> 对大额报销（&gt;5000）与长假（&gt;3天）自动升级为 <code>HIGH_RISK</code>。</p><h3>实操步骤 2：步骤二：实现三大领域专家 Agent（知识/日程邮件/审批）与权限边界</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>工具齐全了，现在把它们按最小权限原则封装进三位领域专家 Agent：<code>KnowledgeAgent</code>、<code>SchedulerAgent</code>、<code>ApprovalAgent</code>。每位专家只绑定自己专属的工具，对外暴露统一的 <code>handle(request, context)</code> 接口，随时准备接入明天 Day 49 的 LangGraph 编排器！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day48_office_agents.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 48 - 步骤二：多 Agent 智能办公助手三大领域专家 Agent。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, List
+
+from src.day48_office_tools import EnterpriseOfficeToolkit, OfficeWorkspaceStore, ToolResult
+
+
+@dataclass
+class AgentResponse:
+    agent_name: str
+    summary: str
+    requires_human_confirmation: bool
+    tool_results: List[ToolResult]
+
+
+class KnowledgeAgent:
+    &quot;&quot;&quot;知识检索专员：仅拥有只读权限（doc_rag_tool + web_search_tool）。&quot;&quot;&quot;
+
+    name = &quot;knowledge_agent&quot;
+    allowed_tools = [&quot;doc_rag_tool&quot;, &quot;web_search_tool&quot;]
+
+    def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:
+        self.toolkit = toolkit
+
+    def handle(self, query: str, params: Dict[str, Any] | None = None) -&gt; AgentResponse:
+        results: List[ToolResult] = []
+        if any(k in query for k in (&quot;行业&quot;, &quot;趋势&quot;, &quot;资讯&quot;, &quot;白皮书&quot;, &quot;新闻&quot;)):
+            r = self.toolkit.web_search_tool(query)
+            results.append(r)
+            snippets = [x[&quot;snippet&quot;] for x in r.data.get(&quot;results&quot;, [])]
+            summary = &quot;；&quot;.join(snippets) or &quot;未检索到相关行业资讯。&quot;
+        else:
+            r = self.toolkit.doc_rag_tool(query)
+            results.append(r)
+            docs = r.data.get(&quot;docs&quot;, [])
+            summary = &quot;；&quot;.join(f&quot;《{d[&#x27;title&#x27;]}》:{d[&#x27;content&#x27;]}&quot; for d in docs) or &quot;未检索到相关内部制度。&quot;
+        return AgentResponse(self.name, summary, False, results)
+
+
+class SchedulerAgent:
+    &quot;&quot;&quot;日程与邮件专员：绑定 calendar_tool 与 email_draft_tool。&quot;&quot;&quot;
+
+    name = &quot;scheduler_agent&quot;
+    allowed_tools = [&quot;calendar_tool&quot;, &quot;email_draft_tool&quot;]
+
+    def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:
+        self.toolkit = toolkit
+
+    def handle(self, query: str, params: Dict[str, Any] | None = None) -&gt; AgentResponse:
+        p = params or {}
+        if &quot;邮件&quot; in query or &quot;email&quot; in query.lower():
+            res = self.toolkit.email_draft_tool(
+                to_email=p.get(&quot;to_email&quot;, &quot;client@example.com&quot;),
+                subject=p.get(&quot;subject&quot;, &quot;星辰数科项目同步&quot;),
+                body=p.get(&quot;body&quot;, query),
+                actor=p.get(&quot;actor&quot;, &quot;employee&quot;),
+            )
+            return AgentResponse(
+                self.name,
+                res.message,
+                requires_human_confirmation=(res.ok and res.risk_level == &quot;HIGH_RISK&quot;),
+                tool_results=[res],
+            )
+
+        res = self.toolkit.calendar_tool(
+            title=p.get(&quot;title&quot;, &quot;项目沟通会&quot;),
+            date=p.get(&quot;date&quot;, &quot;2026-11-20&quot;),
+            start_hour=int(p.get(&quot;start_hour&quot;, 14)),
+            end_hour=int(p.get(&quot;end_hour&quot;, 15)),
+            attendees=list(p.get(&quot;attendees&quot;, [&quot;老陈&quot;, &quot;林产品&quot;])),
+            actor=p.get(&quot;actor&quot;, &quot;employee&quot;),
+        )
+        return AgentResponse(self.name, res.message, False, [res])
+
+
+class ApprovalAgent:
+    &quot;&quot;&quot;审批流程专员：绑定 approval_tool，大额报销/长假自动要求人工确认。&quot;&quot;&quot;
+
+    name = &quot;approval_agent&quot;
+    allowed_tools = [&quot;approval_tool&quot;]
+
+    def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:
+        self.toolkit = toolkit
+
+    def handle(self, query: str, params: Dict[str, Any] | None = None) -&gt; AgentResponse:
+        p = params or {}
+        app_type = p.get(&quot;approval_type&quot;, &quot;leave&quot; if &quot;请假&quot; in query or &quot;年假&quot; in query else &quot;expense&quot;)
+        value = float(p.get(&quot;value&quot;, 1000.0 if app_type == &quot;expense&quot; else 1.0))
+        res = self.toolkit.approval_tool(
+            approval_type=app_type,
+            applicant=p.get(&quot;actor&quot;, &quot;employee&quot;),
+            amount_or_days=value,
+            reason=p.get(&quot;reason&quot;, query),
+        )
+        return AgentResponse(
+            self.name,
+            res.message,
+            requires_human_confirmation=(res.ok and res.risk_level == &quot;HIGH_RISK&quot;),
+            tool_results=[res],
+        )
+
+
+if __name__ == &quot;__main__&quot;:
+    store = OfficeWorkspaceStore()
+    kit = EnterpriseOfficeToolkit(store)
+    ka = KnowledgeAgent(kit)
+    sa = SchedulerAgent(kit)
+    aa = ApprovalAgent(kit)
+
+    print(&quot;知识专员:&quot;, ka.handle(&quot;差旅报销制度&quot;))
+    print(&quot;日程专员:&quot;, sa.handle(&quot;帮我发邮件给客户&quot;, {&quot;to_email&quot;: &quot;boss@partner.cn&quot;, &quot;subject&quot;: &quot;报价确认&quot;}))
+    print(&quot;审批专员:&quot;, aa.handle(&quot;提交 8000 元差旅报销&quot;, {&quot;approval_type&quot;: &quot;expense&quot;, &quot;value&quot;: 8000.0}))
+</code></pre><div class="output-box"># 预期运行输出示例：
+知识专员: AgentResponse(agent_name=&#x27;knowledge_agent&#x27;, ..., requires_human_confirmation=False, ...)
+日程专员: AgentResponse(agent_name=&#x27;scheduler_agent&#x27;, ..., requires_human_confirmation=True, ...)
+审批专员: AgentResponse(agent_name=&#x27;approval_agent&#x27;, ..., requires_human_confirmation=True, ...)</div></div><h4>深度代码解析与工程要点</h4><p>1. 三位专家通过 <code>allowed_tools</code> 明确最小权限边界，<code>KnowledgeAgent</code> 永远不会触发任何写操作。<br/>2. 统一返回 <code>AgentResponse</code>，其中 <code>requires_human_confirmation</code> 字段直接把高危动作信号暴露给明天 Day 49 的 LangGraph 编排器触发 <code>INTERRUPTED</code> 中断。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现 5 大企业办公工具集与统一工作区底座（src/day48_office_tools.py）</h3><p>模块 <code>src/day48_office_tools.py</code> 共计 215 行源码，其中包含 5 行中文工程注释（注释密度约 2.3%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-048 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ToolResult</code>（第 13~18 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>OfficeWorkspaceStore</code>（第 21~69 行）】这是一个独立领域模型类。其核心职责定义为：可隔离的企业办公内存工作区（日程/邮件草稿/知识文档/外部资讯/审批单）。。类内部暴露了 2 个方法：<code>__init__(self)</code>、<code>log_audit(self, tool_name, actor, status, detail)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>OfficeWorkspaceStore.__init__</code>（第 24~64 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>OfficeWorkspaceStore.log_audit</code>（第 66~69 行）属于同步实例方法，入参签名为 <code>(self, tool_name, actor, status, detail)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>EnterpriseOfficeToolkit</code>（第 72~206 行）】这是一个独立领域模型类。其核心职责定义为：封装 5 大企业办公工具：日程、邮件草拟、资讯搜索、文档 RAG、审批单。。类内部暴露了 6 个方法：<code>__init__(self, store)</code>、<code>calendar_tool(self, title, date, start_hour, end_hour, attendees, actor)</code>、<code>email_draft_tool(self, to_email, subject, body, actor)</code>、<code>web_search_tool(self, query, actor)</code>、<code>doc_rag_tool(self, query, actor)</code>、<code>approval_tool(self, approval_type, applicant, amount_or_days, reason)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.__init__</code>（第 75~76 行）属于同步实例方法，入参签名为 <code>(self, store)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.calendar_tool</code>（第 79~114 行）属于同步实例方法，入参签名为 <code>(self, title, date, start_hour, end_hour, attendees, actor)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.email_draft_tool</code>（第 117~144 行）属于同步实例方法，入参签名为 <code>(self, to_email, subject, body, actor)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.web_search_tool</code>（第 147~158 行）属于同步实例方法，入参签名为 <code>(self, query, actor)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.doc_rag_tool</code>（第 161~172 行）属于同步实例方法，入参签名为 <code>(self, query, actor)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseOfficeToolkit.approval_tool</code>（第 175~206 行）属于同步实例方法，入参签名为 <code>(self, approval_type, applicant, amount_or_days, reason)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day48_office_tools.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day48/day48_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day48/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现三大领域专家 Agent（知识/日程邮件/审批）与权限边界（src/day48_office_agents.py）</h3><p>模块 <code>src/day48_office_agents.py</code> 共计 115 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-048 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>dataclasses (dataclass)</code>、<code>typing (Any, Dict, List)</code>、<code>src.day48_office_tools (EnterpriseOfficeToolkit, OfficeWorkspaceStore, ToolResult)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>AgentResponse</code>（第 12~16 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>KnowledgeAgent</code>（第 19~40 行）】这是一个独立领域模型类。其核心职责定义为：知识检索专员：仅拥有只读权限（doc_rag_tool + web_search_tool）。。类内部暴露了 2 个方法：<code>__init__(self, toolkit)</code>、<code>handle(self, query, params)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>KnowledgeAgent.__init__</code>（第 25~26 行）属于同步实例方法，入参签名为 <code>(self, toolkit)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>KnowledgeAgent.handle</code>（第 28~40 行）属于同步实例方法，入参签名为 <code>(self, query, params)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>SchedulerAgent</code>（第 43~76 行）】这是一个独立领域模型类。其核心职责定义为：日程与邮件专员：绑定 calendar_tool 与 email_draft_tool。。类内部暴露了 2 个方法：<code>__init__(self, toolkit)</code>、<code>handle(self, query, params)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SchedulerAgent.__init__</code>（第 49~50 行）属于同步实例方法，入参签名为 <code>(self, toolkit)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SchedulerAgent.handle</code>（第 52~76 行）属于同步实例方法，入参签名为 <code>(self, query, params)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ApprovalAgent</code>（第 79~103 行）】这是一个独立领域模型类。其核心职责定义为：审批流程专员：绑定 approval_tool，大额报销/长假自动要求人工确认。。类内部暴露了 2 个方法：<code>__init__(self, toolkit)</code>、<code>handle(self, query, params)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ApprovalAgent.__init__</code>（第 85~86 行）属于同步实例方法，入参签名为 <code>(self, toolkit)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ApprovalAgent.handle</code>（第 88~103 行）属于同步实例方法，入参签名为 <code>(self, query, params)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day48_office_agents.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day48/day48_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day48/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day48_office_tools.py（共 215 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day48_office_tools.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 48 - 步骤一：阶段项目三 5 大企业办公工具集与统一工作区底座。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 48 - 步骤一：阶段项目三 5 大企业办公工具集与统一工作区底座。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>EMAIL_RE = re.compile(r&quot;^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$</code></td><td>核心意图：代表语句：`EMAIL_RE = re.compile(r&quot;^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$&quot;)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>data: Dict[str, Any] = field(default_factory=dict)</code></td><td>核心意图：代表语句：`data: Dict[str, Any] = field(default_factory=dict)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>self.meetings: List[Dict[str, Any]] = [</code></td><td>核心意图：代表语句：`self.meetings: List[Dict[str, Any]] = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;title&quot;: &quot;2026年星辰数科差旅报销管理制度&quot;,</code></td><td>核心意图：代表语句：`&quot;title&quot;: &quot;2026年星辰数科差旅报销管理制度&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L49-L56</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;title&quot;: &quot;2026 企业级多 Agent 协同落地白皮书发布&quot;,</code></td><td>核心意图：代表语句：`&quot;title&quot;: &quot;2026 企业级多 Agent 协同落地白皮书发布&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L65-L72</code></td><td><code>def log_audit(self, tool_name: str, actor: str, status: str, detail: str</code></td><td>核心意图：代表语句：`def log_audit(self, tool_name: str, actor: str, status: str, detail: str) -&gt; None:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;&quot;&quot;封装 5 大企业办公工具：日程、邮件草拟、资讯搜索、文档 RAG、审批单。&quot;&quot;&quot;</code></td><td>核心意图：工具 1：日程冲突检测与会议预定。代表语句：`&quot;&quot;&quot;封装 5 大企业办公工具：日程、邮件草拟、资讯搜索、文档 RAG、审批单。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L81-L88</code></td><td><code>title: str,</code></td><td>核心意图：代表语句：`title: str,`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;REJECTED&quot;, &quot;非法会议时段&quot;)</code></td><td>核心意图：代表语句：`self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;REJECTED&quot;, &quot;非法会议时段&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>&quot;calendar_tool&quot;,</code></td><td>核心意图：代表语句：`&quot;calendar_tool&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L105-L112</code></td><td><code>&quot;meeting_id&quot;: mtg_id,</code></td><td>核心意图：代表语句：`&quot;meeting_id&quot;: mtg_id,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L113-L120</code></td><td><code>self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;OK&quot;, f&quot;已预定 {mtg_id}&quot;)</code></td><td>核心意图：工具 2：邮件草拟与收件人校验（标记为 HIGH_RISK，需人工确认外发）。代表语句：`self.store.log_audit(&quot;calendar_tool&quot;, actor, &quot;OK&quot;, f&quot;已预定 {mtg_id}&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L121-L128</code></td><td><code>body: str,</code></td><td>核心意图：代表语句：`body: str,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>draft = {</code></td><td>核心意图：代表语句：`draft = {`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L137-L144</code></td><td><code>self.store.log_audit(&quot;email_draft_tool&quot;, actor, &quot;DRAFTED&quot;, f&quot;草稿 {draft_i</code></td><td>核心意图：代表语句：`self.store.log_audit(&quot;email_draft_tool&quot;, actor, &quot;DRAFTED&quot;, f&quot;草稿 {draft_id} 待人工确认&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L145-L152</code></td><td><code>def web_search_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolRe</code></td><td>核心意图：工具 3：行业资讯模拟网络搜索。代表语句：`def web_search_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolResult:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>if score &gt; 0:</code></td><td>核心意图：工具 4：内部企业文档 RAG 检索。代表语句：`if score &gt; 0:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>def doc_rag_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolResul</code></td><td>核心意图：代表语句：`def doc_rag_tool(self, query: str, actor: str = &quot;employee&quot;) -&gt; ToolResult:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L169-L176</code></td><td><code>scored.sort(key=lambda x: x[0], reverse=True)</code></td><td>核心意图：工具 5：费用/请假审批单创建。代表语句：`scored.sort(key=lambda x: x[0], reverse=True)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L177-L184</code></td><td><code>approval_type: str,  # &quot;expense&quot; | &quot;leave&quot;</code></td><td>核心意图：代表语句：`approval_type: str,  # &quot;expense&quot; | &quot;leave&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L185-L192</code></td><td><code>is_high_risk = (approval_type == &quot;expense&quot; and amount_or_days &gt; 5000) or</code></td><td>核心意图：代表语句：`is_high_risk = (approval_type == &quot;expense&quot; and amount_or_days &gt; 5000) or (`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L193-L200</code></td><td><code>&quot;applicant&quot;: applicant,</code></td><td>核心意图：代表语句：`&quot;applicant&quot;: applicant,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L201-L208</code></td><td><code>True,</code></td><td>核心意图：代表语句：`True,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L209-L215</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day48_office_agents.py（共 115 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day48_office_agents.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 48 - 步骤二：多 Agent 智能办公助手三大领域专家 Agent。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 48 - 步骤二：多 Agent 智能办公助手三大领域专家 Agent。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>class KnowledgeAgent:</code></td><td>核心意图：代表语句：`class KnowledgeAgent:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>snippets = [x[&quot;snippet&quot;] for x in r.data.get(&quot;results&quot;, [])]</code></td><td>核心意图：代表语句：`snippets = [x[&quot;snippet&quot;] for x in r.data.get(&quot;results&quot;, [])]`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L41-L48</code></td><td><code>class SchedulerAgent:</code></td><td>核心意图：代表语句：`class SchedulerAgent:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L49-L56</code></td><td><code>def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self, toolkit: EnterpriseOfficeToolkit) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>subject=p.get(&quot;subject&quot;, &quot;星辰数科项目同步&quot;),</code></td><td>核心意图：代表语句：`subject=p.get(&quot;subject&quot;, &quot;星辰数科项目同步&quot;),`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>tool_results=[res],</code></td><td>核心意图：代表语句：`tool_results=[res],`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>attendees=list(p.get(&quot;attendees&quot;, [&quot;老陈&quot;, &quot;林产品&quot;])),</code></td><td>核心意图：代表语句：`attendees=list(p.get(&quot;attendees&quot;, [&quot;老陈&quot;, &quot;林产品&quot;])),`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>name = &quot;approval_agent&quot;</code></td><td>核心意图：代表语句：`name = &quot;approval_agent&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>p = params or {}</code></td><td>核心意图：代表语句：`p = params or {}`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L115</code></td><td><code>print(&quot;知识专员:&quot;, ka.handle(&quot;差旅报销制度&quot;))</code></td><td>核心意图：代表语句：`print(&quot;知识专员:&quot;, ka.handle(&quot;差旅报销制度&quot;))`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day48/tests/test_day48.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day48/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day48/tests/test_day48.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 48 自动化单元测试：验证 5 大企业办公工具边界与三大领域专家 Agent。&quot;&quot;&quot;
+
+from src.day48_office_tools import EnterpriseOfficeToolkit, OfficeWorkspaceStore
+from src.day48_office_agents import ApprovalAgent, KnowledgeAgent, SchedulerAgent
+
+
+def test_five_office_tools_and_boundaries():
+    store = OfficeWorkspaceStore()
+    kit = EnterpriseOfficeToolkit(store)
+
+    # 1. 日程冲突拦截与空闲预定
+    conflict = kit.calendar_tool(&quot;冲突会议&quot;, &quot;2026-11-20&quot;, 10, 11, [&quot;老陈&quot;])
+    assert conflict.ok is False and &quot;冲突&quot; in conflict.message
+    ok_mtg = kit.calendar_tool(&quot;相邻会议&quot;, &quot;2026-11-20&quot;, 11, 12, [&quot;老陈&quot;])
+    assert ok_mtg.ok is True and ok_mtg.data[&quot;meeting_id&quot;] == &quot;MTG-002&quot;
+
+    # 2. 邮件格式拦截与高危草稿
+    bad_mail = kit.email_draft_tool(&quot;invalid-email&quot;, &quot;标题&quot;, &quot;正文&quot;)
+    assert bad_mail.ok is False
+    ok_mail = kit.email_draft_tool(&quot;cto@partner.com&quot;, &quot;合作方案&quot;, &quot;请查收&quot;)
+    assert ok_mail.ok is True and ok_mail.risk_level == &quot;HIGH_RISK&quot;
+
+    # 3. 资讯搜索与文档 RAG
+    news = kit.web_search_tool(&quot;MCP 协议多 Agent&quot;)
+    assert news.ok is True and len(news.data[&quot;results&quot;]) &gt;= 1
+    docs = kit.doc_rag_tool(&quot;差旅住宿报销&quot;)
+    assert docs.ok is True and &quot;600 元/晚&quot; in docs.data[&quot;docs&quot;][0][&quot;content&quot;]
+
+    # 4. 审批单风险分级
+    small_exp = kit.approval_tool(&quot;expense&quot;, &quot;阿杰&quot;, 800.0, &quot;打车费&quot;)
+    assert small_exp.risk_level == &quot;LOW&quot;
+    big_exp = kit.approval_tool(&quot;expense&quot;, &quot;阿杰&quot;, 6500.0, &quot;服务器采购&quot;)
+    assert big_exp.risk_level == &quot;HIGH_RISK&quot;
+    assert len(store.audit_logs) &gt;= 6
+
+
+def test_three_specialist_office_agents():
+    store = OfficeWorkspaceStore()
+    kit = EnterpriseOfficeToolkit(store)
+
+    k_resp = KnowledgeAgent(kit).handle(&quot;员工年假规范&quot;)
+    assert k_resp.requires_human_confirmation is False
+    assert &quot;3 天&quot; in k_resp.summary
+
+    s_resp = SchedulerAgent(kit).handle(&quot;发邮件通知客户&quot;, {&quot;to_email&quot;: &quot;ops@client.com&quot;, &quot;subject&quot;: &quot;周报&quot;})
+    assert s_resp.requires_human_confirmation is True
+
+    a_resp = ApprovalAgent(kit).handle(&quot;申请 5 天年假&quot;, {&quot;approval_type&quot;: &quot;leave&quot;, &quot;value&quot;: 5})
+    assert a_resp.requires_human_confirmation is True
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-048</code>，承接自 Day 47 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day48-project3-office-tools-agents</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day48-project3-office-tools-agents）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day48-project3-office-tools-agents
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day48.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-048）
+git add src/day48_office_tools.py src/day48_office_agents.py tests/test_day48.py
+git commit -m &quot;feat(day48): 完成阶段项目三架构设计、5大企业办公工具集与三大领域专家Agent
+
+Refs: STARMIND-048
+- 完成 阶段项目三(上)——多 Agent 智能办公助手 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day48-project3-office-tools-agents</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-048 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-048 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day48_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day48_office_tools.py src/day48_office_agents.py
+    - echo &quot;Day 48 语法编译检查通过&quot;
+
+day48_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day48/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day48/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (AI 架构师)</span><span>状态：Approved</span></div><p>工具层与专家 Agent 层切分得非常干净，<code>OfficeWorkspaceStore</code> 可实例化注入设计保证了单测之间 0 污染，明天接 FastAPI 极其丝滑！</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p>日历工具把 10-11 点和 11-12 点的相邻边界测进去了，点赞！这种边界最容易在线上被吐槽。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>超过 5000 元报销和对外发邮件自动打 <code>HIGH_RISK</code> 标签完全符合财务与信息安全部要求，期待明天联调上线！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-048 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-048（阶段项目三(上)——多 Agent 智能办公助手）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科员工日常办公分散在 OA 审批、企业日历、企业邮箱、Confluence 知识库和外部资讯 5 个孤立系统中，完成一次“查差旅标准 -&gt; 约评审会 -&gt; 发邮件通知 -&gt; 提报销单”的复合任务平均需要切换 4 个网页耗时 25 分钟。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）多套办公系统割裂，员工频繁切换入口、重复填写会议时间与审批字段。；（2）单 Agent 挂载全部办公工具极易误触发外发邮件或错提财务审批，风险不可控。；（3）缺少统一的工具返回契约（<code>ToolResult</code>）与操作风险分级，后续编排层无法识别哪些动作必须人工确认。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）完成「多 Agent 智能办公助手」整体四层架构设计（API 网关层 -&gt; 编排与 HITL 持久层 -&gt; 专家 Agent 层 -&gt; 企业工具与数据层）。；（2）实现 5 个完整可本地运行的企业办公工具：<code>calendar_tool</code>、<code>email_draft_tool</code>、<code>web_search_tool</code>、<code>doc_rag_tool</code>、<code>approval_tool</code>。；（3）实现 3 位领域专家 Agent：<code>SchedulerAgent</code>（日程/邮件）、<code>KnowledgeAgent</code>（文档 RAG/资讯搜索）、<code>ApprovalAgent</code>（审批单），并输出明确的风险等级标记。，必须全部翻译成可量化的测试用例和监控指标（例如 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day48/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么必须统一 <code>ToolResult</code> 契约？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：如果日程工具返回字符串、审批工具返回 dict、邮件工具直接抛异常，上层 Multi-Agent 编排器很快会写满丑陋的 <code>isinstance</code> 兼容代码。统一封装 <code>ToolResult(ok, tool_name, risk_level, data, message)</code> 后，编排器只需判断 <code>result.risk_level == &#x27;HIGH_RISK&#x27;</code> 即可通用地触发 HITL 审批断点！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：不要把业务可预期失败（如“会议时间冲突”“邮箱格式错误”）当成未捕获异常直接 500 炸掉，而应返回 <code>ToolResult(ok=False, message=&#x27;...&#x27;)</code>，让 Agent 看懂原因并主动换时间或向用户追问。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么必须统一 <code>ToolResult</code> 契约？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 经典时间区间重叠判定公式】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：判断两个时间段 <code>[start1, end1)</code> 与 <code>[start2, end2)</code> 是否冲突，最简洁无 Bug 的数学条件是：<code>start1 &lt; end2 and start2 &lt; end1</code>（注意使用半开区间，这样 10:00-11:00 与 11:00-12:00 紧密衔接时不会误判冲突）。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：把比较符号写成 <code>&lt;=</code> 会导致两场首尾相接的会议被错误判定为冲突！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 经典时间区间重叠判定公式」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 邮件草拟与外发分离（Draft-First Pattern）】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：企业办公助手里**永远不要给 Agent 提供“一键直接外发外部邮件”的无保护工具**！标准做法是拆成两步：专家 Agent 只能调用 <code>email_draft_tool</code> 生成草稿并标记 <code>HIGH_RISK</code>，待用户在审批界面确认收件人和正文后，再由后端确定性代码执行实际发送。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：大模型偶尔会把“抄送给王总”幻觉成 <code>wang@gmail.com</code> 等外部错误邮箱，必须用域名/格式正则校验并展示给人工二次核对。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 邮件草拟与外发分离（Draft-First Pattern）」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 48 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day48/</code> 中亲手编写了 <code>src/day48_office_tools.py</code>、<code>src/day48_office_agents.py</code> 以及对应的自动化测试 <code>tests/test_day48.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day48_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 48 / STARMIND-048）：1. 已在分支 <code>feat/day48-project3-office-tools-agents</code> 完成 阶段项目三(上)——多 Agent 智能办公助手 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 49）：明天（Day 49）进入阶段项目三（下）：把今天建好的 5 大工具和 3 名专家 Agent 装配进带 SQLite Checkpointer + 高危动作 HITL 人工确认的状态图编排器，并封装生产级 FastAPI 服务完成全链路联调测试！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 48 掌握的「阶段项目三(上)——多 Agent 智能办公助手」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「阶段项目三(上)——多 Agent 智能办公助手」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：阶段项目三(上)——多 Agent 智能办公助手 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-048 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day48.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 48 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day48/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day48_office_tools.py, src/day48_office_agents.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>日程工具支持检测会议室/参会人时间冲突，冲突时拒绝预定并给出冲突详情；空闲时段预定成功。；邮件工具校验收件人邮箱格式合法性并生成草稿（标记为 `HIGH_RISK`，等待人工确认后才真正外发）。；审批工具支持请假与报销单创建，金额 &gt; 5000 元自动标记 `HIGH_RISK` 需总监人工复核；文档 RAG 与搜索工具可精准召回相关条目，所有单测本地 100% 通过。</td><td>运行 `pytest versions/day48/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day48/day48_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day48-project3-office-tools-agents` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「阶段项目三(上)——多 Agent 智能办公助手」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-048 需求时，我们的核心业务目标是：完成「多 Agent 智能办公助手」整体四层架构设计（API 网关层 -&gt; 编排与 HITL 持久层 -&gt; 专家 Agent 层 -&gt; 企业工具与数据层）。；实现 5 个完整可本地运行的企业办公工具：<code>calendar_tool</code>、<code>email_draft_tool</code>、<code>web_search_tool</code>、<code>doc_rag_tool</code>、<code>approval_tool</code>。；实现 3 位领域专家 Agent：<code>SchedulerAgent</code>（日程/邮件）、<code>KnowledgeAgent</code>（文档 RAG/资讯搜索）、<code>ApprovalAgent</code>（审批单），并输出明确的风险等级标记。。最初我们也评估过极简脚本方案，但在 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么必须统一 <code>ToolResult</code> 契约？、2. 经典时间区间重叠判定公式、3. 邮件草拟与外发分离（Draft-First Pattern） 这几层解耦抽象，既满足了当前阶段的 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「阶段项目三(上)——多 Agent 智能办公助手」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 48 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day48_office_tools.py、src/day48_office_agents.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>漂亮！今天项目三的地基打得稳如泰山：5 大企业办公工具全部具备统一 <code>ToolResult</code> 契约、参数校验和审计日志；3 名专家 Agent 职责清晰、权限严格隔离，而且提前标明了哪些操作属于 <code>HIGH_RISK</code>（如发邮件、超额报销审批）。明天 Day 49，我们把它们接入 LangGraph 编排器 + HITL 人工审批断点 + FastAPI 接口，彻底让整个智能办公助手活起来！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：为日程工具增加空闲时段自动推荐功能</strong><span class="badge">基础巩固</span></div><p>当目标会议时间冲突时，编写 <code>suggest_free_slots(meetings, date, duration=1)</code>，在当天 09:00~18:00 内找出所有不冲突的空闲 1 小时时段。</p><p><strong>💡 思路提示：</strong>遍历 `hour in range(9, 18)`，检查 `[hour, hour + duration)` 是否与当天所有已有会议不重叠。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-48-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-48-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 48 作业 1 参考答案：工作日空闲会议时段自动推荐器。&quot;&quot;&quot;
+
+from typing import Dict, List, Tuple
+
+
+def suggest_free_slots(meetings: List[Dict[str, int]], duration: int = 1) -&gt; List[Tuple[int, int]]:
+    free: List[Tuple[int, int]] = []
+    for h in range(9, 18 - duration + 1):
+        end = h + duration
+        conflict = any(h &lt; m[&quot;end_hour&quot;] and m[&quot;start_hour&quot;] &lt; end for m in meetings)
+        if not conflict:
+            free.append((h, end))
+    return free
+
+
+if __name__ == &quot;__main__&quot;:
+    booked = [{&quot;start_hour&quot;: 10, &quot;end_hour&quot;: 11}, {&quot;start_hour&quot;: 14, &quot;end_hour&quot;: 16}]
+    slots = suggest_free_slots(booked, duration=1)
+    print(&quot;推荐空闲时段:&quot;, slots)
+    assert (10, 11) not in slots and (11, 12) in slots and (14, 15) not in slots
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>从“单纯拒绝冲突”升级到“拒绝 + 主动推荐替代空闲时段”，是优秀办公 Agent 体验的分水岭。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：为邮件工具增加外部域名告警检测</strong><span class="badge">企业实战</span></div><p>编写 <code>is_external_email(email, internal_domain=&#x27;starmind.cn&#x27;)</code>，判断收件人是否属于外部域名，若是则在草稿中附加 <code>external_warning=True</code> 提示人工加倍谨慎。</p><p><strong>💡 思路提示：</strong>按 `@` 分割邮箱取域名部分，转为小写后与 `internal_domain` 比较。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-48-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-48-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 48 作业 2 参考答案：企业外发邮件外部域名检测器。&quot;&quot;&quot;
+
+
+def is_external_email(email: str, internal_domain: str = &quot;starmind.cn&quot;) -&gt; bool:
+    domain = email.strip().lower().split(&quot;@&quot;)[-1]
+    return domain != internal_domain.lower()
+
+
+if __name__ == &quot;__main__&quot;:
+    assert is_external_email(&quot;chen@starmind.cn&quot;) is False
+    assert is_external_email(&quot;ceo@partner.com&quot;) is True
+    print(&quot;外部域名检测通过&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>区分内部邮件与外部客户邮件，可以让安全策略更精细（例如内部提醒低风险，外发客户强拦截）。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：将审计日志导出为按工具维度统计的调用报表</strong><span class="badge">架构进阶</span></div><p>编写 <code>summarize_audit_logs(logs)</code>，统计每个工具的调用总次数与被拦截/冲突次数，为后续运维看板提供数据源。</p><p><strong>💡 思路提示：</strong>使用 `collections.defaultdict` 按 `log[&#x27;tool&#x27;]` 聚合统计 `total` 与 `blocked`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-48-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-48-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 48 作业 3 参考答案：企业办公工具审计日志聚合统计。&quot;&quot;&quot;
+
+from collections import defaultdict
+from typing import Dict, List
+
+
+def summarize_audit_logs(logs: List[Dict[str, str]]) -&gt; Dict[str, Dict[str, int]]:
+    stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {&quot;total&quot;: 0, &quot;blocked&quot;: 0})
+    for entry in logs:
+        t = entry[&quot;tool&quot;]
+        stats[t][&quot;total&quot;] += 1
+        if entry[&quot;status&quot;] in (&quot;REJECTED&quot;, &quot;CONFLICT&quot;):
+            stats[t][&quot;blocked&quot;] += 1
+    return dict(stats)
+
+
+if __name__ == &quot;__main__&quot;:
+    sample = [
+        {&quot;tool&quot;: &quot;calendar_tool&quot;, &quot;status&quot;: &quot;CONFLICT&quot;},
+        {&quot;tool&quot;: &quot;calendar_tool&quot;, &quot;status&quot;: &quot;OK&quot;},
+        {&quot;tool&quot;: &quot;email_draft_tool&quot;, &quot;status&quot;: &quot;REJECTED&quot;},
+    ]
+    report = summarize_audit_logs(sample)
+    print(&quot;审计汇总:&quot;, report)
+    assert report[&quot;calendar_tool&quot;] == {&quot;total&quot;: 2, &quot;blocked&quot;: 1}
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>高冲突率或高拦截率的工具往往暴露了 Prompt 引导不足或前端表单校验缺失，审计聚合报表能直接指导迭代。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day47/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day49/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

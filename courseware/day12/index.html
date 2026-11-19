@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 12：网络请求与 API 调用 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 2 周</span>
+      <span class="badge badge-ticket">STARMIND-012</span>
+      <span class="badge">Day 12 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="12" onclick="toggleDayComplete(12, this)">标记今日已完成</button>
+      <a class="btn" href="../day11/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day13/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day12-http-llm-api-client</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day12/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day12/day12_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day12_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 2 周：第 2 周：面向对象、工程化与命令行 AI 助手实战</div>
+        <h1>Day 12：网络请求与 API 调用</h1>
+        <p class="hero-sub">吃透 HTTP 协议与 OpenAI 兼容规范，封装支持本地 Mock 降级的 DeepSeek/通义千问命令行问答工具</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-012</span>
+          <span class="hero-tag">分支：feat/day12-http-llm-api-client</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>兄弟们，今天是个里程碑！前 11 天咱们都在本地捣鼓数据结构、类和文件，今天终于要「通网」调用大模型 API 了（工单 STARMIND-012）！<br/>先说一个国内 AI 工程界的超级利好：不管是 DeepSeek、阿里通义千问（DashScope）、智谱 GLM 还是硅基流动，几乎全部兼容 OpenAI 的 <code>/v1/chat/completions</code> HTTP 接口规范——只要你吃透 HTTP POST 请求、Bearer Token 鉴权和 JSON 报文解析，换一家厂商只需要改两行配置（<code>base_url</code> 和 <code>model</code>）！<br/>老陈还要教你一个大厂极其看重的习惯：**无 Key 自动降级本地 Mock 模式**。开发机没配外网 Key、或者 GitLab CI 跑自动化测试时，绝不能因为连不上外网就报错挂掉，更不能在单元测试里白白烧公司的 Token 钱！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天咱们用 <code>pathlib</code>、<code>re</code>、<code>csv</code>、<code>datetime</code> 撸完了星辰知识库批量文档扫描与报表导出工具，本地文件处理这一关已经彻底打通。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 13）咱们进入 Python 工程化进阶语法——装饰器、生成器 <code>yield</code>、<code>python-dotenv</code> 密钥管理与 <code>asyncio</code> 异步并发，给今天刚调通的 API 客户端加上自动重试、超时控制与流式输出！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 12 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 12）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：昨天咱们用 <code>pathlib</code>、<code>re</code>、<code>csv</code>、<code>datetime</code> 撸完了星辰知识库批量文档扫描与报表导出工具，本地文件处理这一关已经彻底打通。 今天我们通过需求单 STARMIND-012，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day12/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 13）咱们进入 Python 工程化进阶语法——装饰器、生成器 <code>yield</code>、<code>python-dotenv</code> 密钥管理与 <code>asyncio</code> 异步并发，给今天刚调通的 API 客户端加上自动重试、超时控制与流式输出！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>HTTP 协议精讲与 urllib/requests/httpx 选型</td><td>拆解 HTTP 请求响应报文、常见状态码含义，以及为什么 OpenAI 官方 SDK 全面选用 httpx。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>封装 OpenAI 兼容 HTTP 客户端与 CLI 问答工具</td><td>编写请求体构造、响应解析、Mock 降级引擎与命令行问答小程序。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>基于 httpx.MockTransport 的零外网单测</td><td>离线模拟 200 成功、401 鉴权失败、429 限流响应，验证客户端健壮性。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>国内主流大模型厂商接口对照与课后作业</td><td>梳理 DeepSeek/通义千问/智谱 Base URL 差异，完成 3 道梯度课后题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-012）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰智脑项目需要正式打通大模型推理能力，首期计划接入 DeepSeek 与通义千问（OpenAI 兼容接口）。但在内网开发和自动化测试环境下无法保证随时拥有外网 API Key，需要客户端具备平滑的本地 Mock 降级能力。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>新手直接裸拼 HTTP 请求容易漏掉 `Authorization: Bearer` 请求头或忘记设置 `timeout` 导致进程永久卡死。</li><li>直接硬编码某一家大模型 SDK，后期切换 DeepSeek/通义千问成本极高。</li><li>本地开发和 CI 流水线没有外网 API Key 时无法运行和验证问答主流程。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>理解 HTTP 协议核心要素（URL、POST Method、Headers、JSON Body、状态码 200/401/429/5xx）。</li><li>掌握 `httpx` / `urllib` / `requests` 的区别与 OpenAI 兼容协议 `/chat/completions` 报文封装。</li><li>交付具备「真实 HTTP 调用 + 无 Key 自动本地 Mock 降级」的客户端类与第一版命令行 AI 问答小程序。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>当 `api_key` 为空或开启 `mock_mode=True` 时，自动返回符合 OpenAI 协议格式的本地 Mock 回复且不发起任何外网请求。</li><li>当传入 `api_key` 时，能按标准格式组装 `Authorization: Bearer ...` 与 JSON 请求体并发送 POST 请求，正确解析 `choices[0].message.content` 与 `usage`。</li><li>能准确拦截 401 鉴权失败、429 触发限流、5xx 服务端异常，并给出清晰中文错误提示；通过 `httpx.MockTransport` 离线单测。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>所有网络请求必须显式设置 `timeout` 超时时间，严禁无限等待。</li><li>命令行问答入口函数支持脚本化输入参数，确保自动化测试不阻塞在 `input()`。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>本模块采用「协议与传输解耦 + 本地降级」的清晰两层架构，为后续接入任意 OpenAI 兼容模型打下基石：<br/>1. **大模型 HTTP 客户端层（day12_llm_http_client.py）**：<br/>   - 使用 <code>@dataclass</code> 定义强类型的 <code>LLMRequestConfig</code> 与 <code>LLMResponse</code>，彻底告别散落的字典 key 拼写错误。<br/>   - 将 <code>build_chat_payload()</code>（请求体构建）与 <code>parse_chat_response()</code>（响应体解析）抽离为纯函数，无论数据来自远程 HTTPS 还是本地 Mock，走的是同一套校验与解析管线。<br/>   - 底层默认使用现代异步/同步通吃的 <code>httpx.Client</code>，并支持注入自定义 <code>transport</code>（测试时直接注入 <code>httpx.MockTransport</code>，不发真实网络包也能覆盖 100% HTTP 分支逻辑）。<br/>2. **命令行 AI 问答交互层（day12_cli_qa.py）**：<br/>   - 封装 <code>ask_once()</code> 单轮提问与 <code>run_cli_qa()</code> 交互循环，支持通过 <code>inputs</code> 参数注入测试脚本，彻底规避顶层阻塞 <code>input()</code> 的工程坏习惯。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 12.1：大模型 API 调用与本地 Mock 降级流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">大模型 API 调用与本地 Mock 降级流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">用户输入问题</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">组装 messages 列表</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">检查 API Key / Mock</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">无 Key 自动安全降级</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">httpx POST 请求</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">Bearer 鉴权 + timeout</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">本地 Mock 引擎</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">生成兼容 JSON 报文</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">统一解析与异常处理</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">提取回复与 Token 统计</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="173.5" y="66.0" width="228" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">build_chat_payload</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="489.5" y="66.0" width="168" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">有 Key 且非 Mock</text>
+<line x1="432.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="479.0" y="132.5" width="192" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">无 Key 或 Mock 模式</text>
+<line x1="718.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="467.0" y="132.5" width="216" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">检查状态码 200/401/429</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="510.5" y="202.0" width="132" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">同构 JSON 响应</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示客户端如何根据 api_key 与 mock_mode 自动路由至真实 HTTPS 请求或本地 Mock 响应，并统一进入响应解析器。</div></div><div class="diagram-card"><div class="diagram-title">图 12.2：StarMind LLM HTTP 客户端分层架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">StarMind LLM HTTP 客户端分层架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">CLI 问答小程序</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">day12_cli_qa.py</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">StarMindHTTPClient</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">统一 chat() 调用入口</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Payload &amp; Parser</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">纯函数构造与校验</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">httpx Transport</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">真实 HTTPS / MockTransport</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">DeepSeek / 通义千问</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">OpenAI 兼容云端 API</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">ask_once()</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">报文编解码</text>
+<line x1="231.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="231.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">发送 POST 请求</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">/v1/chat/completions</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 CLI 交互层、协议封装层、传输适配层（httpx / MockTransport / LocalMock）的清晰解耦。</div></div><div class="diagram-card"><div class="diagram-title">图 12.3：OpenAI 兼容协议请求与响应报文示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">OpenAI 兼容协议请求与响应报文示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">HTTP Headers</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Authorization: Bearer sk-...</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Request JSON Body</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">model / messages / temperature</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">云端大模型推理</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">HTTP 200 OK</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Response JSON</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">choices[0].message.content + usage</text>
+<line x1="215" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>直观拆解 POST /v1/chat/completions 的请求头、请求体字段与返回 JSON 中回复正文和用量统计的层级路径。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. HTTP 协议核心：调用大模型 API 必懂的 4 个要素</h3><p>调用大模型本质上就是发一次标准 HTTP POST 请求：<br/>- **URL**：如 DeepSeek 的 <code>https://api.deepseek.com/v1/chat/completions</code> 或通义千问兼容地址 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code>。<br/>- **Headers**：必须携带 <code>Authorization: Bearer &lt;API_KEY&gt;</code> 与 <code>Content-Type: application/json</code>。<br/>- **Body**：JSON 对象，包含 <code>model</code>、<code>messages</code>（角色+内容列表）、<code>temperature</code> 等参数。<br/>- **状态码**：<code>200</code> 成功、<code>401</code> Key 无效或过期、<code>429</code> 触发 QPS 限流或余额不足、<code>500/502/503</code> 模型服务端抖动。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>调用外部 HTTP API 一定要显式传 `timeout=30.0`！默认不设超时一旦对端网络黑洞，你的服务线程就会永远卡死直到被运维重启。</div><h3>2. 2. urllib vs requests vs httpx：现代 AI 工程怎么选？</h3><p>- <code>urllib.request</code>：Python 标准库，零第三方依赖，写轻量脚本够用，但 API 略繁琐。<br/>- <code>requests</code>：老牌国民级同步 HTTP 库，写法优雅，但**不支持 <code>async/await</code> 异步和 HTTP/2**。<br/>- <code>httpx</code>：新一代主力库，接口几乎 100% 兼容 <code>requests</code>，同时原生支持同步 <code>Client</code>、异步 <code>AsyncClient</code> 以及 <code>MockTransport</code> 离线测试。OpenAI 官方 Python SDK 和 FastAPI 测试客户端底层全用 <code>httpx</code>！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>高频调用同一个 API 域名时，不要每次请求都临时新建客户端，尽量复用 `httpx.Client()` 连接池（Keep-Alive），能省掉大量 TCP+TLS 握手耗时。</div><h3>3. 3. 为什么企业级 AI 客户端必须内置 Mock Fallback？</h3><p>1）新同学入职第一天还没审批下来正式 API Key，也能立刻跑通全套业务代码；<br/>2）CI/CD 自动化测试每天跑几百次单测，用本地 Mock 或 <code>httpx.MockTransport</code> 可以实现零成本、毫秒级、100% 确定性通过，不受外网波动影响。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>Mock 数据结构必须严格对齐真实 API 的返回 Schema（包含 `choices` 和 `usage`），让 Mock 和真实请求走同一套解析函数，否则「测试全绿、上线解析报错」。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【大厂实战经验：为什么调用大模型 API 千万别用默认无限超时，也别把 timeout 设成 3 秒？】<br/>普通 CRUD 接口 200ms 就返回了，但大模型生成 800 字长回答（尤其开启思考链的推理模型）非流式等待 15~60 秒非常正常！<br/>在 <code>httpx</code> 中最佳实践是**拆细超时配置**：<code>httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0)</code>——连不上服务器 5 秒快速失败，连上之后给足 60 秒等待模型慢慢生成内容，既防假死又不误杀长回复！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day12/</code> 与 <code>notebooks/day12/day12_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：封装 OpenAI 兼容 HTTP 大模型客户端（含本地 Mock 降级）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先写核心客户端 <code>day12_llm_http_client.py</code>：用 <code>dataclass</code> 定义配置与响应，纯函数负责报文构造与解析，<code>StarMindHTTPClient</code> 在无 Key 时无缝降级为本地 Mock，有 Key 时走标准 <code>httpx</code> POST 请求。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day12_llm_http_client.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-012 模块一：OpenAI 兼容协议 HTTP 大模型客户端（支持本地 Mock 降级）。
+兼容 DeepSeek / 通义千问 DashScope / 智谱等 /v1/chat/completions 接口。
+&quot;&quot;&quot;
+
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import httpx
+
+
+class LLMAPIError(RuntimeError):
+    &quot;&quot;&quot;大模型 HTTP 接口调用异常基类，携带 HTTP 状态码便于上层区分处理。&quot;&quot;&quot;
+
+    def __init__(self, message: str, status_code: Optional[int] = None) -&gt; None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+@dataclass
+class LLMRequestConfig:
+    &quot;&quot;&quot;大模型 API 连接配置。&quot;&quot;&quot;
+
+    base_url: str = &quot;https://api.deepseek.com/v1&quot;
+    api_key: str = &quot;&quot;
+    model: str = &quot;deepseek-chat&quot;
+    timeout: float = 15.0
+    temperature: float = 0.7
+
+
+@dataclass
+class LLMResponse:
+    &quot;&quot;&quot;标准化大模型响应对象。&quot;&quot;&quot;
+
+    content: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    latency_ms: float
+    source: str  # &quot;remote&quot; 或 &quot;mock&quot;
+
+
+def build_chat_payload(
+    messages: List[Dict[str, str]],
+    model: str,
+    temperature: float = 0.7,
+) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;构造标准 OpenAI 兼容 /chat/completions 请求体。&quot;&quot;&quot;
+    if not messages:
+        raise ValueError(&quot;messages 不能为空&quot;)
+    return {
+        &quot;model&quot;: model,
+        &quot;messages&quot;: messages,
+        &quot;temperature&quot;: temperature,
+        &quot;stream&quot;: False,
+    }
+
+
+def parse_chat_response(
+    raw_data: Dict[str, Any],
+    latency_ms: float,
+    source: str = &quot;remote&quot;,
+) -&gt; LLMResponse:
+    &quot;&quot;&quot;解析 OpenAI 兼容响应 JSON 为强类型 LLMResponse。&quot;&quot;&quot;
+    choices = raw_data.get(&quot;choices&quot;)
+    if not isinstance(choices, list) or not choices:
+        raise ValueError(&quot;接口返回格式异常：缺少有效的 choices 字段&quot;)
+
+    first_message = choices[0].get(&quot;message&quot;, {})
+    content = first_message.get(&quot;content&quot;)
+    if not isinstance(content, str):
+        raise ValueError(&quot;接口返回格式异常：缺少 message.content 文本&quot;)
+
+    usage = raw_data.get(&quot;usage&quot;, {})
+    prompt_tokens = int(usage.get(&quot;prompt_tokens&quot;, 0))
+    completion_tokens = int(usage.get(&quot;completion_tokens&quot;, 0))
+    total_tokens = int(usage.get(&quot;total_tokens&quot;, prompt_tokens + completion_tokens))
+
+    return LLMResponse(
+        content=content.strip(),
+        model=str(raw_data.get(&quot;model&quot;, &quot;unknown&quot;)),
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        latency_ms=round(latency_ms, 2),
+        source=source,
+    )
+
+
+class StarMindHTTPClient:
+    &quot;&quot;&quot;星辰智脑 OpenAI 兼容 HTTP 客户端（支持无 Key 本地 Mock 降级）。&quot;&quot;&quot;
+
+    def __init__(
+        self,
+        config: Optional[LLMRequestConfig] = None,
+        mock_mode: bool = False,
+        transport: Optional[httpx.BaseTransport] = None,
+    ) -&gt; None:
+        self.config = config or LLMRequestConfig()
+        # 如果显式开启 mock_mode 或者未配置 api_key，自动启用本地 Mock 模式
+        self.mock_mode = mock_mode or (not self.config.api_key.strip())
+        self._transport = transport
+
+    def _mock_chat_completion(self, payload: Dict[str, Any]) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;离线本地 Mock 引擎：返回与真实 OpenAI 协议 100% 同构的 JSON 报文。&quot;&quot;&quot;
+        messages = payload[&quot;messages&quot;]
+        last_user = next(
+            (m[&quot;content&quot;] for m in reversed(messages) if m.get(&quot;role&quot;) == &quot;user&quot;),
+            &quot;&quot;,
+        )
+
+        # 针对星辰数科常见演示问题给出贴近业务的回答
+        if &quot;报销&quot; in last_user:
+            reply = &quot;【本地Mock】星辰数科差旅报销请在钉钉发起「费用报销单」，500元以上需直属主管+财务双审批。&quot;
+        elif &quot;DeepSeek&quot; in last_user or &quot;兼容&quot; in last_user or &quot;通义&quot; in last_user:
+            reply = &quot;【本地Mock】DeepSeek 与通义千问均兼容 OpenAI /v1/chat/completions 协议，切换厂商只需修改 base_url 与 model。&quot;
+        elif &quot;年假&quot; in last_user:
+            reply = &quot;【本地Mock】入职满 1 年享 5 天带薪年假，系统按自然年每年 1 月 1 日自动发放。&quot;
+        else:
+            reply = f&quot;【本地Mock】已收到你的提问：「{last_user}」。当前未配置线上 API Key，已自动降级为离线模拟回复。&quot;
+
+        prompt_tokens = sum(len(m.get(&quot;content&quot;, &quot;&quot;)) for m in messages)
+        completion_tokens = len(reply)
+        return {
+            &quot;id&quot;: &quot;chatcmpl-starmind-mock-001&quot;,
+            &quot;object&quot;: &quot;chat.completion&quot;,
+            &quot;model&quot;: f&quot;{payload[&#x27;model&#x27;]}-mock&quot;,
+            &quot;choices&quot;: [
+                {
+                    &quot;index&quot;: 0,
+                    &quot;message&quot;: {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: reply},
+                    &quot;finish_reason&quot;: &quot;stop&quot;,
+                }
+            ],
+            &quot;usage&quot;: {
+                &quot;prompt_tokens&quot;: prompt_tokens,
+                &quot;completion_tokens&quot;: completion_tokens,
+                &quot;total_tokens&quot;: prompt_tokens + completion_tokens,
+            },
+        }
+
+    def chat(self, messages: List[Dict[str, str]]) -&gt; LLMResponse:
+        &quot;&quot;&quot;发送对话请求并返回标准化 LLMResponse。&quot;&quot;&quot;
+        payload = build_chat_payload(
+            messages=messages,
+            model=self.config.model,
+            temperature=self.config.temperature,
+        )
+        start = time.perf_counter()
+
+        if self.mock_mode:
+            raw_data = self._mock_chat_completion(payload)
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            return parse_chat_response(raw_data, latency_ms=elapsed_ms, source=&quot;mock&quot;)
+
+        endpoint = f&quot;{self.config.base_url.rstrip(&#x27;/&#x27;)}/chat/completions&quot;
+        headers = {
+            &quot;Authorization&quot;: f&quot;Bearer {self.config.api_key}&quot;,
+            &quot;Content-Type&quot;: &quot;application/json&quot;,
+        }
+
+        try:
+            with httpx.Client(
+                timeout=self.config.timeout,
+                transport=self._transport,
+            ) as client:
+                resp = client.post(endpoint, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise LLMAPIError(f&quot;请求大模型超时（&gt;{self.config.timeout}s）&quot;) from exc
+        except httpx.HTTPError as exc:
+            raise LLMAPIError(f&quot;网络请求失败：{exc}&quot;) from exc
+
+        if resp.status_code == 401:
+            raise LLMAPIError(&quot;API Key 无效或已过期（HTTP 401）&quot;, status_code=401)
+        if resp.status_code == 429:
+            raise LLMAPIError(&quot;触发接口频率限制或余额不足（HTTP 429）&quot;, status_code=429)
+        if resp.status_code &gt;= 500:
+            raise LLMAPIError(
+                f&quot;大模型服务端暂时不可用（HTTP {resp.status_code}）&quot;,
+                status_code=resp.status_code,
+            )
+        if resp.status_code != 200:
+            raise LLMAPIError(
+                f&quot;接口返回异常状态码 HTTP {resp.status_code}: {resp.text[:120]}&quot;,
+                status_code=resp.status_code,
+            )
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return parse_chat_response(resp.json(), latency_ms=elapsed_ms, source=&quot;remote&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 默认不传 api_key，自动触发本地 Mock 降级模式
+    client = StarMindHTTPClient(LLMRequestConfig(model=&quot;deepseek-chat&quot;))
+    result = client.chat([
+        {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;你是杭州星辰数科企业知识助手。&quot;},
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;星辰数科差旅报销怎么走流程？&quot;},
+    ])
+    print(f&quot;[{result.source}] 模型: {result.model} | 耗时: {result.latency_ms}ms | Tokens: {result.total_tokens}&quot;)
+    print(f&quot;回复: {result.content}&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+[mock] 模型: deepseek-chat-mock | 耗时: 0.05ms | Tokens: 78
+回复: 【本地Mock】星辰数科差旅报销请在钉钉发起「费用报销单」，500元以上需直属主管+财务双审批。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>self.mock_mode = mock_mode or (not self.config.api_key.strip())</code> 实现了极度丝滑的无 Key 自动降级，开发者零配置即可跑通。<br/>2. 无论走 <code>mock</code> 还是 <code>remote</code>，最终都经过 <code>parse_chat_response()</code> 统一解析，保证数据结构 100% 一致。<br/>3. 针对 HTTP 401/429/5xx 做了细粒度状态码翻译，线上排障一眼就能定位是 Key 错、限流还是厂商挂了。</p><h3>实操步骤 2：步骤二：组装第一版命令行 AI 问答小程序（支持脚本化非阻塞测试）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>客户端就绪后，咱们把它包装成一个干净的命令行 AI 问答小程序。注意老陈的工程铁律：交互循环必须支持注入测试输入列表 <code>inputs</code>，绝对不能让代码一导入或一测试就卡死在 <code>input()</code> 里！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day12_cli_qa.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-012 模块二：星辰智脑命令行 AI 问答小程序 v0.1。
+演示单轮提问封装、控制台格式化输出与可测试的 CLI 交互循环。
+&quot;&quot;&quot;
+
+from typing import List, Optional
+
+from day12_llm_http_client import LLMAPIError, LLMRequestConfig, LLMResponse, StarMindHTTPClient
+
+DEFAULT_SYSTEM_PROMPT = &quot;你是杭州星辰数科内部 AI 助手「星辰智脑」，请用简洁专业中文回答问题。&quot;
+
+
+def ask_once(
+    client: StarMindHTTPClient,
+    question: str,
+    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+) -&gt; LLMResponse:
+    &quot;&quot;&quot;发起一次单轮 AI 问答。&quot;&quot;&quot;
+    cleaned = question.strip()
+    if not cleaned:
+        raise ValueError(&quot;提问内容不能为空&quot;)
+
+    messages = [
+        {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: system_prompt},
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: cleaned},
+    ]
+    return client.chat(messages)
+
+
+def format_qa_panel(question: str, response: LLMResponse) -&gt; str:
+    &quot;&quot;&quot;将问答结果格式化为清晰的终端展示文本。&quot;&quot;&quot;
+    return (
+        f&quot;问：{question}\n&quot;
+        f&quot;答：{response.content}\n&quot;
+        f&quot;—— [来源: {response.source} | 模型: {response.model} | &quot;
+        f&quot;Tokens: {response.total_tokens} | 耗时: {response.latency_ms}ms]&quot;
+    )
+
+
+def run_cli_qa(
+    client: StarMindHTTPClient,
+    inputs: Optional[List[str]] = None,
+) -&gt; List[str]:
+    &quot;&quot;&quot;
+    运行命令行问答循环。
+    - 传入 inputs 列表时按脚本逐条执行（适合演示与自动化测试，不阻塞）；
+    - inputs 为 None 时进入终端交互式 input() 模式。
+    &quot;&quot;&quot;
+    outputs: List[str] = []
+    script_iter = iter(inputs) if inputs is not None else None
+
+    while True:
+        if script_iter is not None:
+            try:
+                raw_q = next(script_iter)
+            except StopIteration:
+                break
+        else:
+            raw_q = input(&quot;请输入问题（输入 /exit 退出）&gt; &quot;)
+
+        q = raw_q.strip()
+        if q.lower() in {&quot;/exit&quot;, &quot;exit&quot;, &quot;quit&quot;}:
+            outputs.append(&quot;已退出星辰智脑问答小程序。&quot;)
+            break
+        if not q:
+            outputs.append(&quot;提示：问题不能为空，请重新输入。&quot;)
+            continue
+
+        try:
+            resp = ask_once(client, q)
+            outputs.append(format_qa_panel(q, resp))
+        except (ValueError, LLMAPIError) as exc:
+            outputs.append(f&quot;调用失败：{exc}&quot;)
+
+    return outputs
+
+
+if __name__ == &quot;__main__&quot;:
+    # 使用预设问题脚本运行演示，无需手动按键输入
+    demo_client = StarMindHTTPClient(LLMRequestConfig(model=&quot;deepseek-chat&quot;))
+    demo_questions = [
+        &quot;星辰数科差旅报销流程是什么？&quot;,
+        &quot;DeepSeek API 兼容什么协议格式？&quot;,
+        &quot;/exit&quot;,
+    ]
+    for block in run_cli_qa(demo_client, inputs=demo_questions):
+        print(block)
+        print(&quot;-&quot; * 50)
+</code></pre><div class="output-box"># 预期运行输出示例：
+问：星辰数科差旅报销流程是什么？
+答：【本地Mock】星辰数科差旅报销请在钉钉发起「费用报销单」，500元以上需直属主管+财务双审批。
+—— [来源: mock | 模型: deepseek-chat-mock | Tokens: 96 | 耗时: 0.04ms]
+--------------------------------------------------
+问：DeepSeek API 兼容什么协议格式？
+答：【本地Mock】DeepSeek 与通义千问均兼容 OpenAI /v1/chat/completions 协议，切换厂商只需修改 base_url 与 model。
+—— [来源: mock | 模型: deepseek-chat-mock | Tokens: 109 | 耗时: 0.03ms]
+--------------------------------------------------
+已退出星辰智脑问答小程序。
+--------------------------------------------------</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>run_cli_qa(client, inputs=...)</code> 把「数据来源」抽象出来，传入 <code>inputs</code> 列表就能全自动跑完多条问答并收集输出，既方便演示又方便 <code>pytest</code> 断言。<br/>2. 在循环内捕获 <code>(ValueError, LLMAPIError)</code>，哪怕某一次请求遇到 429 限流或空输入，程序也只会给出友好提示而不会闪退崩溃。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：封装 OpenAI 兼容 HTTP 大模型客户端（含本地 Mock 降级）（src/day12_llm_http_client.py）</h3><p>模块 <code>src/day12_llm_http_client.py</code> 共计 202 行源码，其中包含 3 行中文工程注释（注释密度约 1.5%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-012 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>time</code>、<code>dataclasses (dataclass)</code>、<code>typing (Any, Dict, List, Optional)</code>、<code>httpx</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>LLMAPIError</code>（第 13~18 行）】这是一个继承自 RuntimeError。其核心职责定义为：大模型 HTTP 接口调用异常基类，携带 HTTP 状态码便于上层区分处理。。类内部暴露了 1 个方法：<code>__init__(self, message, status_code)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>LLMAPIError.__init__</code>（第 16~18 行）属于同步实例方法，入参签名为 <code>(self, message, status_code)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>LLMRequestConfig</code>（第 22~29 行）】这是一个独立领域模型类。其核心职责定义为：大模型 API 连接配置。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>LLMResponse</code>（第 33~42 行）】这是一个独立领域模型类。其核心职责定义为：标准化大模型响应对象。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>StarMindHTTPClient</code>（第 92~191 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑 OpenAI 兼容 HTTP 客户端（支持无 Key 本地 Mock 降级）。。类内部暴露了 3 个方法：<code>__init__(self, config, mock_mode, transport)</code>、<code>_mock_chat_completion(self, payload)</code>、<code>chat(self, messages)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StarMindHTTPClient.__init__</code>（第 95~104 行）属于同步实例方法，入参签名为 <code>(self, config, mock_mode, transport)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindHTTPClient._mock_chat_completion</code>（第 106~142 行）属于同步实例方法，入参签名为 <code>(self, payload)</code>。文档说明：离线本地 Mock 引擎：返回与真实 OpenAI 协议 100% 同构的 JSON 报文。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindHTTPClient.chat</code>（第 144~191 行）属于同步实例方法，入参签名为 <code>(self, messages)</code>。文档说明：发送对话请求并返回标准化 LLMResponse。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>build_chat_payload</code>（第 45~58 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(messages, model, temperature)</code>。职责说明：构造标准 OpenAI 兼容 /chat/completions 请求体。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>parse_chat_response</code>（第 61~89 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(raw_data, latency_ms, source)</code>。职责说明：解析 OpenAI 兼容响应 JSON 为强类型 LLMResponse。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day12_llm_http_client.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day12/day12_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day12/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：组装第一版命令行 AI 问答小程序（支持脚本化非阻塞测试）（src/day12_cli_qa.py）</h3><p>模块 <code>src/day12_cli_qa.py</code> 共计 88 行源码，其中包含 1 行中文工程注释（注释密度约 1.1%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-012 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>typing (List, Optional)</code>、<code>day12_llm_http_client (LLMAPIError, LLMRequestConfig, LLMResponse, StarMindHTTPClient)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>ask_once</code>（第 13~27 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(client, question, system_prompt)</code>。职责说明：发起一次单轮 AI 问答。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>format_qa_panel</code>（第 30~37 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(question, response)</code>。职责说明：将问答结果格式化为清晰的终端展示文本。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>run_cli_qa</code>（第 40~75 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(client, inputs)</code>。职责说明：运行命令行问答循环。<br/>- 传入 inputs 列表时按脚本逐条执行（适合演示与自动化测试，不阻塞）；<br/>- inputs 为 None 时进入终端交互式 input() 模式。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day12_cli_qa.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day12/day12_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day12/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day12_llm_http_client.py（共 202 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day12_llm_http_client.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import httpx</code></td><td>核心意图：代表语句：`import httpx`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>super().__init__(message)</code></td><td>核心意图：代表语句：`super().__init__(message)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>base_url: str = &quot;https://api.deepseek.com/v1&quot;</code></td><td>核心意图：代表语句：`base_url: str = &quot;https://api.deepseek.com/v1&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>class LLMResponse:</code></td><td>核心意图：代表语句：`class LLMResponse:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L41-L48</code></td><td><code>latency_ms: float</code></td><td>核心意图：代表语句：`latency_ms: float`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`) -&gt; Dict[str, Any]:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;stream&quot;: False,</code></td><td>核心意图：代表语句：`&quot;stream&quot;: False,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>) -&gt; LLMResponse:</code></td><td>核心意图：代表语句：`) -&gt; LLMResponse:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>if not isinstance(content, str):</code></td><td>核心意图：代表语句：`if not isinstance(content, str):`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>return LLMResponse(</code></td><td>核心意图：代表语句：`return LLMResponse(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L89-L96</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>config: Optional[LLMRequestConfig] = None,</code></td><td>核心意图：如果显式开启 mock_mode 或者未配置 api_key，自动启用本地 Mock 模式。代表语句：`config: Optional[LLMRequestConfig] = None,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L105-L112</code></td><td><code>def _mock_chat_completion(self, payload: Dict[str, Any]) -&gt; Dict[str, An</code></td><td>核心意图：代表语句：`def _mock_chat_completion(self, payload: Dict[str, Any]) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>if &quot;报销&quot; in last_user:</code></td><td>核心意图：针对星辰数科常见演示问题给出贴近业务的回答。代表语句：`if &quot;报销&quot; in last_user:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>else:</code></td><td>核心意图：代表语句：`else:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>&quot;model&quot;: f&quot;{payload[&#x27;model&#x27;]}-mock&quot;,</code></td><td>核心意图：代表语句：`&quot;model&quot;: f&quot;{payload[&#x27;model&#x27;]}-mock&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L137-L144</code></td><td><code>&quot;usage&quot;: {</code></td><td>核心意图：代表语句：`&quot;usage&quot;: {`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L145-L152</code></td><td><code>&quot;&quot;&quot;发送对话请求并返回标准化 LLMResponse。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;发送对话请求并返回标准化 LLMResponse。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L153-L160</code></td><td><code>if self.mock_mode:</code></td><td>核心意图：代表语句：`if self.mock_mode:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>&quot;Content-Type&quot;: &quot;application/json&quot;,</code></td><td>核心意图：代表语句：`&quot;Content-Type&quot;: &quot;application/json&quot;,`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L169-L176</code></td><td><code>resp = client.post(endpoint, headers=headers, json=payload)</code></td><td>核心意图：代表语句：`resp = client.post(endpoint, headers=headers, json=payload)`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L177-L184</code></td><td><code>if resp.status_code == 429:</code></td><td>核心意图：代表语句：`if resp.status_code == 429:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L185-L192</code></td><td><code>raise LLMAPIError(</code></td><td>核心意图：代表语句：`raise LLMAPIError(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L193-L200</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：默认不传 api_key，自动触发本地 Mock 降级模式。代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L201-L202</code></td><td><code>print(f&quot;[{result.source}] 模型: {result.model} | 耗时: {result.latency_ms}ms</code></td><td>核心意图：代表语句：`print(f&quot;[{result.source}] 模型: {result.model} | 耗时: {result.latency_ms}ms | Tokens: {result`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day12_cli_qa.py（共 88 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day12_cli_qa.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>DEFAULT_SYSTEM_PROMPT = &quot;你是杭州星辰数科内部 AI 助手「星辰智脑」，请用简洁专业中文回答问题。&quot;</code></td><td>核心意图：代表语句：`DEFAULT_SYSTEM_PROMPT = &quot;你是杭州星辰数科内部 AI 助手「星辰智脑」，请用简洁专业中文回答问题。&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>) -&gt; LLMResponse:</code></td><td>核心意图：代表语句：`) -&gt; LLMResponse:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L25-L32</code></td><td><code>{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: cleaned},</code></td><td>核心意图：代表语句：`{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: cleaned},`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L33-L40</code></td><td><code>f&quot;问：{question}\n&quot;</code></td><td>核心意图：代表语句：`f&quot;问：{question}\n&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>client: StarMindHTTPClient,</code></td><td>核心意图：代表语句：`client: StarMindHTTPClient,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L49-L56</code></td><td><code>outputs: List[str] = []</code></td><td>核心意图：代表语句：`outputs: List[str] = []`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>break</code></td><td>核心意图：代表语句：`break`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>if not q:</code></td><td>核心意图：代表语句：`if not q:`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>outputs.append(f&quot;调用失败：{exc}&quot;)</code></td><td>核心意图：使用预设问题脚本运行演示，无需手动按键输入。代表语句：`outputs.append(f&quot;调用失败：{exc}&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>demo_questions = [</code></td><td>核心意图：代表语句：`demo_questions = [`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day12/tests/test_day12.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day12/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day12/tests/test_day12.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-012 自动化单元测试（全程离线，零外网依赖）。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+import httpx
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day12_llm_http_client import (
+    LLMAPIError,
+    LLMRequestConfig,
+    StarMindHTTPClient,
+    build_chat_payload,
+    parse_chat_response,
+)
+from day12_cli_qa import ask_once, run_cli_qa
+
+
+def test_payload_and_response_parser():
+    payload = build_chat_payload([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;你好&quot;}], model=&quot;qwen-plus&quot;, temperature=0.3)
+    assert payload[&quot;model&quot;] == &quot;qwen-plus&quot;
+    assert payload[&quot;temperature&quot;] == 0.3
+
+    raw = {
+        &quot;model&quot;: &quot;qwen-plus&quot;,
+        &quot;choices&quot;: [{&quot;message&quot;: {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;  你好，星辰同事！  &quot;}}],
+        &quot;usage&quot;: {&quot;prompt_tokens&quot;: 5, &quot;completion_tokens&quot;: 10, &quot;total_tokens&quot;: 15},
+    }
+    resp = parse_chat_response(raw, latency_ms=12.345, source=&quot;remote&quot;)
+    assert resp.content == &quot;你好，星辰同事！&quot;
+    assert resp.total_tokens == 15
+    assert resp.latency_ms == 12.35
+
+    with pytest.raises(ValueError):
+        parse_chat_response({&quot;choices&quot;: []}, latency_ms=1.0)
+
+
+def test_auto_mock_fallback_without_api_key():
+    client = StarMindHTTPClient(LLMRequestConfig(api_key=&quot;&quot;, model=&quot;deepseek-chat&quot;))
+    assert client.mock_mode is True
+    resp = ask_once(client, &quot;年假有多少天？&quot;)
+    assert resp.source == &quot;mock&quot;
+    assert &quot;年假&quot; in resp.content
+
+
+def test_remote_http_success_and_error_codes_with_mock_transport():
+    # 1. 模拟 HTTP 200 正常返回并校验 Authorization 请求头
+    def ok_handler(request: httpx.Request) -&gt; httpx.Response:
+        assert request.headers[&quot;Authorization&quot;] == &quot;Bearer sk-test-key&quot;
+        assert request.url.path.endswith(&quot;/chat/completions&quot;)
+        return httpx.Response(
+            200,
+            json={
+                &quot;model&quot;: &quot;deepseek-chat&quot;,
+                &quot;choices&quot;: [{&quot;message&quot;: {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;来自远程模拟节点的回复&quot;}}],
+                &quot;usage&quot;: {&quot;prompt_tokens&quot;: 12, &quot;completion_tokens&quot;: 18, &quot;total_tokens&quot;: 30},
+            },
+        )
+
+    cfg = LLMRequestConfig(api_key=&quot;sk-test-key&quot;, model=&quot;deepseek-chat&quot;)
+    client_ok = StarMindHTTPClient(cfg, transport=httpx.MockTransport(ok_handler))
+    resp = client_ok.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;测试远程调用&quot;}])
+    assert resp.source == &quot;remote&quot;
+    assert resp.content == &quot;来自远程模拟节点的回复&quot;
+    assert resp.total_tokens == 30
+
+    # 2. 模拟 HTTP 401 鉴权失败与 HTTP 429 限流
+    client_401 = StarMindHTTPClient(
+        cfg,
+        transport=httpx.MockTransport(lambda req: httpx.Response(401, json={&quot;error&quot;: &quot;invalid key&quot;})),
+    )
+    with pytest.raises(LLMAPIError) as exc_401:
+        client_401.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}])
+    assert exc_401.value.status_code == 401
+
+    client_429 = StarMindHTTPClient(
+        cfg,
+        transport=httpx.MockTransport(lambda req: httpx.Response(429, json={&quot;error&quot;: &quot;rate limit&quot;})),
+    )
+    with pytest.raises(LLMAPIError) as exc_429:
+        client_429.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}])
+    assert exc_429.value.status_code == 429
+
+
+def test_run_cli_qa_scripted():
+    client = StarMindHTTPClient(LLMRequestConfig(api_key=&quot;&quot;))
+    logs = run_cli_qa(client, inputs=[&quot;&quot;, &quot;报销流程&quot;, &quot;/exit&quot;])
+    assert &quot;不能为空&quot; in logs[0]
+    assert &quot;费用报销单&quot; in logs[1]
+    assert &quot;已退出&quot; in logs[2]
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-012</code>，承接自 Day 11 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day12-http-llm-api-client</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day12-http-llm-api-client）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day12-http-llm-api-client
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day12.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-012）
+git add src/day12_llm_http_client.py src/day12_cli_qa.py tests/test_day12.py
+git commit -m &quot;feat(day12): 封装OpenAI兼容HTTP大模型客户端与本地Mock降级命令行问答小程序
+
+Refs: STARMIND-012
+- 完成 网络请求与 API 调用 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day12-http-llm-api-client</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-012 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-012 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day12_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day12_llm_http_client.py src/day12_cli_qa.py
+    - echo &quot;Day 12 语法编译检查通过&quot;
+
+day12_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day12/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day12/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>用 <code>httpx.MockTransport</code> 把 200/401/429 三条 HTTP 分支全测透了，还不花一分钱 Token，这才是大厂写 API 客户端的标准姿势！</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端主程)</span><span>状态：Approved</span></div><p><code>run_cli_qa</code> 把 <code>inputs</code> 参数化做得很好，CI 流水线跑测试完全不会卡死在 <code>input()</code> 上。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-012 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-012（网络请求与 API 调用）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰智脑项目需要正式打通大模型推理能力，首期计划接入 DeepSeek 与通义千问（OpenAI 兼容接口）。但在内网开发和自动化测试环境下无法保证随时拥有外网 API Key，需要客户端具备平滑的本地 Mock 降级能力。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）新手直接裸拼 HTTP 请求容易漏掉 <code>Authorization: Bearer</code> 请求头或忘记设置 <code>timeout</code> 导致进程永久卡死。；（2）直接硬编码某一家大模型 SDK，后期切换 DeepSeek/通义千问成本极高。；（3）本地开发和 CI 流水线没有外网 API Key 时无法运行和验证问答主流程。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）理解 HTTP 协议核心要素（URL、POST Method、Headers、JSON Body、状态码 200/401/429/5xx）。；（2）掌握 <code>httpx</code> / <code>urllib</code> / <code>requests</code> 的区别与 OpenAI 兼容协议 <code>/chat/completions</code> 报文封装。；（3）交付具备「真实 HTTP 调用 + 无 Key 自动本地 Mock 降级」的客户端类与第一版命令行 AI 问答小程序。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day12/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. HTTP 协议核心：调用大模型 API 必懂的 4 个要素】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：调用大模型本质上就是发一次标准 HTTP POST 请求：<br/>- **URL**：如 DeepSeek 的 <code>https://api.deepseek.com/v1/chat/completions</code> 或通义千问兼容地址 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code>。<br/>- **Headers**：必须携带 <code>Authorization: Bearer &lt;API_KEY&gt;</code> 与 <code>Content-Type: application/json</code>。<br/>- **Body**：JSON 对象，包含 <code>model</code>、<code>messages</code>（角色+内容列表）、<code>…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：调用外部 HTTP API 一定要显式传 </code>timeout=30.0`！默认不设超时一旦对端网络黑洞，你的服务线程就会永远卡死直到被运维重启。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. HTTP 协议核心：调用大模型 API 必懂的 4 个要素」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. urllib vs requests vs httpx：现代 AI 工程怎么选？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：- <code>urllib.request</code>：Python 标准库，零第三方依赖，写轻量脚本够用，但 API 略繁琐。<br/>- <code>requests</code>：老牌国民级同步 HTTP 库，写法优雅，但**不支持 <code>async/await</code> 异步和 HTTP/2**。<br/>- <code>httpx</code>：新一代主力库，接口几乎 100% 兼容 <code>requests</code>，同时原生支持同步 <code>Client</code>、异步 <code>AsyncClient</code> 以及 <code>MockTransport</code> 离线测试。OpenAI 官方 Python SDK 和 FastAPI 测试客户端底层全用 <code>httpx</code>！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：高频调用同一个 API 域名时，不要每次请求都临时新建客户端，尽量复用 <code>httpx.Client()</code> 连接池（Keep-Alive），能省掉大量 TCP+TLS 握手耗时。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. urllib vs requests vs httpx：现代 AI 工程怎么选？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 为什么企业级 AI 客户端必须内置 Mock Fallback？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：1）新同学入职第一天还没审批下来正式 API Key，也能立刻跑通全套业务代码；<br/>2）CI/CD 自动化测试每天跑几百次单测，用本地 Mock 或 <code>httpx.MockTransport</code> 可以实现零成本、毫秒级、100% 确定性通过，不受外网波动影响。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：Mock 数据结构必须严格对齐真实 API 的返回 Schema（包含 <code>choices</code> 和 <code>usage</code>），让 Mock 和真实请求走同一套解析函数，否则「测试全绿、上线解析报错」。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 为什么企业级 AI 客户端必须内置 Mock Fallback？」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 12 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day12/</code> 中亲手编写了 <code>src/day12_llm_http_client.py</code>、<code>src/day12_cli_qa.py</code> 以及对应的自动化测试 <code>tests/test_day12.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day12_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 12 / STARMIND-012）：1. 已在分支 <code>feat/day12-http-llm-api-client</code> 完成 网络请求与 API 调用 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 13）：明天（Day 13）咱们进入 Python 工程化进阶语法——装饰器、生成器 <code>yield</code>、<code>python-dotenv</code> 密钥管理与 <code>asyncio</code> 异步并发，给今天刚调通的 API 客户端加上自动重试、超时控制与流式输出！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 12 掌握的「网络请求与 API 调用」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「网络请求与 API 调用」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：网络请求与 API 调用 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-012 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day12.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 12 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day12/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day12_llm_http_client.py, src/day12_cli_qa.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>当 `api_key` 为空或开启 `mock_mode=True` 时，自动返回符合 OpenAI 协议格式的本地 Mock 回复且不发起任何外网请求。；当传入 `api_key` 时，能按标准格式组装 `Authorization: Bearer ...` 与 JSON 请求体并发送 POST 请求，正确解析 `choices[0].message.content` 与 `usage`。；能准确拦截 401 鉴权失败、429 触发限流、5xx 服务端异常，并给出清晰中文错误提示；通过 `httpx.MockTransport` 离线单测。</td><td>运行 `pytest versions/day12/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day12/day12_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day12-http-llm-api-client` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「网络请求与 API 调用」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-012 需求时，我们的核心业务目标是：理解 HTTP 协议核心要素（URL、POST Method、Headers、JSON Body、状态码 200/401/429/5xx）。；掌握 <code>httpx</code> / <code>urllib</code> / <code>requests</code> 的区别与 OpenAI 兼容协议 <code>/chat/completions</code> 报文封装。；交付具备「真实 HTTP 调用 + 无 Key 自动本地 Mock 降级」的客户端类与第一版命令行 AI 问答小程序。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. HTTP 协议核心：调用大模型 API 必懂的 4 个要素、2. urllib vs requests vs httpx：现代 AI 工程怎么选？、3. 为什么企业级 AI 客户端必须内置 Mock Fallback？ 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「网络请求与 API 调用」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 12 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day12_llm_http_client.py、src/day12_cli_qa.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天你不仅搞懂了 HTTP 请求头、状态码和 JSON 报文，还亲手写出了一套「有 Key 走真实 HTTPS、无 Key 自动走本地 Mock、单测用 <code>httpx.MockTransport</code> 精准模拟 200/401/429」的生产级客户端骨架。<br/>记住老陈一句话：**永远不要把真实 API Key 硬编码写进 <code>.py</code> 文件里提交到 Git！**明天咱们就用 <code>python-dotenv</code> + 重试装饰器 + 异步并发，把这套客户端武装到牙齿！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：HTTP 状态码智能诊断器</strong><span class="badge">基础巩固</span></div><p>编写函数 <code>diagnose_http_status(status_code: int) -&gt; dict</code>，根据输入的状态码返回 <code>{&#x27;category&#x27;: ..., &#x27;retryable&#x27;: bool, &#x27;advice&#x27;: ...}</code>。要求正确区分 200（成功，不可重试）、401/403（鉴权错误，不可重试）、429（限流，可重试）、500~599（服务端错误，可重试）。</p><p><strong>💡 思路提示：</strong>用范围判断 `200 &lt;= status_code &lt; 300` 和 `500 &lt;= status_code &lt; 600` 处理类别，429 单独标为 `retryable=True`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-12-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-12-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 12 课后题 1：大模型 API HTTP 状态码智能诊断器。&quot;&quot;&quot;
+
+from typing import Any, Dict
+
+
+def diagnose_http_status(status_code: int) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;根据 HTTP 状态码返回故障分类、是否建议重试及排查建议。&quot;&quot;&quot;
+    if 200 &lt;= status_code &lt; 300:
+        return {&quot;category&quot;: &quot;success&quot;, &quot;retryable&quot;: False, &quot;advice&quot;: &quot;请求成功，正常解析响应即可。&quot;}
+    if status_code in (401, 403):
+        return {&quot;category&quot;: &quot;auth_error&quot;, &quot;retryable&quot;: False, &quot;advice&quot;: &quot;检查 API Key 是否正确、过期或缺少权限。&quot;}
+    if status_code == 429:
+        return {&quot;category&quot;: &quot;rate_limit&quot;, &quot;retryable&quot;: True, &quot;advice&quot;: &quot;触发限流或配额不足，建议指数退避重试或检查账户余额。&quot;}
+    if 500 &lt;= status_code &lt; 600:
+        return {&quot;category&quot;: &quot;server_error&quot;, &quot;retryable&quot;: True, &quot;advice&quot;: &quot;大模型厂商服务端抖动，建议稍后重试或切换备用模型。&quot;}
+    return {&quot;category&quot;: &quot;client_error&quot;, &quot;retryable&quot;: False, &quot;advice&quot;: f&quot;客户端请求异常（HTTP {status_code}），请检查 URL 与请求体格式。&quot;}
+
+
+if __name__ == &quot;__main__&quot;:
+    for code in (200, 401, 429, 503):
+        print(code, &quot;-&gt;&quot;, diagnose_http_status(code))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>区分「可重试错误（429/5xx）」和「不可重试错误（400/401/403）」是写好重试中间件的第一步——对着 401 疯狂重试只会浪费算力甚至被封 IP。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：国内多厂商 OpenAI 兼容配置工厂</strong><span class="badge">企业实战</span></div><p>编写 <code>create_provider_config(provider: str, api_key: str) -&gt; dict</code>，支持 <code>&#x27;deepseek&#x27;</code>、<code>&#x27;qwen&#x27;</code>（通义千问）、<code>&#x27;zhipu&#x27;</code>（智谱）三种国内主流厂商，自动填入对应的兼容 <code>base_url</code> 与默认推荐模型名；遇到未知厂商抛出 <code>ValueError</code>。</p><p><strong>💡 思路提示：</strong>定义一个 `PROVIDER_PRESETS` 常量字典，对传入的 `provider.strip().lower()` 做查表校验。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-12-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-12-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 12 课后题 2：国内多厂商 OpenAI 兼容配置工厂。&quot;&quot;&quot;
+
+from typing import Dict
+
+PROVIDER_PRESETS: Dict[str, Dict[str, str]] = {
+    &quot;deepseek&quot;: {
+        &quot;base_url&quot;: &quot;https://api.deepseek.com/v1&quot;,
+        &quot;model&quot;: &quot;deepseek-chat&quot;,
+    },
+    &quot;qwen&quot;: {
+        &quot;base_url&quot;: &quot;https://dashscope.aliyuncs.com/compatible-mode/v1&quot;,
+        &quot;model&quot;: &quot;qwen-plus&quot;,
+    },
+    &quot;zhipu&quot;: {
+        &quot;base_url&quot;: &quot;https://open.bigmodel.cn/api/paas/v4&quot;,
+        &quot;model&quot;: &quot;glm-4-flash&quot;,
+    },
+}
+
+
+def create_provider_config(provider: str, api_key: str) -&gt; Dict[str, str]:
+    &quot;&quot;&quot;根据厂商名称生成标准 OpenAI 兼容客户端配置。&quot;&quot;&quot;
+    key = provider.strip().lower()
+    if key not in PROVIDER_PRESETS:
+        supported = &quot;, &quot;.join(sorted(PROVIDER_PRESETS))
+        raise ValueError(f&quot;不支持的厂商 &#x27;{provider}&#x27;，当前仅支持: {supported}&quot;)
+    preset = PROVIDER_PRESETS[key]
+    return {
+        &quot;provider&quot;: key,
+        &quot;base_url&quot;: preset[&quot;base_url&quot;],
+        &quot;model&quot;: preset[&quot;model&quot;],
+        &quot;api_key&quot;: api_key,
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    print(create_provider_config(&quot;DeepSeek&quot;, &quot;sk-demo&quot;))
+    print(create_provider_config(&quot;qwen&quot;, &quot;sk-demo&quot;))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>利用 OpenAI 协议兼容特性，通过工厂字典集中管理各家 <code>base_url</code> 和默认模型，业务代码零耦合，切换供应商一行配置搞定。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：带自定义 Trace-ID 的 httpx 拦截测试封装</strong><span class="badge">架构进阶</span></div><p>编写函数 <code>send_traced_request(url: str, trace_id: str, transport: httpx.BaseTransport) -&gt; dict</code>，发送携带 <code>X-Trace-Id</code> 请求头的 GET 请求，校验响应 JSON 中是否正确回显了该 <code>trace_id</code>，并用 <code>httpx.MockTransport</code> 编写自包含运行验证。</p><p><strong>💡 思路提示：</strong>在 `httpx.MockTransport` 的回调函数里从 `request.headers.get(&#x27;X-Trace-Id&#x27;)` 取出追踪号并放入返回 JSON。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-12-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-12-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 12 课后题 3：带 X-Trace-Id 链路追踪头的 httpx 请求与离线 Mock 验证。&quot;&quot;&quot;
+
+from typing import Any, Dict
+import httpx
+
+
+def send_traced_request(
+    url: str,
+    trace_id: str,
+    transport: httpx.BaseTransport,
+) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;发送带链路追踪 ID 的 GET 请求并校验回显。&quot;&quot;&quot;
+    with httpx.Client(timeout=5.0, transport=transport) as client:
+        resp = client.get(url, headers={&quot;X-Trace-Id&quot;: trace_id})
+        resp.raise_for_status()
+        data = resp.json()
+    if data.get(&quot;echo_trace_id&quot;) != trace_id:
+        raise ValueError(&quot;服务端未正确回显 X-Trace-Id&quot;)
+    return data
+
+
+if __name__ == &quot;__main__&quot;:
+    def mock_server(request: httpx.Request) -&gt; httpx.Response:
+        return httpx.Response(
+            200,
+            json={&quot;status&quot;: &quot;ok&quot;, &quot;echo_trace_id&quot;: request.headers.get(&quot;X-Trace-Id&quot;)},
+        )
+
+    result = send_traced_request(
+        &quot;https://api.starmind.local/health&quot;,
+        trace_id=&quot;trace-20260512-001&quot;,
+        transport=httpx.MockTransport(mock_server),
+    )
+    print(&quot;链路追踪验证通过:&quot;, result)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>在微服务和 AI 网关中，每次请求携带 <code>X-Trace-Id</code> 是排查全链路耗时的命根子，而 <code>httpx.MockTransport</code> 让我们无需起真实服务器就能在毫秒级验证请求头透传逻辑。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day11/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day13/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

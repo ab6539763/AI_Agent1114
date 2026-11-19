@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 14：阶段考核项目一——命令行多轮对话 AI 助手 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 2 周</span>
+      <span class="badge badge-ticket">STARMIND-014</span>
+      <span class="badge">Day 14 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="14" onclick="toggleDayComplete(14, this)">标记今日已完成</button>
+      <a class="btn" href="../day13/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day15/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day14-milestone1-cli-chat-assistant</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day14/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day14/day14_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day14_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 2 周：第 2 周：面向对象、工程化与命令行 AI 助手实战</div>
+        <h1>Day 14：阶段考核项目一——命令行多轮对话 AI 助手</h1>
+        <p class="hero-sub">综合运用 OOP、JSON 持久化、异常处理与斜杠指令系统，交付星辰智脑 CLI 多轮对话助手 v1.0</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-014</span>
+          <span class="hero-tag">分支：feat/day14-milestone1-cli-chat-assistant</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>不知不觉来到第 14 天——**第一阶段毕业考核日（STARMIND-014）**！<br/>林产品今天亲自来验收咱们的「星辰智脑 CLI 多轮对话助手 v1.0」。需求很明确，不再是 Day 12 那种问完就忘的单轮玩具，而是真正能连续聊天的生产力工具：<br/>1）**多轮上下文记忆**：维护标准 <code>messages</code> 对话数组，并带滑动窗口裁剪，防止聊久了 Token 爆炸；<br/>2）**JSON 对话持久化**：敲 <code>/save</code> 一键把整段对话保存到本地 JSON，下次还能 <code>load_from_json</code> 完整恢复接着聊；<br/>3）**完整斜杠指令集**：<code>/help</code>、<code>/history</code>、<code>/stats</code>、<code>/clear</code>（清空历史但保留系统人设）、<code>/exit</code>；<br/>4）**生产级异常处理**：后端报错不闪退，而且必须把刚才塞进去却没拿到回复的那条 <code>user</code> 消息**事务回滚**掉！<br/>今天把这两份代码和全套 pytest 验收测试跑绿，你的第一阶段就圆满毕业了！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天咱们拿下了装饰器、<code>yield</code> 生成器、<code>python-dotenv</code> 和 <code>asyncio</code> 异步并发，第一阶段所有的核心技术拼图已经全部集齐。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>恭喜通关第一阶段（14 天 Python 工程基础）！下周一（Day 15，第二阶段：Web 后端与数据库工程）咱们将把今天这个命令行助手正式升级成企业级 **FastAPI + 数据库持久化** 的多人在线 Web 服务！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 14 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 14）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：昨天咱们拿下了装饰器、<code>yield</code> 生成器、<code>python-dotenv</code> 和 <code>asyncio</code> 异步并发，第一阶段所有的核心技术拼图已经全部集齐。 今天我们通过需求单 STARMIND-014，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day14/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：恭喜通关第一阶段（14 天 Python 工程基础）！下周一（Day 15，第二阶段：Web 后端与数据库工程）咱们将把今天这个命令行助手正式升级成企业级 **FastAPI + 数据库持久化** 的多人在线 Web 服务！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>多轮对话记忆引擎与 JSON 持久化设计</td><td>编写 ConversationMemory，实现 messages 管理、滑动窗口、回滚机制与 JSON 存取。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>命令行 AI 助手主控类与斜杠指令系统</td><td>实现 LocalSmartMockBackend、斜杠指令路由与容错 REPL 主循环。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>阶段一综合验收测试与代码走查</td><td>编写覆盖记忆、持久化、指令、异常回滚的完整 pytest 套件，模拟 GitLab MR 评审。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>第一阶段知识图谱复盘与进阶作业</td><td>串联 Day 1~14 工程技能，完成 3 道考核拓展作业。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-014）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>作为星辰智脑第一阶段里程碑考核交付物，研发团队需要交付一个可独立运行、可测试、具备完整多轮对话体验的命令行 AI 助手 v1.0，作为后续 Web 版与 Agent 版的最小可行内核（MVP）。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>Day 12 的单轮问答工具没有记忆，用户追问「刚才那个流程要几天？」时模型完全不知道上下文。</li><li>终端一关闭，有价值的问答记录全部丢失，无法归档或下次续聊。</li><li>用户缺少快捷管理指令（清屏重置话题、查看 Token 消耗、导出存档），且模型异常时容易留下残缺的孤立 user 消息污染上下文。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现 `ConversationMemory` 类：管理 `system` 人设、`messages` 多轮历史、滑动窗口裁剪、Token 估算与 JSON 持久化读写。</li><li>实现 `StarMindCLIAssistant` 类：内置斜杠指令路由（`/help`、`/history`、`/stats`、`/clear`、`/save`、`/exit`）与可替换的对话后端接口。</li><li>实现异常事务回滚机制：模型调用失败时不崩溃退出，并自动撤销本次未完成的 `user` 消息。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>连续多轮提问时，后端能接收到完整历史 `messages`（含首条 `system` 消息），且超出窗口上限时自动保留最新 N 条对话。</li><li>`/clear` 清空对话历史但保留 `system_prompt`；`/save` 成功落盘 UTF-8 JSON 并可通过 `load_from_json` 完整还原。</li><li>模型后端抛出异常时，助手返回友好错误提示、不崩溃，且记忆中不会残留失败的 `user` 消息。</li><li>全部核心类与斜杠指令通过无阻塞 `pytest` 自动化验收测试。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>零外网依赖即可运行完整多轮演示与测试，同时通过 `BaseChatBackend` 接口无缝兼容 Day 12 的真实 HTTP 大模型客户端。</li><li>JSON 持久化文件使用 `utf-8` 编码与 `ensure_ascii=False` 缩进格式化，人类可直接阅读。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>阶段考核项目一严格践行「关注点分离（Separation of Concerns）」的面向对象架构，拆分为两个高内聚低耦合模块：<br/>1. **对话记忆与持久化层（day14_session_memory.py）**：<br/>   - <code>ChatMessage</code> 封装单条消息的角色（<code>user</code>/<code>assistant</code>）、正文与 UTC 时间戳。<br/>   - <code>ConversationMemory</code> 负责维护多轮上下文状态，提供 <code>build_payload_messages()</code> 自动将 <code>system</code> 置顶并按 <code>max_history_messages</code> 执行滑动窗口截断；提供 <code>rollback_last_user_message()</code> 保证异常时对话状态原子一致；提供 <code>save_to_json()</code> / <code>load_from_json()</code> 实现跨进程会话恢复。<br/>2. **命令行助手主控与后端适配层（day14_cli_assistant.py）**：<br/>   - <code>BaseChatBackend</code> 定义极简抽象接口 <code>complete(messages) -&gt; str</code>，既可接入内置的 <code>LocalSmartMockBackend</code>（能够真实读取历史 <code>messages</code> 演示多轮记忆），也可直接包装 Day 12 的 <code>StarMindHTTPClient</code> 接入 DeepSeek/通义千问。<br/>   - <code>StarMindCLIAssistant</code> 将输入行统一分发至 <code>handle_line()</code>，清晰隔离斜杠指令处理与普通对话处理，<code>run_repl(input_lines=...)</code> 既支持终端真人交互也支持自动化脚本回放。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 14.1：命令行多轮对话主循环（REPL）与斜杠指令流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">命令行多轮对话主循环（REPL）与斜杠指令流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">接收用户输入行</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">REPL / 脚本输入</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">以 / 开头？</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">区分指令与普通提问</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">斜杠指令路由器</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">/clear /save /stats /exit</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">写入 user 消息并调模型</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">携带完整 messages 上下文</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">成功写入 assistant 回复</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">更新轮数与 Token 统计</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">异常捕获与消息回滚</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">rollback_last_user_message</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">非空文本</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="537.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">是（指令）</text>
+<line x1="432.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="539.0" y="132.5" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">否（对话）</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="546.5" y="202.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">调用成功</text>
+<line x1="608" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="403.5" y="202.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="433.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">抛出异常</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示用户输入进入助手后如何分流为空输入拦截、斜杠指令路由与多轮对话调用，并在异常时回滚状态。</div></div><div class="diagram-card"><div class="diagram-title">图 14.2：星辰智脑 CLI 助手 v1.0 四层模块化架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">星辰智脑 CLI 助手 v1.0 四层模块化架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">CLI REPL 外壳</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">run_repl() / handle_line()</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Command Router</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">/help /clear /save /history</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">ConversationMemory</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">滑动窗口 + JSON 持久化</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">BaseChatBackend</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">Mock 后端 / DeepSeek HTTP</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">本地 sessions/*.json</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">UTF-8 对话存档文件</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">解析斜杠指令</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">读写多轮上下文</text>
+<line x1="430.0" y1="130" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">发送 messages 推理</text>
+<line x1="629.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="629.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">save / load JSON</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示交互外壳、指令路由、记忆持久化与可插拔大模型后端之间的清晰依赖边界。</div></div><div class="diagram-card"><div class="diagram-title">图 14.3：多轮对话上下文组装与异常回滚时序图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="800" height="420" rx="12" fill="#fafafc"/>
+<text x="400.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">多轮对话上下文组装与异常回滚时序图</text>
+<rect x="58.0" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="130.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">User 用户</text>
+<line x1="130.0" y1="88" x2="130.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="238.0" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="310.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">StarMindCLIAssistant</text>
+<line x1="310.0" y1="88" x2="310.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="418.0" y="44" width="144" height="44" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="490.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">ConversationMemory</text>
+<line x1="490.0" y1="88" x2="490.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="598.0" y="44" width="144" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="670.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95">LLM Backend</text>
+<line x1="670.0" y1="88" x2="670.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="130.0" y1="122" x2="310.0" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="220.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. 1. 发送新问题</text>
+<line x1="310.0" y1="174" x2="490.0" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. 2. add_user_message + build_payload</text>
+<line x1="310.0" y1="226" x2="670.0" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="490.0" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. 3. complete(完整历史 messages)</text>
+<line x1="670.0" y1="278" x2="310.0" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="490.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. 4. 返回回复 或 抛出异常</text>
+<line x1="310.0" y1="330" x2="490.0" y2="330" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="322" text-anchor="middle" font-size="11.5" fill="#0f172a">5. 5. 成功追加回复 / 失败则 rollback</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示第 2 轮追问如何自动携带第 1 轮记忆，以及第 3 轮触发异常时如何安全回滚保证历史干净。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 多轮对话本质：大模型是「无状态」的</h3><p>很多人误以为大模型服务器替你记住了上一句话，其实 HTTP API 是完全无状态（Stateless）的！所谓「多轮记忆」，全靠客户端把 <code>[system, user_1, assistant_1, user_2, assistant_2, user_3]</code> 整串历史记录每次重新打包发给模型。<br/>因此客户端必须做好**滑动窗口裁剪**（始终保留 <code>system</code> + 最近 N 条消息），否则聊上 50 轮不仅 Token 费暴涨，还会直接触发模型上下文长度超限报错。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>裁剪历史消息时，千万别一刀把索引 0 的 `system` 人设消息也截掉了！务必把 `system_prompt` 独立保存，每次组装 payload 时再拼在最前面。</div><h3>2. 2. 失败回滚：保护 messages 奇偶交替完整性</h3><p>主流大模型 API 严格要求 <code>messages</code> 中 <code>user</code> 和 <code>assistant</code> 交替出现。如果在调用模型前先执行了 <code>add_user_message()</code>，结果这次网络超时报错了，如果不把刚才那条 <code>user</code> 消息 <code>pop</code> 回滚掉，下一次用户重新提问就会出现连续两条 <code>user</code> 消息，导致后续所有请求被 API 拒绝（HTTP 400）！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>在 `except Exception:` 分支里调用 `memory.rollback_last_user_message()`，是一个极小但极显功力的生产级细节。</div><h3>3. 3. CLI 项目的工程化可测试性（依赖注入）</h3><p>写命令行程序最容易犯的错，就是把 <code>while True: input()</code>、文件读写和网络请求全揉在一个文件顶层，导致完全没法写单元测试。<br/>正确做法是：**将单行处理逻辑抽成纯方法 <code>handle_line(raw_line) -&gt; (should_continue, reply)</code>**，并把后端引擎 <code>backend</code> 和保存目录 <code>save_dir</code> 通过构造函数注入——这样 <code>pytest</code> 不用模拟键盘敲击也能 100% 测完每一条斜杠指令！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>涉及文件名参数的 `/save &lt;filename&gt;` 指令，要注意用 `Path(filename).name` 去掉恶意路径前缀（如 `../../etc/passwd`），防止路径穿越漏洞。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【第一阶段收官复盘：从 CLI 助手到生产级企业 AI 平台，还差哪几步？】<br/>今天咱们的 CLI 助手已经具备了完整的多轮大脑内核，但真要让全公司 500 名员工同时使用，还面临四个核心挑战：<br/>1）**多人并发访问** -&gt; 第二阶段（Day 15~26）用 **FastAPI + SQLite/PostgreSQL** 把本地 JSON 换成并发安全的数据库与 HTTP API；<br/>2）**不懂公司私密文档** -&gt; 第三阶段（Day 27~38）接入 **Embedding + 向量数据库 + RAG 检索增强**；<br/>3）**只会说不会干活** -&gt; 第四阶段（Day 39~50）升级为 **Function Calling + ReAct + MCP 工具调用 Agent**；<br/>4）**上线观测与运维** -&gt; 第五、六阶段接入 **流式 SSE 前端、评测集、Docker 容器化与线上监控**。<br/>第一阶段的地基你已经打得无比扎实，下一阶段见！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day14/</code> 与 <code>notebooks/day14/day14_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现多轮对话记忆引擎与 JSON 持久化模块</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先搭好核心数据结构 <code>ConversationMemory</code>：负责 <code>messages</code> 增删、滑动窗口截断、失败回滚、Token 估算以及 UTF-8 JSON 持久化存取。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day14_session_memory.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-014 模块一：多轮对话记忆引擎与 JSON 持久化存储。
+负责维护 system 人设、多轮 messages 历史、滑动窗口裁剪、异常回滚与 JSON 读写。
+&quot;&quot;&quot;
+
+import json
+import tempfile
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
+
+
+@dataclass
+class ChatMessage:
+    &quot;&quot;&quot;单条对话消息记录。&quot;&quot;&quot;
+
+    role: str  # &quot;user&quot; 或 &quot;assistant&quot;
+    content: str
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec=&quot;seconds&quot;)
+    )
+
+
+class ConversationMemory:
+    &quot;&quot;&quot;星辰智脑多轮对话上下文记忆管理器。&quot;&quot;&quot;
+
+    def __init__(
+        self,
+        system_prompt: str = &quot;你是杭州星辰数科企业 AI 助手「星辰智脑」，请提供专业简洁的中文解答。&quot;,
+        max_history_messages: int = 10,
+        session_id: str = &quot;default-session&quot;,
+    ) -&gt; None:
+        if max_history_messages &lt; 2:
+            raise ValueError(&quot;max_history_messages 至少为 2（一问一答）&quot;)
+        self.system_prompt = system_prompt
+        self.max_history_messages = max_history_messages
+        self.session_id = session_id
+        self.messages: List[ChatMessage] = []
+
+    def add_user_message(self, content: str) -&gt; ChatMessage:
+        &quot;&quot;&quot;追加一条用户消息。&quot;&quot;&quot;
+        cleaned = content.strip()
+        if not cleaned:
+            raise ValueError(&quot;用户消息不能为空&quot;)
+        msg = ChatMessage(role=&quot;user&quot;, content=cleaned)
+        self.messages.append(msg)
+        return msg
+
+    def add_assistant_message(self, content: str) -&gt; ChatMessage:
+        &quot;&quot;&quot;追加一条助手回复消息。&quot;&quot;&quot;
+        msg = ChatMessage(role=&quot;assistant&quot;, content=content.strip())
+        self.messages.append(msg)
+        return msg
+
+    def rollback_last_user_message(self) -&gt; bool:
+        &quot;&quot;&quot;当模型调用失败时回滚最后一条孤立的 user 消息，防止上下文损坏。&quot;&quot;&quot;
+        if self.messages and self.messages[-1].role == &quot;user&quot;:
+            self.messages.pop()
+            return True
+        return False
+
+    def build_payload_messages(self) -&gt; List[Dict[str, str]]:
+        &quot;&quot;&quot;
+        构造发送给大模型的标准 messages 数组：
+        始终保留 system_prompt 在首位 + 最近 max_history_messages 条历史消息。
+        &quot;&quot;&quot;
+        window = self.messages[-self.max_history_messages :]
+        payload: List[Dict[str, str]] = [{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: self.system_prompt}]
+        for item in window:
+            payload.append({&quot;role&quot;: item.role, &quot;content&quot;: item.content})
+        return payload
+
+    def clear(self) -&gt; None:
+        &quot;&quot;&quot;清空多轮历史消息（保留 system_prompt 人设）。&quot;&quot;&quot;
+        self.messages.clear()
+
+    def get_stats(self) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;统计当前会话轮数、消息总数及粗略 Token 估算。&quot;&quot;&quot;
+        user_turns = sum(1 for m in self.messages if m.role == &quot;user&quot;)
+        total_chars = len(self.system_prompt) + sum(len(m.content) for m in self.messages)
+        return {
+            &quot;session_id&quot;: self.session_id,
+            &quot;turns&quot;: user_turns,
+            &quot;message_count&quot;: len(self.messages),
+            &quot;estimated_tokens&quot;: max(1, int(total_chars * 1.2)),
+            &quot;window_limit&quot;: self.max_history_messages,
+        }
+
+    def save_to_json(self, file_path: Path) -&gt; Path:
+        &quot;&quot;&quot;将当前多轮对话完整持久化为 UTF-8 JSON 文件。&quot;&quot;&quot;
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            &quot;session_id&quot;: self.session_id,
+            &quot;saved_at&quot;: datetime.now(timezone.utc).isoformat(timespec=&quot;seconds&quot;),
+            &quot;system_prompt&quot;: self.system_prompt,
+            &quot;max_history_messages&quot;: self.max_history_messages,
+            &quot;messages&quot;: [asdict(m) for m in self.messages],
+        }
+        file_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding=&quot;utf-8&quot;,
+        )
+        return file_path
+
+    @classmethod
+    def load_from_json(cls, file_path: Path) -&gt; &quot;ConversationMemory&quot;:
+        &quot;&quot;&quot;从 JSON 存档文件恢复历史会话记忆。&quot;&quot;&quot;
+        if not file_path.exists():
+            raise FileNotFoundError(f&quot;会话文件不存在: {file_path}&quot;)
+        try:
+            raw = json.loads(file_path.read_text(encoding=&quot;utf-8&quot;))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f&quot;会话 JSON 文件已损坏: {exc}&quot;) from exc
+
+        if not isinstance(raw, dict) or not isinstance(raw.get(&quot;messages&quot;), list):
+            raise ValueError(&quot;会话 JSON 结构无效：缺少 messages 列表&quot;)
+
+        mem = cls(
+            system_prompt=str(raw.get(&quot;system_prompt&quot;, &quot;&quot;)),
+            max_history_messages=int(raw.get(&quot;max_history_messages&quot;, 10)),
+            session_id=str(raw.get(&quot;session_id&quot;, &quot;restored-session&quot;)),
+        )
+        for item in raw[&quot;messages&quot;]:
+            mem.messages.append(
+                ChatMessage(
+                    role=str(item[&quot;role&quot;]),
+                    content=str(item[&quot;content&quot;]),
+                    timestamp=str(item.get(&quot;timestamp&quot;, &quot;&quot;)),
+                )
+            )
+        return mem
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmp:
+        mem = ConversationMemory(session_id=&quot;demo-014&quot;, max_history_messages=4)
+        mem.add_user_message(&quot;我叫小王，负责杭州研发部。&quot;)
+        mem.add_assistant_message(&quot;你好小王！很高兴为杭州研发部服务。&quot;)
+        saved = mem.save_to_json(Path(tmp) / &quot;chat_history.json&quot;)
+        restored = ConversationMemory.load_from_json(saved)
+        print(&quot;持久化恢复成功，统计信息:&quot;, restored.get_stats())
+        print(&quot;Payload 消息数:&quot;, len(restored.build_payload_messages()))
+</code></pre><div class="output-box"># 预期运行输出示例：
+持久化恢复成功，统计信息: {&#x27;session_id&#x27;: &#x27;demo-014&#x27;, &#x27;turns&#x27;: 1, &#x27;message_count&#x27;: 2, &#x27;estimated_tokens&#x27;: 81, &#x27;window_limit&#x27;: 4}
+Payload 消息数: 3</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>build_payload_messages()</code> 通过切片 <code>self.messages[-self.max_history_messages:]</code> 实现优雅的滑动窗口裁剪，同时确保 <code>system_prompt</code> 永远稳居第一位。<br/>2. <code>load_from_json()</code> 是 <code>@classmethod</code> 工厂方法，负责校验文件存在性、JSON 合法性与字段完整性，读到损坏文件时抛出清晰的 <code>ValueError</code>。</p><h3>实操步骤 2：步骤二：实现支持斜杠指令与异常回滚的命令行多轮 AI 助手 v1.0</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在把记忆引擎、可插拔后端和斜杠指令系统拼装成完整的 <code>StarMindCLIAssistant</code>！注意看 <code>LocalSmartMockBackend</code> 会真正读取前几轮 <code>messages</code> 里的上下文（比如记住用户的名字），离线就能体验真实多轮记忆！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day14_cli_assistant.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-014 模块二：星辰智脑命令行多轮对话 AI 助手 v1.0。
+支持多轮上下文记忆、/help /history /stats /clear /save /exit 斜杠指令、
+JSON 持久化存档与模型异常自动回滚。
+&quot;&quot;&quot;
+
+import re
+import tempfile
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+from day14_session_memory import ConversationMemory
+
+
+class BaseChatBackend(ABC):
+    &quot;&quot;&quot;大模型对话后端抽象基类，便于无缝切换本地 Mock 或 DeepSeek/通义千问 HTTP 客户端。&quot;&quot;&quot;
+
+    @abstractmethod
+    def complete(self, messages: List[Dict[str, str]]) -&gt; str:
+        &quot;&quot;&quot;接收标准 OpenAI 格式 messages 列表并返回助手回复正文。&quot;&quot;&quot;
+
+
+class LocalSmartMockBackend(BaseChatBackend):
+    &quot;&quot;&quot;具备基础多轮上下文记忆能力的离线模拟后端（零外网依赖）。&quot;&quot;&quot;
+
+    NAME_PATTERN = re.compile(r&quot;(?:我叫|我是)([\u4e00-\u9fa5a-zA-Z0-9_]{1,12})&quot;)
+
+    def complete(self, messages: List[Dict[str, str]]) -&gt; str:
+        user_msgs = [m[&quot;content&quot;] for m in messages if m.get(&quot;role&quot;) == &quot;user&quot;]
+        if not user_msgs:
+            return &quot;你好！我是星辰智脑，请问有什么可以帮您？&quot;
+
+        latest = user_msgs[-1]
+        if &quot;__TRIGGER_ERROR__&quot; in latest:
+            raise RuntimeError(&quot;模拟上游大模型网关 503 临时故障&quot;)
+
+        # 扫描全部历史 user 消息，提取用户此前介绍过的名字（演示多轮记忆）
+        remembered_name: Optional[str] = None
+        for text in user_msgs:
+            match = self.NAME_PATTERN.search(text)
+            if match:
+                candidate = match.group(1)
+                if not any(q in candidate for q in (&quot;什么&quot;, &quot;谁&quot;, &quot;吗&quot;, &quot;呢&quot;)):
+                    remembered_name = candidate
+
+        if &quot;我是谁&quot; in latest or &quot;我叫什么&quot; in latest or &quot;记得我&quot; in latest:
+            if remembered_name:
+                return f&quot;当然记得！你之前告诉我，你叫「{remembered_name}」。当前已累计记忆 {len(user_msgs)} 轮提问。&quot;
+            return &quot;你还没有告诉我你的名字呢，可以说「我叫XXX」让我记住你！&quot;
+
+        if &quot;报销&quot; in latest:
+            prefix = f&quot;{remembered_name}同学，&quot; if remembered_name else &quot;&quot;
+            return f&quot;{prefix}星辰数科报销请在钉钉提交费用单，500元以上需主管与财务双审批。&quot;
+
+        prefix = f&quot;收到，{remembered_name}！&quot; if remembered_name else &quot;收到！&quot;
+        return f&quot;{prefix}你刚才说：「{latest}」（当前上下文共携带 {len(messages)} 条消息）。&quot;
+
+
+class StarMindCLIAssistant:
+    &quot;&quot;&quot;星辰智脑命令行多轮对话助手主控类。&quot;&quot;&quot;
+
+    HELP_TEXT = (
+        &quot;可用指令列表：\n&quot;
+        &quot;  /help              查看帮助信息\n&quot;
+        &quot;  /history           查看当前对话历史\n&quot;
+        &quot;  /stats             查看对话轮数与 Token 估算\n&quot;
+        &quot;  /clear             清空当前多轮记忆（保留系统人设）\n&quot;
+        &quot;  /save [文件名]     保存对话记录为 JSON 文件（默认 session_history.json）\n&quot;
+        &quot;  /exit              退出助手&quot;
+    )
+
+    def __init__(
+        self,
+        backend: Optional[BaseChatBackend] = None,
+        memory: Optional[ConversationMemory] = None,
+        save_dir: Optional[Path] = None,
+    ) -&gt; None:
+        self.backend = backend or LocalSmartMockBackend()
+        self.memory = memory or ConversationMemory()
+        self.save_dir = save_dir or Path(&quot;sessions&quot;)
+
+    def _handle_command(self, line: str) -&gt; Tuple[bool, str]:
+        &quot;&quot;&quot;解析并执行以 / 开头的斜杠管理指令。&quot;&quot;&quot;
+        parts = line.split(maxsplit=1)
+        cmd = parts[0].lower()
+        arg = parts[1].strip() if len(parts) &gt; 1 else &quot;&quot;
+
+        if cmd in {&quot;/exit&quot;, &quot;/quit&quot;}:
+            return False, &quot;再见！感谢使用星辰智脑命令行 AI 助手。&quot;
+
+        if cmd == &quot;/help&quot;:
+            return True, self.HELP_TEXT
+
+        if cmd == &quot;/clear&quot;:
+            self.memory.clear()
+            return True, &quot;已清空当前多轮对话记忆（系统人设已保留）。&quot;
+
+        if cmd == &quot;/stats&quot;:
+            st = self.memory.get_stats()
+            return True, (
+                f&quot;会话ID: {st[&#x27;session_id&#x27;]} | 对话轮数: {st[&#x27;turns&#x27;]} | &quot;
+                f&quot;消息条数: {st[&#x27;message_count&#x27;]} | 估算Tokens: {st[&#x27;estimated_tokens&#x27;]}&quot;
+            )
+
+        if cmd == &quot;/history&quot;:
+            if not self.memory.messages:
+                return True, &quot;当前暂无对话历史。&quot;
+            lines = [f&quot;[{i}] {m.role}: {m.content}&quot; for i, m in enumerate(self.memory.messages, 1)]
+            return True, &quot;\n&quot;.join(lines)
+
+        if cmd == &quot;/save&quot;:
+            # 使用 Path(arg).name 防止路径穿越漏洞
+            safe_name = Path(arg).name if arg else &quot;session_history.json&quot;
+            if not safe_name.endswith(&quot;.json&quot;):
+                safe_name += &quot;.json&quot;
+            target = self.save_dir / safe_name
+            saved_path = self.memory.save_to_json(target)
+            return True, f&quot;对话历史已保存至：{saved_path.as_posix()}&quot;
+
+        return True, f&quot;未知指令：{cmd}，输入 /help 查看所有支持的指令。&quot;
+
+    def handle_line(self, raw_line: str) -&gt; Tuple[bool, str]:
+        &quot;&quot;&quot;
+        处理单行用户输入，返回 (是否继续运行, 输出文本)。
+        &quot;&quot;&quot;
+        text = raw_line.strip()
+        if not text:
+            return True, &quot;提示：输入不能为空，请输入问题或 /help 查看指令。&quot;
+
+        if text.startswith(&quot;/&quot;):
+            return self._handle_command(text)
+
+        self.memory.add_user_message(text)
+        try:
+            payload = self.memory.build_payload_messages()
+            reply = self.backend.complete(payload)
+        except Exception as exc:
+            # 异常时回滚刚才塞进去的 user 消息，确保历史状态不被污染
+            self.memory.rollback_last_user_message()
+            return True, f&quot;抱歉，模型调用出现异常（已自动回滚本轮输入）：{exc}&quot;
+
+        self.memory.add_assistant_message(reply)
+        return True, f&quot;星辰智脑 &gt; {reply}&quot;
+
+    def run_repl(self, input_lines: Optional[List[str]] = None) -&gt; List[str]:
+        &quot;&quot;&quot;
+        运行多轮对话主循环。
+        - 传入 input_lines 时非阻塞逐行回放（用于演示与自动化测试）；
+        - 未传 input_lines 时进入终端交互式 input() 模式。
+        &quot;&quot;&quot;
+        transcript: List[str] = []
+        script_iter = iter(input_lines) if input_lines is not None else None
+
+        while True:
+            if script_iter is not None:
+                try:
+                    raw = next(script_iter)
+                except StopIteration:
+                    break
+            else:
+                try:
+                    raw = input(&quot;你 &gt; &quot;)
+                except (EOFError, KeyboardInterrupt):
+                    transcript.append(&quot;检测到中断信号，已安全退出。&quot;)
+                    break
+
+            keep_going, out = self.handle_line(raw)
+            transcript.append(out)
+            if not keep_going:
+                break
+
+        return transcript
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmp:
+        assistant = StarMindCLIAssistant(save_dir=Path(tmp))
+        demo_script = [
+            &quot;你好，我叫林产品，在杭州研发中心工作。&quot;,
+            &quot;你还记得我叫什么吗？&quot;,
+            &quot;/stats&quot;,
+            &quot;/save milestone1_demo.json&quot;,
+            &quot;/clear&quot;,
+            &quot;你还记得我叫什么吗？&quot;,
+            &quot;/exit&quot;,
+        ]
+        for user_in, bot_out in zip(demo_script, assistant.run_repl(demo_script)):
+            print(f&quot;你 &gt; {user_in}&quot;)
+            print(bot_out)
+            print(&quot;-&quot; * 55)
+</code></pre><div class="output-box"># 预期运行输出示例：
+你 &gt; 你好，我叫林产品，在杭州研发中心工作。
+星辰智脑 &gt; 收到，林产品！你刚才说：「你好，我叫林产品，在杭州研发中心工作。」（当前上下文共携带 2 条消息）。
+-------------------------------------------------------
+你 &gt; 你还记得我叫什么吗？
+星辰智脑 &gt; 当然记得！你之前告诉我，你叫「林产品」。当前已累计记忆 2 轮提问。
+-------------------------------------------------------
+你 &gt; /stats
+会话ID: default-session | 对话轮数: 2 | 消息条数: 4 | 估算Tokens: 210
+-------------------------------------------------------
+你 &gt; /save milestone1_demo.json
+对话历史已保存至：.../milestone1_demo.json
+-------------------------------------------------------
+你 &gt; /clear
+已清空当前多轮对话记忆（系统人设已保留）。
+-------------------------------------------------------
+你 &gt; 你还记得我叫什么吗？
+星辰智脑 &gt; 你还没有告诉我你的名字呢，可以说「我叫XXX」让我记住你！
+-------------------------------------------------------
+你 &gt; /exit
+再见！感谢使用星辰智脑命令行 AI 助手。
+-------------------------------------------------------</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>LocalSmartMockBackend</code> 通过正则扫描历史 <code>user</code> 消息来记住用户名字，当用户输入 <code>/clear</code> 后再追问「还记得我叫什么吗？」，助手会诚实回答不记得，直观验证了多轮记忆与清空指令的真实效果！<br/>2. <code>/save</code> 指令使用 <code>Path(arg).name</code> 清洗文件名，杜绝用户误输 <code>../../xx.json</code> 覆盖系统其他目录文件。<br/>3. <code>handle_line()</code> 在 <code>except Exception</code> 中执行 <code>rollback_last_user_message()</code>，彻底杜绝半截对话污染上下文。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现多轮对话记忆引擎与 JSON 持久化模块（src/day14_session_memory.py）</h3><p>模块 <code>src/day14_session_memory.py</code> 共计 143 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-014 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>json</code>、<code>tempfile</code>、<code>dataclasses (asdict, dataclass, field)</code>、<code>datetime (datetime, timezone)</code>、<code>pathlib (Path)</code>、<code>typing (Any, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ChatMessage</code>（第 15~22 行）】这是一个独立领域模型类。其核心职责定义为：单条对话消息记录。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>ConversationMemory</code>（第 25~132 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑多轮对话上下文记忆管理器。。类内部暴露了 9 个方法：<code>__init__(self, system_prompt, max_history_messages, session_id)</code>、<code>add_user_message(self, content)</code>、<code>add_assistant_message(self, content)</code>、<code>rollback_last_user_message(self)</code>、<code>build_payload_messages(self)</code>、<code>clear(self)</code>、<code>get_stats(self)</code>、<code>save_to_json(self, file_path)</code>、<code>load_from_json(cls, file_path)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ConversationMemory.__init__</code>（第 28~39 行）属于同步实例方法，入参签名为 <code>(self, system_prompt, max_history_messages, session_id)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ConversationMemory.add_user_message</code>（第 41~48 行）属于同步实例方法，入参签名为 <code>(self, content)</code>。文档说明：追加一条用户消息。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ConversationMemory.add_assistant_message</code>（第 50~54 行）属于同步实例方法，入参签名为 <code>(self, content)</code>。文档说明：追加一条助手回复消息。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ConversationMemory.rollback_last_user_message</code>（第 56~61 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：当模型调用失败时回滚最后一条孤立的 user 消息，防止上下文损坏。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ConversationMemory.build_payload_messages</code>（第 63~72 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：构造发送给大模型的标准 messages 数组：<br/>始终保留 system_prompt 在首位 + 最近 max_history_messages 条历史消息。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ConversationMemory.clear</code>（第 74~76 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：清空多轮历史消息（保留 system_prompt 人设）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day14_session_memory.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day14/day14_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day14/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现支持斜杠指令与异常回滚的命令行多轮 AI 助手 v1.0（src/day14_cli_assistant.py）</h3><p>模块 <code>src/day14_cli_assistant.py</code> 共计 191 行源码，其中包含 3 行中文工程注释（注释密度约 1.6%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-014 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>re</code>、<code>tempfile</code>、<code>abc (ABC, abstractmethod)</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List, Optional, Tuple)</code>、<code>day14_session_memory (ConversationMemory)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>BaseChatBackend</code>（第 16~21 行）】这是一个继承自 ABC。其核心职责定义为：大模型对话后端抽象基类，便于无缝切换本地 Mock 或 DeepSeek/通义千问 HTTP 客户端。。类内部暴露了 1 个方法：<code>complete(self, messages)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BaseChatBackend.complete</code>（第 20~21 行）属于同步实例方法，入参签名为 <code>(self, messages)</code>。文档说明：接收标准 OpenAI 格式 messages 列表并返回助手回复正文。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>LocalSmartMockBackend</code>（第 24~57 行）】这是一个继承自 BaseChatBackend。其核心职责定义为：具备基础多轮上下文记忆能力的离线模拟后端（零外网依赖）。。类内部暴露了 1 个方法：<code>complete(self, messages)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>LocalSmartMockBackend.complete</code>（第 29~57 行）属于同步实例方法，入参签名为 <code>(self, messages)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>StarMindCLIAssistant</code>（第 60~173 行）】这是一个独立领域模型类。其核心职责定义为：星辰智脑命令行多轮对话助手主控类。。类内部暴露了 4 个方法：<code>__init__(self, backend, memory, save_dir)</code>、<code>_handle_command(self, line)</code>、<code>handle_line(self, raw_line)</code>、<code>run_repl(self, input_lines)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StarMindCLIAssistant.__init__</code>（第 73~81 行）属于同步实例方法，入参签名为 <code>(self, backend, memory, save_dir)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindCLIAssistant._handle_command</code>（第 83~121 行）属于同步实例方法，入参签名为 <code>(self, line)</code>。文档说明：解析并执行以 / 开头的斜杠管理指令。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindCLIAssistant.handle_line</code>（第 123~144 行）属于同步实例方法，入参签名为 <code>(self, raw_line)</code>。文档说明：处理单行用户输入，返回 (是否继续运行, 输出文本)。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StarMindCLIAssistant.run_repl</code>（第 146~173 行）属于同步实例方法，入参签名为 <code>(self, input_lines)</code>。文档说明：运行多轮对话主循环。<br/>- 传入 input_lines 时非阻塞逐行回放（用于演示与自动化测试）；<br/>- 未传 input_lines 时进入终端交互式 input() 模式。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day14_cli_assistant.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day14/day14_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day14/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day14_session_memory.py（共 143 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day14_session_memory.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from datetime import datetime, timezone</code></td><td>核心意图：代表语句：`from datetime import datetime, timezone`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>role: str  # &quot;user&quot; 或 &quot;assistant&quot;</code></td><td>核心意图：代表语句：`role: str  # &quot;user&quot; 或 &quot;assistant&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>class ConversationMemory:</code></td><td>核心意图：代表语句：`class ConversationMemory:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L33-L40</code></td><td><code>) -&gt; None:</code></td><td>核心意图：代表语句：`) -&gt; None:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>def add_user_message(self, content: str) -&gt; ChatMessage:</code></td><td>核心意图：代表语句：`def add_user_message(self, content: str) -&gt; ChatMessage:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>def add_assistant_message(self, content: str) -&gt; ChatMessage:</code></td><td>核心意图：代表语句：`def add_assistant_message(self, content: str) -&gt; ChatMessage:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;&quot;&quot;当模型调用失败时回滚最后一条孤立的 user 消息，防止上下文损坏。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;当模型调用失败时回滚最后一条孤立的 user 消息，防止上下文损坏。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>构造发送给大模型的标准 messages 数组：</code></td><td>核心意图：代表语句：`构造发送给大模型的标准 messages 数组：`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>def clear(self) -&gt; None:</code></td><td>核心意图：代表语句：`def clear(self) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>total_chars = len(self.system_prompt) + sum(len(m.content) for m in self</code></td><td>核心意图：代表语句：`total_chars = len(self.system_prompt) + sum(len(m.content) for m in self.messages)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L89-L96</code></td><td><code>def save_to_json(self, file_path: Path) -&gt; Path:</code></td><td>核心意图：代表语句：`def save_to_json(self, file_path: Path) -&gt; Path:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>&quot;max_history_messages&quot;: self.max_history_messages,</code></td><td>核心意图：代表语句：`&quot;max_history_messages&quot;: self.max_history_messages,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L105-L112</code></td><td><code>@classmethod</code></td><td>核心意图：代表语句：`@classmethod`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>except json.JSONDecodeError as exc:</code></td><td>核心意图：代表语句：`except json.JSONDecodeError as exc:`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>max_history_messages=int(raw.get(&quot;max_history_messages&quot;, 10)),</code></td><td>核心意图：代表语句：`max_history_messages=int(raw.get(&quot;max_history_messages&quot;, 10)),`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>timestamp=str(item.get(&quot;timestamp&quot;, &quot;&quot;)),</code></td><td>核心意图：代表语句：`timestamp=str(item.get(&quot;timestamp&quot;, &quot;&quot;)),`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L143</code></td><td><code>mem = ConversationMemory(session_id=&quot;demo-014&quot;, max_history_messages=4)</code></td><td>核心意图：代表语句：`mem = ConversationMemory(session_id=&quot;demo-014&quot;, max_history_messages=4)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day14_cli_assistant.py（共 191 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day14_cli_assistant.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from abc import ABC, abstractmethod</code></td><td>核心意图：代表语句：`from abc import ABC, abstractmethod`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>&quot;&quot;&quot;大模型对话后端抽象基类，便于无缝切换本地 Mock 或 DeepSeek/通义千问 HTTP 客户端。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;大模型对话后端抽象基类，便于无缝切换本地 Mock 或 DeepSeek/通义千问 HTTP 客户端。&quot;&quot;&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>&quot;&quot;&quot;具备基础多轮上下文记忆能力的离线模拟后端（零外网依赖）。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;具备基础多轮上下文记忆能力的离线模拟后端（零外网依赖）。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>latest = user_msgs[-1]</code></td><td>核心意图：扫描全部历史 user 消息，提取用户此前介绍过的名字（演示多轮记忆）。代表语句：`latest = user_msgs[-1]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>match = self.NAME_PATTERN.search(text)</code></td><td>核心意图：代表语句：`match = self.NAME_PATTERN.search(text)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>return f&quot;当然记得！你之前告诉我，你叫「{remembered_name}」。当前已累计记忆 {len(user_msgs)} 轮提问。</code></td><td>核心意图：代表语句：`return f&quot;当然记得！你之前告诉我，你叫「{remembered_name}」。当前已累计记忆 {len(user_msgs)} 轮提问。&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>return f&quot;{prefix}你刚才说：「{latest}」（当前上下文共携带 {len(messages)} 条消息）。&quot;</code></td><td>核心意图：代表语句：`return f&quot;{prefix}你刚才说：「{latest}」（当前上下文共携带 {len(messages)} 条消息）。&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>&quot;  /help              查看帮助信息\n&quot;</code></td><td>核心意图：代表语句：`&quot;  /help              查看帮助信息\n&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L81-L88</code></td><td><code>self.save_dir = save_dir or Path(&quot;sessions&quot;)</code></td><td>核心意图：代表语句：`self.save_dir = save_dir or Path(&quot;sessions&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>if cmd in {&quot;/exit&quot;, &quot;/quit&quot;}:</code></td><td>核心意图：代表语句：`if cmd in {&quot;/exit&quot;, &quot;/quit&quot;}:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>return True, &quot;已清空当前多轮对话记忆（系统人设已保留）。&quot;</code></td><td>核心意图：代表语句：`return True, &quot;已清空当前多轮对话记忆（系统人设已保留）。&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>if cmd == &quot;/history&quot;:</code></td><td>核心意图：代表语句：`if cmd == &quot;/history&quot;:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>safe_name = Path(arg).name if arg else &quot;session_history.json&quot;</code></td><td>核心意图：使用 Path(arg).name 防止路径穿越漏洞。代表语句：`safe_name = Path(arg).name if arg else &quot;session_history.json&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>return True, f&quot;未知指令：{cmd}，输入 /help 查看所有支持的指令。&quot;</code></td><td>核心意图：代表语句：`return True, f&quot;未知指令：{cmd}，输入 /help 查看所有支持的指令。&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>return True, &quot;提示：输入不能为空，请输入问题或 /help 查看指令。&quot;</code></td><td>核心意图：代表语句：`return True, &quot;提示：输入不能为空，请输入问题或 /help 查看指令。&quot;`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>reply = self.backend.complete(payload)</code></td><td>核心意图：异常时回滚刚才塞进去的 user 消息，确保历史状态不被污染。代表语句：`reply = self.backend.complete(payload)`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L145-L152</code></td><td><code>def run_repl(self, input_lines: Optional[List[str]] = None) -&gt; List[str]</code></td><td>核心意图：代表语句：`def run_repl(self, input_lines: Optional[List[str]] = None) -&gt; List[str]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L153-L160</code></td><td><code>script_iter = iter(input_lines) if input_lines is not None else None</code></td><td>核心意图：代表语句：`script_iter = iter(input_lines) if input_lines is not None else None`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>else:</code></td><td>核心意图：代表语句：`else:`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L169-L176</code></td><td><code>transcript.append(out)</code></td><td>核心意图：代表语句：`transcript.append(out)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L177-L184</code></td><td><code>with tempfile.TemporaryDirectory() as tmp:</code></td><td>核心意图：代表语句：`with tempfile.TemporaryDirectory() as tmp:`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L185-L191</code></td><td><code>&quot;你还记得我叫什么吗？&quot;,</code></td><td>核心意图：代表语句：`&quot;你还记得我叫什么吗？&quot;,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day14/tests/test_day14.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day14/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day14/tests/test_day14.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-014 阶段考核项目一自动化验收测试。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day14_session_memory import ConversationMemory
+from day14_cli_assistant import StarMindCLIAssistant
+
+
+def test_memory_sliding_window_and_json_roundtrip(tmp_path: Path):
+    mem = ConversationMemory(system_prompt=&quot;你是星辰助教&quot;, max_history_messages=2, session_id=&quot;s-01&quot;)
+    mem.add_user_message(&quot;第1问&quot;)
+    mem.add_assistant_message(&quot;第1答&quot;)
+    mem.add_user_message(&quot;第2问&quot;)
+    mem.add_assistant_message(&quot;第2答&quot;)
+
+    payload = mem.build_payload_messages()
+    # system 置顶 + 最近 2 条消息 = 共 3 条
+    assert len(payload) == 3
+    assert payload[0] == {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;你是星辰助教&quot;}
+    assert payload[1][&quot;content&quot;] == &quot;第2问&quot;
+    assert payload[2][&quot;content&quot;] == &quot;第2答&quot;
+
+    saved_file = mem.save_to_json(tmp_path / &quot;history.json&quot;)
+    restored = ConversationMemory.load_from_json(saved_file)
+    assert restored.session_id == &quot;s-01&quot;
+    assert restored.system_prompt == &quot;你是星辰助教&quot;
+    assert len(restored.messages) == 4
+
+    # 损坏的 JSON 必须抛出 ValueError
+    broken = tmp_path / &quot;broken.json&quot;
+    broken.write_text(&quot;{not valid json&quot;, encoding=&quot;utf-8&quot;)
+    with pytest.raises(ValueError):
+        ConversationMemory.load_from_json(broken)
+
+
+def test_cli_assistant_multiturn_commands_and_persistence(tmp_path: Path):
+    assistant = StarMindCLIAssistant(save_dir=tmp_path)
+
+    # 1. 多轮记忆验证
+    ok1, out1 = assistant.handle_line(&quot;你好，我叫阿杰&quot;)
+    assert ok1 is True and &quot;阿杰&quot; in out1
+
+    ok2, out2 = assistant.handle_line(&quot;你还记得我叫什么吗？&quot;)
+    assert ok2 is True and &quot;阿杰&quot; in out2
+
+    # 2. /stats 与 /history 与 /save
+    _, stats_out = assistant.handle_line(&quot;/stats&quot;)
+    assert &quot;对话轮数: 2&quot; in stats_out
+
+    _, hist_out = assistant.handle_line(&quot;/history&quot;)
+    assert &quot;阿杰&quot; in hist_out
+
+    _, save_out = assistant.handle_line(&quot;/save my_chat&quot;)
+    saved_path = tmp_path / &quot;my_chat.json&quot;
+    assert saved_path.exists()
+    assert &quot;my_chat.json&quot; in save_out
+
+    # 3. /clear 清空后忘记上下文，但系统人设仍在
+    _, clear_out = assistant.handle_line(&quot;/clear&quot;)
+    assert &quot;已清空&quot; in clear_out
+    assert len(assistant.memory.messages) == 0
+
+    _, out3 = assistant.handle_line(&quot;你还记得我叫什么吗？&quot;)
+    assert &quot;还没有告诉我&quot; in out3
+
+    # 4. /exit 正常结束循环
+    keep_going, exit_out = assistant.handle_line(&quot;/exit&quot;)
+    assert keep_going is False
+    assert &quot;再见&quot; in exit_out
+
+
+def test_cli_assistant_error_rollback_and_edge_cases(tmp_path: Path):
+    assistant = StarMindCLIAssistant(save_dir=tmp_path)
+    assistant.handle_line(&quot;第一轮正常提问&quot;)
+    assert len(assistant.memory.messages) == 2
+
+    # 触发模拟后端故障：助手不应崩溃，且失败的 user 消息应被自动回滚
+    keep_going, err_out = assistant.handle_line(&quot;请执行 __TRIGGER_ERROR__&quot;)
+    assert keep_going is True
+    assert &quot;已自动回滚&quot; in err_out
+    assert len(assistant.memory.messages) == 2
+
+    # 空输入与未知指令
+    _, empty_out = assistant.handle_line(&quot;   &quot;)
+    assert &quot;不能为空&quot; in empty_out
+
+    _, unknown_out = assistant.handle_line(&quot;/foobar&quot;)
+    assert &quot;未知指令&quot; in unknown_out
+
+
+def test_run_repl_end_to_end(tmp_path: Path):
+    assistant = StarMindCLIAssistant(save_dir=tmp_path)
+    outputs = assistant.run_repl([&quot;/help&quot;, &quot;我叫老陈&quot;, &quot;报销怎么走？&quot;, &quot;/exit&quot;])
+    assert len(outputs) == 4
+    assert &quot;/clear&quot; in outputs[0]
+    assert &quot;老陈同学&quot; in outputs[2]
+    assert &quot;再见&quot; in outputs[3]
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-014</code>，承接自 Day 13 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day14-milestone1-cli-chat-assistant</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day14-milestone1-cli-chat-assistant）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day14-milestone1-cli-chat-assistant
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day14.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-014）
+git add src/day14_session_memory.py src/day14_cli_assistant.py tests/test_day14.py
+git commit -m &quot;feat(day14): 交付阶段考核项目一——支持多轮记忆、JSON持久化与斜杠指令的命令行AI助手v1.0
+
+Refs: STARMIND-014
+- 完成 阶段考核项目一——命令行多轮对话 AI 助手 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day14-milestone1-cli-chat-assistant</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-014 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-014 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day14_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day14_session_memory.py src/day14_cli_assistant.py
+    - echo &quot;Day 14 语法编译检查通过&quot;
+
+day14_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day14/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day14/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>第一阶段毕业考核满分通过！记忆管理、指令路由、后端抽象三层边界清晰，异常回滚和 <code>/save</code> 防路径穿越这种生产细节都考虑到了，完全具备进入第二阶段 FastAPI 后端开发的功底！</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (PM)</span><span>状态：Approved</span></div><p>亲测多轮记忆、<code>/save</code> 导出 JSON、<code>/clear</code> 重置话题和 <code>/exit</code> 退出全部符合 PRD 验收标准，下周咱们就给它套上 Web 页面和数据库！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-014 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-014（阶段考核项目一——命令行多轮对话 AI 助手）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：作为星辰智脑第一阶段里程碑考核交付物，研发团队需要交付一个可独立运行、可测试、具备完整多轮对话体验的命令行 AI 助手 v1.0，作为后续 Web 版与 Agent 版的最小可行内核（MVP）。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）Day 12 的单轮问答工具没有记忆，用户追问「刚才那个流程要几天？」时模型完全不知道上下文。；（2）终端一关闭，有价值的问答记录全部丢失，无法归档或下次续聊。；（3）用户缺少快捷管理指令（清屏重置话题、查看 Token 消耗、导出存档），且模型异常时容易留下残缺的孤立 user 消息污染上下文。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现 <code>ConversationMemory</code> 类：管理 <code>system</code> 人设、<code>messages</code> 多轮历史、滑动窗口裁剪、Token 估算与 JSON 持久化读写。；（2）实现 <code>StarMindCLIAssistant</code> 类：内置斜杠指令路由（<code>/help</code>、<code>/history</code>、<code>/stats</code>、<code>/clear</code>、<code>/save</code>、<code>/exit</code>）与可替换的对话后端接口。；（3）实现异常事务回滚机制：模型调用失败时不崩溃退出，并自动撤销本次未完成的 <code>user</code> 消息。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day14/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 多轮对话本质：大模型是「无状态」的】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：很多人误以为大模型服务器替你记住了上一句话，其实 HTTP API 是完全无状态（Stateless）的！所谓「多轮记忆」，全靠客户端把 <code>[system, user_1, assistant_1, user_2, assistant_2, user_3]</code> 整串历史记录每次重新打包发给模型。<br/>因此客户端必须做好**滑动窗口裁剪**（始终保留 <code>system</code> + 最近 N 条消息），否则聊上 50 轮不仅 Token 费暴涨，还会直接触发模型上下文长度超限报错。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：裁剪历史消息时，千万别一刀把索引 0 的 <code>system</code> 人设消息也截掉了！务必把 <code>system_prompt</code> 独立保存，每次组装 payload 时再拼在最前面。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 多轮对话本质：大模型是「无状态」的」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 失败回滚：保护 messages 奇偶交替完整性】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：主流大模型 API 严格要求 <code>messages</code> 中 <code>user</code> 和 <code>assistant</code> 交替出现。如果在调用模型前先执行了 <code>add_user_message()</code>，结果这次网络超时报错了，如果不把刚才那条 <code>user</code> 消息 <code>pop</code> 回滚掉，下一次用户重新提问就会出现连续两条 <code>user</code> 消息，导致后续所有请求被 API 拒绝（HTTP 400）！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：在 <code>except Exception:</code> 分支里调用 <code>memory.rollback_last_user_message()</code>，是一个极小但极显功力的生产级细节。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 失败回滚：保护 messages 奇偶交替完整性」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. CLI 项目的工程化可测试性（依赖注入）】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：写命令行程序最容易犯的错，就是把 <code>while True: input()</code>、文件读写和网络请求全揉在一个文件顶层，导致完全没法写单元测试。<br/>正确做法是：**将单行处理逻辑抽成纯方法 <code>handle_line(raw_line) -&gt; (should_continue, reply)</code>**，并把后端引擎 <code>backend</code> 和保存目录 <code>save_dir</code> 通过构造函数注入——这样 <code>pytest</code> 不用模拟键盘敲击也能 100% 测完每一条斜杠指令！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：涉及文件名参数的 <code>/save &lt;filename&gt;</code> 指令，要注意用 <code>Path(filename).name</code> 去掉恶意路径前缀（如 <code>../../etc/passwd</code>），防止路径穿越漏洞。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. CLI 项目的工程化可测试性（依赖注入）」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 14 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day14/</code> 中亲手编写了 <code>src/day14_session_memory.py</code>、<code>src/day14_cli_assistant.py</code> 以及对应的自动化测试 <code>tests/test_day14.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day14_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 14 / STARMIND-014）：1. 已在分支 <code>feat/day14-milestone1-cli-chat-assistant</code> 完成 阶段考核项目一——命令行多轮对话 AI 助手 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 15）：恭喜通关第一阶段（14 天 Python 工程基础）！下周一（Day 15，第二阶段：Web 后端与数据库工程）咱们将把今天这个命令行助手正式升级成企业级 **FastAPI + 数据库持久化** 的多人在线 Web 服务！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 14 掌握的「阶段考核项目一——命令行多轮对话 AI 助手」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「阶段考核项目一——命令行多轮对话 AI 助手」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：阶段考核项目一——命令行多轮对话 AI 助手 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-014 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day14.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 14 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day14/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day14_session_memory.py, src/day14_cli_assistant.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>连续多轮提问时，后端能接收到完整历史 `messages`（含首条 `system` 消息），且超出窗口上限时自动保留最新 N 条对话。；`/clear` 清空对话历史但保留 `system_prompt`；`/save` 成功落盘 UTF-8 JSON 并可通过 `load_from_json` 完整还原。；模型后端抛出异常时，助手返回友好错误提示、不崩溃，且记忆中不会残留失败的 `user` 消息。；全部核心类与斜杠指令通过无阻塞 `pytest` 自动化验收测试。</td><td>运行 `pytest versions/day14/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day14/day14_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day14-milestone1-cli-chat-assistant` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「阶段考核项目一——命令行多轮对话 AI 助手」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-014 需求时，我们的核心业务目标是：实现 <code>ConversationMemory</code> 类：管理 <code>system</code> 人设、<code>messages</code> 多轮历史、滑动窗口裁剪、Token 估算与 JSON 持久化读写。；实现 <code>StarMindCLIAssistant</code> 类：内置斜杠指令路由（<code>/help</code>、<code>/history</code>、<code>/stats</code>、<code>/clear</code>、<code>/save</code>、<code>/exit</code>）与可替换的对话后端接口。；实现异常事务回滚机制：模型调用失败时不崩溃退出，并自动撤销本次未完成的 <code>user</code> 消息。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 多轮对话本质：大模型是「无状态」的、2. 失败回滚：保护 messages 奇偶交替完整性、3. CLI 项目的工程化可测试性（依赖注入） 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「阶段考核项目一——命令行多轮对话 AI 助手」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 14 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day14_session_memory.py、src/day14_cli_assistant.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>啪啪啪！老陈给你鼓个掌——从 Day 1 连虚拟环境都不熟，到 Day 14 独立交付一个架构清晰、记忆可控、支持 JSON 持久化与异常回滚的多轮对话 CLI 助手，两周时间你已经跨过了 80% 自学者倒下的工程门槛！<br/>周末好好复盘一下 <code>ConversationMemory</code> 和 <code>StarMindCLIAssistant</code> 的解耦设计：正是因为今天把「记忆存储」「模型后端」「交互外壳」拆得干干净净，下周咱们迁移到 FastAPI Web 接口时，核心业务代码几乎一行不用重写！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：为多轮对话增加 Markdown 导出器</strong><span class="badge">基础巩固</span></div><p>编写函数 <code>export_messages_to_markdown(messages: list[dict], title: str = &#x27;星辰智脑对话记录&#x27;) -&gt; str</code>，将 <code>messages</code> 列表渲染为清晰的 Markdown 文本（每条消息以 <code>### 用户</code> 或 <code>### 助手</code> 标题分段）。</p><p><strong>💡 思路提示：</strong>遍历 `messages`，用字典把 `&#x27;user&#x27;` 映射为 `&#x27;用户&#x27;`、`&#x27;assistant&#x27;` 映射为 `&#x27;助手&#x27;`，最后用 `&#x27;\n\n&#x27;.join(blocks)` 拼接。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-14-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-14-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 14 课后题 1：多轮对话记录 Markdown 导出器。&quot;&quot;&quot;
+
+from typing import Dict, List
+
+
+def export_messages_to_markdown(
+    messages: List[Dict[str, str]],
+    title: str = &quot;星辰智脑对话记录&quot;,
+) -&gt; str:
+    &quot;&quot;&quot;将标准 messages 列表导出为易读的 Markdown 纪要文本。&quot;&quot;&quot;
+    role_map = {&quot;user&quot;: &quot;用户&quot;, &quot;assistant&quot;: &quot;星辰智脑&quot;, &quot;system&quot;: &quot;系统人设&quot;}
+    blocks = [f&quot;# {title}&quot;]
+    for idx, msg in enumerate(messages, 1):
+        role_label = role_map.get(msg.get(&quot;role&quot;, &quot;&quot;), msg.get(&quot;role&quot;, &quot;未知&quot;))
+        blocks.append(f&quot;### {idx}. {role_label}\n\n{msg.get(&#x27;content&#x27;, &#x27;&#x27;).strip()}&quot;)
+    return &quot;\n\n&quot;.join(blocks)
+
+
+if __name__ == &quot;__main__&quot;:
+    sample = [
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;星辰智脑有哪些指令？&quot;},
+        {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;支持 /help、/clear、/save、/stats 和 /exit。&quot;},
+    ]
+    print(export_messages_to_markdown(sample))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>JSON 适合程序加载恢复，Markdown 适合直接粘贴到飞书/钉钉文档分享给同事，两者结合能极大提升 CLI 工具的实用性。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：本地多会话存档管理器</strong><span class="badge">企业实战</span></div><p>编写 <code>list_saved_sessions(save_dir: Path) -&gt; list[dict]</code>，扫描目录下所有 <code>.json</code> 会话存档，返回按文件名排序的摘要列表，每项包含 <code>file_name</code>、<code>session_id</code>、<code>message_count</code>；若遇到损坏的 JSON 文件不崩溃，将其 <code>session_id</code> 标记为 <code>&#x27;CORRUPTED&#x27;</code>。</p><p><strong>💡 思路提示：</strong>用 `sorted(save_dir.glob(&#x27;*.json&#x27;))` 遍历，配合 `try/except (json.JSONDecodeError, OSError)` 容错解析。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-14-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-14-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 14 课后题 2：多会话 JSON 存档扫描与容错摘要器。&quot;&quot;&quot;
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, List
+
+
+def list_saved_sessions(save_dir: Path) -&gt; List[Dict[str, Any]]:
+    &quot;&quot;&quot;扫描会话目录，返回所有 JSON 存档的摘要信息（损坏文件安全标记不崩溃）。&quot;&quot;&quot;
+    if not save_dir.exists():
+        return []
+    summaries: List[Dict[str, Any]] = []
+    for path in sorted(save_dir.glob(&quot;*.json&quot;)):
+        try:
+            data = json.loads(path.read_text(encoding=&quot;utf-8&quot;))
+            summaries.append({
+                &quot;file_name&quot;: path.name,
+                &quot;session_id&quot;: str(data.get(&quot;session_id&quot;, &quot;unknown&quot;)),
+                &quot;message_count&quot;: len(data.get(&quot;messages&quot;, [])),
+            })
+        except (json.JSONDecodeError, OSError, TypeError):
+            summaries.append({
+                &quot;file_name&quot;: path.name,
+                &quot;session_id&quot;: &quot;CORRUPTED&quot;,
+                &quot;message_count&quot;: 0,
+            })
+    return summaries
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / &quot;s1.json&quot;).write_text(json.dumps({&quot;session_id&quot;: &quot;hr-qa&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]}), encoding=&quot;utf-8&quot;)
+        (root / &quot;bad.json&quot;).write_text(&quot;{broken&quot;, encoding=&quot;utf-8&quot;)
+        print(list_saved_sessions(root))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>目录扫描类功能一定要做单文件异常隔离：绝不能因为目录里混进一个半截损坏文件就导致整个 <code>/list</code> 列表功能崩溃。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：基于 Token 预算的智能上下文裁剪器</strong><span class="badge">架构进阶</span></div><p>按条数裁剪有时不够精准（一条长日志就可能占几千字符）。编写 <code>trim_messages_by_budget(system_prompt: str, messages: list[dict], max_chars: int) -&gt; list[dict]</code>，始终保留首条 <code>system</code> 消息，然后从最新消息往前倒序装入，直到总字符数即将超过 <code>max_chars</code> 为止，最终保持时间正序返回。</p><p><strong>💡 思路提示：</strong>先扣掉 `len(system_prompt)` 得到剩余预算，再用 `reversed(messages)` 倒序累加挑出能放下的最新消息，最后反转回来拼在 `system` 后面。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-14-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-14-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 14 课后题 3：按字符/Token 预算倒序裁剪多轮上下文。&quot;&quot;&quot;
+
+from typing import Dict, List
+
+
+def trim_messages_by_budget(
+    system_prompt: str,
+    messages: List[Dict[str, str]],
+    max_chars: int,
+) -&gt; List[Dict[str, str]]:
+    &quot;&quot;&quot;在严格不超过 max_chars 预算的前提下，保留 system 人设与尽可能多的新近消息。&quot;&quot;&quot;
+    budget = max_chars - len(system_prompt)
+    selected_rev: List[Dict[str, str]] = []
+
+    for msg in reversed(messages):
+        cost = len(msg.get(&quot;content&quot;, &quot;&quot;))
+        if cost &lt;= budget:
+            selected_rev.append(msg)
+            budget -= cost
+        else:
+            break
+
+    selected_rev.reverse()
+    return [{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: system_prompt}, *selected_rev]
+
+
+if __name__ == &quot;__main__&quot;:
+    history = [
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;这是一条很老很长的历史问题&quot; * 3},
+        {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;旧回复&quot;},
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;最新问题&quot;},
+        {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;最新回复&quot;},
+    ]
+    trimmed = trim_messages_by_budget(&quot;系统人设&quot;, history, max_chars=25)
+    print(trimmed)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>倒序装包 + 反转还原是几乎所有主流 AI 框架（LangChain / LlamaIndex / OpenAI Agent）计算 Token 上下文窗口的底层标准算法！</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day13/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day15/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

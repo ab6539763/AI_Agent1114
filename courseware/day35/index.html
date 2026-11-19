@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 35：LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 5 周</span>
+      <span class="badge badge-ticket">STARMIND-035</span>
+      <span class="badge">Day 35 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="35" onclick="toggleDayComplete(35, this)">标记今日已完成</button>
+      <a class="btn" href="../day34/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day36/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day35-llamaindex-engine-benchmark</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day35/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day35/day35_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day35_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 5 周：第5周：企业级 RAG 全链路、高级检索优化与评估</div>
+        <h1>Day 35：LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型</h1>
+        <p class="hero-sub">深入对比 LlamaIndex 与 LangChain 设计哲学，手写 LlamaIndex 风格索引引擎并量化基准评测</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-035</span>
+          <span class="hero-tag">分支：feat/day35-llamaindex-engine-benchmark</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！今天是第 5 周最后一天，咱们把 RAG 生态的另一座大山——**LlamaIndex（原 GPT Index）** 彻底吃透！<br/>很多同学老问我：「老陈，LangChain 和 LlamaIndex 到底啥区别？学完一个还要不要学另一个？」<br/>一句话讲透两者的基因差异：<br/>- **LangChain 的基因是「编排（Orchestration）」**：它把一切抽象成 <code>Runnable</code> 管道（LCEL），像乐高一样擅长串起多步推理、工具调用、Agent 工作流；<br/>- **LlamaIndex 的基因是「数据索引（Data Framework）」**：它天生为复杂文档结构而生！它的 <code>TextNode</code> 不是孤零零的切片，而是**自带前后节点双向链表（PREVIOUS / NEXT）和父子拓扑关系的图节点**；它的 <code>Index</code> 也不只是向量库，还原生提供 <code>VectorStoreIndex</code>、<code>SummaryIndex</code>、<code>TreeIndex</code>、<code>KnowledgeGraphIndex</code>，配合 <code>RouterQueryEngine</code> 可以自动判断「用户问细节走向量索引、用户问全文总结走摘要索引」！<br/>今天咱们既要把 LlamaIndex 核心引擎亲手写出来跑通，还要拿它和 LangChain 风格管道在星辰语料上做一次硬核基准横评，给明天项目二拍板技术选型！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 34）我们建好了类 Ragas 四维评估与 CI 门禁体系。但技术委员会在阶段项目二启动前抛来一个经典架构选型题：「做企业级知识库问答，到底是继续用 LangChain，还是换用专门为数据索引而生的 LlamaIndex？别空口白话，拿核心原理和基准数据说话！」</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 36）我们正式进入**阶段项目二（上）——企业级知识库问答系统 StarMind-KB v2.0**，完成架构设计、多格式文档入库、混合检索+Rerank 引擎与 FastAPI 核心 REST API！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 35 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 35）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 34）我们建好了类 Ragas 四维评估与 CI 门禁体系。但技术委员会在阶段项目二启动前抛来一个经典架构选型题：「做企业级知识库问答，到底是继续用 LangChain，还是换用专门为数据索引而生的 LlamaIndex？别空口白话，拿核心原理和基准数据说话！」 今天我们通过需求单 STARMIND-035，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day35/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 36）我们正式进入**阶段项目二（上）——企业级知识库问答系统 StarMind-KB v2.0**，完成架构设计、多格式文档入库、混合检索+Rerank 引擎与 FastAPI 核心 REST API！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>LlamaIndex 核心架构哲学与五大抽象拆解</td><td>图解 Document -&gt; NodeParser -&gt; TextNode(带关系图) -&gt; Index -&gt; Retriever -&gt; ResponseSynthesizer -&gt; QueryEngine 完整链路。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>手写 LlamaIndex 核心引擎（day35_llamaindex_core.py）</td><td>实现双向链表 TextNode、VectorStoreIndex、SummaryIndex、Compact/Refine 合成器与 RouterQueryEngine。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>LlamaIndex vs LangChain 基准评测与选型矩阵</td><td>在星辰数科长文档上量化对比扁平切分与 Node 邻域扩展的召回完整度与耗时。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>单元测试、Code Review 与进阶作业</td><td>跑通 pytest 验证，拓展实现 MetadataReplacement 节点后处理器与多文档联合路由。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-035）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>项目二「企业级知识库问答系统」启动前，架构评审组要求对 LangChain 路线与 LlamaIndex 路线进行原理剖析与小规模 PoC 基准测试，明确两者的适用场景与最终选型结论。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>遇到「请总结一下《差旅报销制度》的核心要点」这类全局摘要提问时，传统 Top-K 向量检索只取回 2~3 个碎片切片，总结严重残缺。</li><li>普通扁平切片丢失了相邻段落的上下文关系（如「上述标准同样适用于实习生」的「上述」指代上一块）。</li><li>团队对 LlamaIndex 与 LangChain 的选型停留在网上营销号口水战，缺乏可复现的代码级对比。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>完整实现 LlamaIndex 核心对象模型：`Document`、`TextNode`（含 `SOURCE / PREVIOUS / NEXT` 节点关系）、`SentenceNodeParser`。</li><li>实现双索引结构：`VectorStoreIndex`（细节精准检索 + 前后节点窗口自动扩展）与 `SummaryIndex`（全节点扫描摘要），并实现 `RouterQueryEngine` 自动路由。</li><li>编写基准测试脚本，对比 LlamaIndex 风格（Node 拓扑扩展）与 LangChain 风格（扁平切片管道）在上下文完整度、召回率、延迟与开发复杂度上的表现。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>`SentenceNodeParser` 生成的 `TextNode` 链表必须正确维护 `PREVIOUS` 与 `NEXT` 指针及 `SOURCE` 原文档 ID。</li><li>`RouterQueryEngine` 能自动将「总结/概览」类问题路由至 `SummaryIndex`，将「具体金额/流程」类问题路由至 `VectorStoreIndex`。</li><li>`ResponseSynthesizer` 支持 `compact` 与 `refine` 两种响应合成模式。</li><li>所有 pytest 自动化测试 100% 本地离线通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>给出清晰的官方 `llama-index-core` 生产代码对照与架构选型决策矩阵。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>LlamaIndex 的核心架构围绕「数据如何被高效组织、索引与查询」展开，分为 Ingestion（摄取）与 Querying（查询）两大闭环：<br/>1. **Document -&gt; TextNode（带拓扑关系的知识节点）**：与 LangChain 扁平的 <code>Document</code> 列表不同，LlamaIndex 的 <code>NodeParser</code> 切分后产出的是 <code>TextNode</code>，每个节点显式维护 <code>relationships</code> 字典（<code>SOURCE</code> 指向源文档、<code>PREVIOUS</code> 指向前一块、<code>NEXT</code> 指向后一块）。这使得检索命中某一块后，可以零成本顺着指针把前后相邻段落一并拉出，彻底解决跨段指代丢失问题。<br/>2. **多态 Index 体系**：<br/>   - <code>VectorStoreIndex</code>：将所有 Node 向量化，适合「查具体某一条规定」的点查（Needle-in-a-Haystack）；<br/>   - <code>SummaryIndex</code>：遍历所有 Node 聚合上下文，适合「帮我总结这份制度全文讲了什么」的全局摘要查询。<br/>3. **ResponseSynthesizer（响应合成器）**：提供 <code>compact</code>（拼装进单次 Prompt 省调用次数）和 <code>refine</code>（逐块迭代精炼答案，适合超长文档）等工业级合成策略。<br/>4. **RouterQueryEngine（意图路由查询引擎）**：在最上层挂载多个 <code>QueryEngineTool</code>，根据用户问题意图自动把请求分发给 <code>VectorStoreIndex</code> 或 <code>SummaryIndex</code>，把单点查询和全局总结统一到一个入口！</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 35.1：LlamaIndex 核心抽象全链路架构（Document -&gt; Node -&gt; Index -&gt; QueryEngine）（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">LlamaIndex 核心抽象全链路架构（Document -&gt; Node -&gt; Index -&gt; QueryEngine）</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Document</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">原始文档 + Metadata</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">NodeParser</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">切分并建立 PREV/NEXT 链表</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">TextNode 节点图</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">node_id + relationships</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">Vector / Summary Index</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">多态索引层</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">QueryEngine</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">Retriever + ResponseSynthesizer</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">Ingestion</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">生成链表节点</text>
+<line x1="629.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">from_documents()</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">as_query_engine()</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>以 TextNode 拓扑关系为核心的数据索引架构，原生支持多种 Index 与可插拔响应合成器。</div></div><div class="diagram-card"><div class="diagram-title">图 35.2：TextNode 双向链表邻域扩展（解决跨段指代断裂）（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">TextNode 双向链表邻域扩展（解决跨段指代断裂）</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Node_1 (PREVIOUS)</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">一线城市住宿上限每晚600元</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Node_2 (命中节点)</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">上述标准同样适用于外包及实习生</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Node_3 (NEXT)</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">超标费用需在OA走VP特批</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">邻域融合上下文</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Node_1 + Node_2 语义完整无断层</text>
+<line x1="446" y1="95.0" x2="27" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>检索命中 Node_2 时，通过 PREVIOUS/NEXT 指针瞬间补全上下文，无需二次向量检索。</div></div><div class="diagram-card"><div class="diagram-title">图 35.3：RouterQueryEngine 自动路由工作流（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">RouterQueryEngine 自动路由工作流</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">用户提问</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">细节查数 or 全局总结？</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">RouterQueryEngine</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">意图路由判定</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">VectorStoreIndex</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">点查细节（Top-K + 邻域）</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">SummaryIndex</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">全文总结（全节点 Refine）</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="239.5" y="66.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">输入Query</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="525.5" y="66.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">细节/精确查询</text>
+<line x1="432.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="509.0" y="132.5" width="132" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">总结/概览/全文归纳</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>根据用户问题类型自动在「细节检索索引」与「全局摘要索引」之间切换。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. LangChain vs LlamaIndex 架构选型红宝书</h3><p>- **首选 LlamaIndex 的场景**：核心诉求是「高难度、多模态、超长/复杂结构文档检索与问答」（如财报表格、法律合同、百页技术白皮书），需要开箱即用的 <code>SentenceWindowNodeParser</code>、<code>AutoMergingRetriever</code>、<code>SubQuestionQueryEngine</code>、<code>RouterQueryEngine</code>。<br/>- **首选 LangChain / LangGraph 的场景**：核心诉求是「复杂多步骤工作流编排、多工具调用、多 Agent 状态机协同、人工介入审批（HITL）」以及需要极高定制自由度的全栈 AI 平台。<br/>- **大厂真实做法**：不要二极管二选一！很多团队用 LlamaIndex 的文档解析与多级索引作为检索 Tool，挂到 LangGraph Agent 里统一调度。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：LlamaIndex 在 `v0.10+` 进行了彻底的模块化拆分，旧教程里的 `from llama_index import VectorStoreIndex` 已废弃，生产环境务必使用 `from llama_index.core import VectorStoreIndex, Document` 及独立插件包 `llama-index-llms-openai`、`llama-index-embeddings-huggingface`。</div><h3>2. 2. 生产环境官方 LlamaIndex 5 行极简代码对照</h3><p>LlamaIndex 最大的工程爽点就是高内聚封装，5 行代码即可跑起一套完整知识库：<br/>```python<br/>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader</p>
+<p>documents = SimpleDirectoryReader(&#x27;./data/starmind_docs&#x27;).load_data()<br/>index = VectorStoreIndex.from_documents(documents)<br/>query_engine = index.as_query_engine(similarity_top_k=3, response_mode=&#x27;compact&#x27;)<br/>response = query_engine.query(&#x27;实习生去上海出差住宿上限是多少？&#x27;)<br/>print(response.response, response.source_nodes)<br/>```</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：高封装是一把双刃剑——上手极快，但当线上出现奇葩 Bad Case 需要魔改底层 Prompt 或检索过滤逻辑时，一定要善用 `CallbackManager` / `LlamaDebugHandler` 打印出内部实际拼出来的 Prompt 和召回 Node，切忌当黑盒用！</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈选型忠告：千万别被框架绑架，核心能力要沉淀在自己的领域层！】<br/>无论选 LangChain 还是 LlamaIndex，开源 AI 框架每半年都会大改一次 API。杭州星辰数科的工程铁律是：**在业务代码和第三方框架之间加一层薄薄的 <code>Adapter</code>（防腐层）**——入库文档模型、检索接口 <code>retrieve(query, filters, top_k)</code>、评估指标全部定义成公司自己的 Python Protocol/Dataclass，底层今天用 LangChain、明天换 LlamaIndex、后天切自研 Milvus SDK，上层 FastAPI 和前端一行代码都不用改！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day35/</code> 与 <code>notebooks/day35/day35_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：手写 LlamaIndex 核心引擎（Document / TextNode 链表 / 双 Index / RouterQueryEngine）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>为了让大家真正看透 LlamaIndex 内部到底是怎么运转的，咱们用不到 240 行纯 Python 还原它的核心骨架：带 <code>PREVIOUS/NEXT</code> 双向指针的 <code>TextNode</code>、<code>SentenceNodeParser</code>、<code>VectorStoreIndex</code>、<code>SummaryIndex</code>、<code>ResponseSynthesizer</code> 和 <code>RouterQueryEngine</code>！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day35_llamaindex_core.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 35 - 步骤一：LlamaIndex 核心架构精简实现
+还原：Document -&gt; SentenceNodeParser -&gt; TextNode(关系链表) -&gt; VectorStoreIndex / SummaryIndex
+      -&gt; ResponseSynthesizer(compact/refine) -&gt; RouterQueryEngine
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import hashlib
+import math
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+
+@dataclass
+class Document:
+    &quot;&quot;&quot;LlamaIndex 风格原始文档对象。&quot;&quot;&quot;
+
+    text: str
+    doc_id: str = &quot;&quot;
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -&gt; None:
+        if not self.doc_id:
+            self.doc_id = &quot;doc_&quot; + hashlib.md5(self.text.encode(&quot;utf-8&quot;)).hexdigest()[:8]
+
+
+@dataclass
+class TextNode:
+    &quot;&quot;&quot;
+    LlamaIndex 核心知识节点：
+    不仅保存文本与元数据，还通过 relationships 维护 SOURCE / PREVIOUS / NEXT 拓扑指针。
+    &quot;&quot;&quot;
+
+    text: str
+    node_id: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    relationships: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class NodeWithScore:
+    node: TextNode
+    score: float
+
+
+@dataclass
+class QueryResponse:
+    response: str
+    source_nodes: List[NodeWithScore]
+    routed_engine: str = &quot;vector&quot;
+
+
+class SentenceNodeParser:
+    &quot;&quot;&quot;按句切分并自动串联 PREVIOUS / NEXT 双向链表的节点解析器。&quot;&quot;&quot;
+
+    def __init__(self, sentences_per_node: int = 1) -&gt; None:
+        self.sentences_per_node = max(1, sentences_per_node)
+
+    def get_nodes_from_documents(self, documents: Sequence[Document]) -&gt; List[TextNode]:
+        all_nodes: List[TextNode] = []
+        for doc in documents:
+            sents = [s.strip() for s in re.split(r&quot;(?&lt;=[。！？\n])&quot;, doc.text) if s.strip()]
+            doc_nodes: List[TextNode] = []
+            for idx in range(0, len(sents), self.sentences_per_node):
+                chunk_text = &quot;&quot;.join(sents[idx : idx + self.sentences_per_node])
+                node_id = f&quot;{doc.doc_id}_n{len(doc_nodes)}&quot;
+                node = TextNode(
+                    text=chunk_text,
+                    node_id=node_id,
+                    metadata={**doc.metadata, &quot;doc_id&quot;: doc.doc_id, &quot;node_idx&quot;: len(doc_nodes)},
+                    relationships={&quot;SOURCE&quot;: doc.doc_id},
+                )
+                doc_nodes.append(node)
+
+            # 串联同一文档内相邻节点的 PREVIOUS / NEXT 双向指针
+            for i, node in enumerate(doc_nodes):
+                if i &gt; 0:
+                    node.relationships[&quot;PREVIOUS&quot;] = doc_nodes[i - 1].node_id
+                if i &lt; len(doc_nodes) - 1:
+                    node.relationships[&quot;NEXT&quot;] = doc_nodes[i + 1].node_id
+
+            all_nodes.extend(doc_nodes)
+        return all_nodes
+
+
+def _embed_text(text: str, dim: int = 96) -&gt; List[float]:
+    vec = [0.0] * dim
+    lowered = text.lower()
+    tokens = re.findall(r&quot;[a-z0-9]+(?:[-_][a-z0-9]+)*&quot;, lowered)
+    for chunk in re.findall(r&quot;[\u4e00-\u9fff]+&quot;, lowered):
+        for ch in chunk:
+            tokens.append(ch)
+        for i in range(len(chunk) - 1):
+            tokens.append(chunk[i : i + 2])
+    for tok in tokens:
+        h = int(hashlib.md5(tok.encode(&quot;utf-8&quot;)).hexdigest(), 16)
+        vec[h % dim] += 1.0
+    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+    return [v / norm for v in vec]
+
+
+def _cosine(a: Sequence[float], b: Sequence[float]) -&gt; float:
+    return sum(x * y for x, y in zip(a, b))
+
+
+class ResponseSynthesizer:
+    &quot;&quot;&quot;LlamaIndex 风格响应合成器，支持 compact（紧凑拼装）与 refine（逐块精炼）模式。&quot;&quot;&quot;
+
+    def __init__(self, response_mode: str = &quot;compact&quot;) -&gt; None:
+        if response_mode not in (&quot;compact&quot;, &quot;refine&quot;):
+            raise ValueError(f&quot;Unsupported response_mode: {response_mode}&quot;)
+        self.response_mode = response_mode
+
+    def synthesize(self, query: str, nodes: Sequence[NodeWithScore]) -&gt; str:
+        if not nodes:
+            return &quot;知识库中未检索到与当前问题直接相关的制度条款。&quot;
+
+        if self.response_mode == &quot;compact&quot;:
+            evidences = [
+                f&quot;[{i}] ({n.node.metadata.get(&#x27;source&#x27;, &#x27;未知&#x27;)}) {n.node.text}&quot;
+                for i, n in enumerate(nodes, start=1)
+            ]
+            return f&quot;【Compact综合回答】针对「{query}」，依据以下制度条款：\n&quot; + &quot;\n&quot;.join(evidences)
+
+        # refine 模式：逐个节点增量精炼摘要（典型用于 SummaryIndex 全局总结）
+        refined_points: List[str] = []
+        for idx, n in enumerate(nodes, start=1):
+            source = n.node.metadata.get(&quot;source&quot;, &quot;文档&quot;)
+            refined_points.append(f&quot;要点{idx}（{source}）：{n.node.text}&quot;)
+        return f&quot;【Refine全量摘要】针对「{query}」，汇总全文核心要点如下：\n&quot; + &quot;\n&quot;.join(refined_points)
+
+
+class VectorStoreIndex:
+    &quot;&quot;&quot;LlamaIndex 风格向量索引：支持邻域节点扩展（expand_prev_next=True）。&quot;&quot;&quot;
+
+    def __init__(self, nodes: Sequence[TextNode]) -&gt; None:
+        self.nodes: List[TextNode] = list(nodes)
+        self.node_map: Dict[str, TextNode] = {n.node_id: n for n in self.nodes}
+        self.vectors: Dict[str, List[float]] = {n.node_id: _embed_text(n.text) for n in self.nodes}
+
+    @classmethod
+    def from_documents(
+        cls,
+        documents: Sequence[Document],
+        parser: Optional[SentenceNodeParser] = None,
+    ) -&gt; &quot;VectorStoreIndex&quot;:
+        node_parser = parser or SentenceNodeParser(sentences_per_node=1)
+        return cls(node_parser.get_nodes_from_documents(documents))
+
+    def retrieve(
+        self,
+        query: str,
+        similarity_top_k: int = 2,
+        expand_prev_next: bool = True,
+    ) -&gt; List[NodeWithScore]:
+        q_vec = _embed_text(query)
+        scored = [
+            NodeWithScore(node=n, score=round(_cosine(q_vec, self.vectors[n.node_id]), 4))
+            for n in self.nodes
+        ]
+        scored.sort(key=lambda x: x.score, reverse=True)
+        top_hits = scored[:similarity_top_k]
+
+        if not expand_prev_next:
+            return top_hits
+
+        # 利用 TextNode.relationships 的 PREVIOUS 指针自动补全前文上下文，消除「上述标准」指代断层
+        expanded: List[NodeWithScore] = []
+        for hit in top_hits:
+            prev_id = hit.node.relationships.get(&quot;PREVIOUS&quot;)
+            merged_text = hit.node.text
+            if prev_id and prev_id in self.node_map:
+                merged_text = self.node_map[prev_id].text + merged_text
+            expanded.append(
+                NodeWithScore(
+                    node=TextNode(
+                        text=merged_text,
+                        node_id=hit.node.node_id,
+                        metadata={**hit.node.metadata, &quot;expanded_prev&quot;: bool(prev_id)},
+                        relationships=dict(hit.node.relationships),
+                    ),
+                    score=hit.score,
+                )
+            )
+        return expanded
+
+    def as_query_engine(
+        self,
+        similarity_top_k: int = 2,
+        response_mode: str = &quot;compact&quot;,
+        expand_prev_next: bool = True,
+    ) -&gt; &quot;RetrieverQueryEngine&quot;:
+        return RetrieverQueryEngine(
+            retriever_fn=lambda q: self.retrieve(
+                q, similarity_top_k=similarity_top_k, expand_prev_next=expand_prev_next
+            ),
+            synthesizer=ResponseSynthesizer(response_mode=response_mode),
+            engine_name=&quot;vector_index&quot;,
+        )
+
+
+class SummaryIndex:
+    &quot;&quot;&quot;LlamaIndex 风格摘要索引：遍历全量节点用于全局归纳总结。&quot;&quot;&quot;
+
+    def __init__(self, nodes: Sequence[TextNode]) -&gt; None:
+        self.nodes = list(nodes)
+
+    @classmethod
+    def from_documents(
+        cls,
+        documents: Sequence[Document],
+        parser: Optional[SentenceNodeParser] = None,
+    ) -&gt; &quot;SummaryIndex&quot;:
+        node_parser = parser or SentenceNodeParser(sentences_per_node=1)
+        return cls(node_parser.get_nodes_from_documents(documents))
+
+    def as_query_engine(self, response_mode: str = &quot;refine&quot;) -&gt; &quot;RetrieverQueryEngine&quot;:
+        return RetrieverQueryEngine(
+            retriever_fn=lambda _q: [NodeWithScore(node=n, score=1.0) for n in self.nodes],
+            synthesizer=ResponseSynthesizer(response_mode=response_mode),
+            engine_name=&quot;summary_index&quot;,
+        )
+
+
+class RetrieverQueryEngine:
+    def __init__(self, retriever_fn, synthesizer: ResponseSynthesizer, engine_name: str) -&gt; None:
+        self.retriever_fn = retriever_fn
+        self.synthesizer = synthesizer
+        self.engine_name = engine_name
+
+    def query(self, question: str) -&gt; QueryResponse:
+        nodes = self.retriever_fn(question)
+        answer = self.synthesizer.synthesize(question, nodes)
+        return QueryResponse(response=answer, source_nodes=nodes, routed_engine=self.engine_name)
+
+
+class RouterQueryEngine:
+    &quot;&quot;&quot;意图路由查询引擎：自动判断走 SummaryIndex 全局总结还是 VectorStoreIndex 细节精查。&quot;&quot;&quot;
+
+    SUMMARY_TRIGGERS = (&quot;总结&quot;, &quot;概览&quot;, &quot;全文&quot;, &quot;要点&quot;, &quot;归纳&quot;, &quot;都有哪些规定&quot;, &quot;梳理一下&quot;)
+
+    def __init__(
+        self,
+        vector_engine: RetrieverQueryEngine,
+        summary_engine: RetrieverQueryEngine,
+    ) -&gt; None:
+        self.vector_engine = vector_engine
+        self.summary_engine = summary_engine
+
+    def query(self, question: str) -&gt; QueryResponse:
+        if any(kw in question for kw in self.SUMMARY_TRIGGERS):
+            return self.summary_engine.query(question)
+        return self.vector_engine.query(question)
+
+
+if __name__ == &quot;__main__&quot;:
+    doc = Document(
+        text=(
+            &quot;一线城市（北京、上海、深圳、广州）出差酒店住宿报销上限为每晚600元。&quot;
+            &quot;上述标准同样适用于外包人员及在岗实习生。&quot;
+            &quot;出差餐饮补助按每天100元定额随月薪发放，无需粘贴发票。&quot;
+        ),
+        doc_id=&quot;fin_travel_2026&quot;,
+        metadata={&quot;source&quot;: &quot;财务差旅制度_2026.md&quot;},
+    )
+    vec_idx = VectorStoreIndex.from_documents([doc])
+    sum_idx = SummaryIndex.from_documents([doc])
+    router = RouterQueryEngine(
+        vector_engine=vec_idx.as_query_engine(similarity_top_k=1, expand_prev_next=True),
+        summary_engine=sum_idx.as_query_engine(response_mode=&quot;refine&quot;),
+    )
+
+    r_detail = router.query(&quot;实习生出差住宿适用什么标准？&quot;)
+    print(f&quot;[路由={r_detail.routed_engine}]\n{r_detail.response}\n&quot;)
+
+    r_summary = router.query(&quot;请总结一下这份差旅制度的全部要点&quot;)
+    print(f&quot;[路由={r_summary.routed_engine}]\n{r_summary.response}&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+[路由=vector_index]
+【Compact综合回答】针对「实习生出差住宿适用什么标准？」，依据以下制度条款：
+[1] (财务差旅制度_2026.md) 一线城市（北京、上海、深圳、广州）出差酒店住宿报销上限为每晚600元。上述标准同样适用于外包人员及在岗实习生。
+
+[路由=summary_index]
+【Refine全量摘要】针对「请总结一下这份差旅制度的全部要点」，汇总全文核心要点如下：
+要点1（财务差旅制度_2026.md）：一线城市...
+要点2（财务差旅制度_2026.md）：上述标准同样适用于...
+要点3（财务差旅制度_2026.md）：出差餐饮补助按每天100元定额随月薪发放，无需粘贴发票。</div></div><h4>深度代码解析与工程要点</h4><p>1. 看细节提问「实习生出差住宿适用什么标准？」：虽然只有第 2 句提到了「实习生」，原文里写的是「上述标准同样适用于外包人员及在岗实习生」，没有写金额；因为 <code>TextNode</code> 自动维护了 <code>PREVIOUS</code> 指针，<code>VectorStoreIndex</code> 一键把第 1 句的「每晚600元」自动拼回来了！<br/>2. 看总结提问「请总结一下这份差旅制度的全部要点」：<code>RouterQueryEngine</code> 自动路由到 <code>SummaryIndex</code> 并调用 <code>refine</code> 模式遍历全节点，避免传统 Top-K 漏掉后半篇内容。</p><h3>实操步骤 2：步骤二：LlamaIndex vs LangChain 风格基准横评与架构选型器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>空谈选型没有说服力！咱们拿同一个星辰企业文档集，在「跨段指代查询」和「全文摘要查询」上实测对比 LangChain 扁平切片管道与 LlamaIndex 节点图路由引擎的答案完整度与响应耗时。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day35_framework_benchmark.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 35 - 步骤二：LlamaIndex 风格 vs LangChain 风格扁平管道基准对比评测
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day35_llamaindex_core import (
+    Document,
+    RouterQueryEngine,
+    SummaryIndex,
+    VectorStoreIndex,
+)
+
+
+@dataclass
+class BenchmarkRow:
+    framework: str
+    completeness_rate: float
+    avg_latency_ms: float
+    strengths: str
+
+
+BENCHMARK_DOCS = [
+    Document(
+        text=(
+            &quot;一线城市（北京、上海、深圳、广州）出差酒店住宿报销上限为每晚600元。&quot;
+            &quot;上述标准同样适用于外包人员及在岗实习生。&quot;
+            &quot;出差餐饮补助按每天100元定额随月薪发放，无需粘贴发票。&quot;
+        ),
+        doc_id=&quot;fin_travel&quot;,
+        metadata={&quot;source&quot;: &quot;差旅制度.md&quot;},
+    ),
+    Document(
+        text=(
+            &quot;生产环境日常发布窗口为周一至周四10:00-18:00，严禁周五17:00后非紧急变更。&quot;
+            &quot;若遇P0级线上故障需打破该窗口限制，必须经值班架构师与CTO双人审批。&quot;
+        ),
+        doc_id=&quot;dev_release&quot;,
+        metadata={&quot;source&quot;: &quot;研发发布规范.md&quot;},
+    ),
+]
+
+# 专门测试「跨段指代」与「全文总结」两类高难场景
+BENCHMARK_CASES = [
+    (&quot;实习生出差住宿适用什么标准？&quot;, [&quot;600元&quot;, &quot;实习生&quot;]),
+    (&quot;P0级线上故障打破发布窗口限制需要谁审批，原窗口是哪几天？&quot;, [&quot;周一至周四&quot;, &quot;CTO&quot;]),
+    (&quot;请总结一下全部制度的核心要点&quot;, [&quot;600元&quot;, &quot;100元&quot;, &quot;周一至周四&quot;]),
+]
+
+
+def run_framework_benchmark() -&gt; List[BenchmarkRow]:
+    # 1. 模拟 LangChain 经典扁平切片检索（无 PREVIOUS 指针扩展、无 SummaryIndex 路由）
+    flat_index = VectorStoreIndex.from_documents(BENCHMARK_DOCS)
+    lc_flat_engine = flat_index.as_query_engine(
+        similarity_top_k=1, response_mode=&quot;compact&quot;, expand_prev_next=False
+    )
+
+    # 2. LlamaIndex 风格：TextNode 邻域自动扩展 + RouterQueryEngine(Vector + Summary)
+    li_router = RouterQueryEngine(
+        vector_engine=flat_index.as_query_engine(
+            similarity_top_k=1, response_mode=&quot;compact&quot;, expand_prev_next=True
+        ),
+        summary_engine=SummaryIndex.from_documents(BENCHMARK_DOCS).as_query_engine(
+            response_mode=&quot;refine&quot;
+        ),
+    )
+
+    rows: List[BenchmarkRow] = []
+    for name, engine, strength in [
+        (&quot;LangChain_Flat_RAG&quot;, lc_flat_engine, &quot;LCEL灵活编排、生态最全、多Agent工作流强&quot;),
+        (&quot;LlamaIndex_NodeRouter&quot;, li_router, &quot;Node链表防断层、多态Index与全局摘要天然占优&quot;),
+    ]:
+        passed = 0
+        t0 = time.perf_counter()
+        for q, must_keywords in BENCHMARK_CASES:
+            resp = engine.query(q)
+            if all(kw in resp.response for kw in must_keywords):
+                passed += 1
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0 / len(BENCHMARK_CASES)
+        rows.append(
+            BenchmarkRow(
+                framework=name,
+                completeness_rate=round(passed / len(BENCHMARK_CASES), 4),
+                avg_latency_ms=round(elapsed_ms, 3),
+                strengths=strength,
+            )
+        )
+    return rows
+
+
+def recommend_framework(need_multi_agent: bool, heavy_doc_summary: bool) -&gt; Dict[str, str]:
+    &quot;&quot;&quot;企业级技术选型决策辅助器。&quot;&quot;&quot;
+    if heavy_doc_summary and not need_multi_agent:
+        return {&quot;choice&quot;: &quot;LlamaIndex&quot;, &quot;reason&quot;: &quot;重度长文档索引、多级摘要与复杂数据连接场景最优&quot;}
+    if need_multi_agent and not heavy_doc_summary:
+        return {&quot;choice&quot;: &quot;LangChain + LangGraph&quot;, &quot;reason&quot;: &quot;重度工具编排、状态机工作流与多 Agent 协作最优&quot;}
+    return {
+        &quot;choice&quot;: &quot;Hybrid (LlamaIndex 索引检索 + LangGraph 上层编排)&quot;,
+        &quot;reason&quot;: &quot;兼具强文档索引能力与复杂工作流编排，是中大型企业中台常见组合&quot;,
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== LangChain 扁平管道 vs LlamaIndex 节点路由基准对比 ===&quot;)
+    for row in run_framework_benchmark():
+        print(
+            f&quot;  {row.framework:22s} | 答案完整率={row.completeness_rate:6.2%} &quot;
+            f&quot;| 平均耗时={row.avg_latency_ms:6.3f}ms | 优势: {row.strengths}&quot;
+        )
+    print(&quot;\n星辰智脑项目二选型建议:&quot;, recommend_framework(need_multi_agent=True, heavy_doc_summary=True))
+</code></pre><div class="output-box"># 预期运行输出示例：
+=== LangChain 扁平管道 vs LlamaIndex 节点路由基准对比 ===
+  LangChain_Flat_RAG     | 答案完整率= 0.00% | 平均耗时= 0.215ms | 优势: LCEL灵活编排、生态最全、多Agent工作流强
+  LlamaIndex_NodeRouter  | 答案完整率=100.00% | 平均耗时= 0.264ms | 优势: Node链表防断层、多态Index与全局摘要天然占优
+
+星辰智脑项目二选型建议: {&#x27;choice&#x27;: &#x27;Hybrid (LlamaIndex 索引检索 + LangGraph 上层编排)&#x27;, &#x27;reason&#x27;: &#x27;兼具强文档索引能力与复杂工作流编排，是中大型企业中台常见组合&#x27;}</div></div><h4>深度代码解析与工程要点</h4><p>1. 在包含「跨段指代（实习生适用上述标准）」「条件回溯（打破该窗口限制）」和「全文要点总结」的高难评测集上，LlamaIndex 的 Node 链表扩展 + RouterQueryEngine 答案完整率达到 100%，直观拉开了与普通扁平切片管道的差距。<br/>2. <code>recommend_framework</code> 明确了工程界共识：不盲目站队，按业务复杂度选择单框架或「LlamaIndex 检索 + LangGraph 编排」组合架构。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：手写 LlamaIndex 核心引擎（Document / TextNode 链表 / 双 Index / RouterQueryEngine）（src/day35_llamaindex_core.py）</h3><p>模块 <code>src/day35_llamaindex_core.py</code> 共计 279 行源码，其中包含 3 行中文工程注释（注释密度约 1.1%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-035 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>hashlib</code>、<code>math</code>、<code>re</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Dict, List, Optional, Sequence, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>Document</code>（第 17~26 行）】这是一个独立领域模型类。其核心职责定义为：LlamaIndex 风格原始文档对象。。类内部暴露了 1 个方法：<code>__post_init__(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>Document.__post_init__</code>（第 24~26 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>TextNode</code>（第 30~39 行）】这是一个独立领域模型类。其核心职责定义为：LlamaIndex 核心知识节点：<br/>不仅保存文本与元数据，还通过 relationships 维护 SOURCE / PREVIOUS / NEXT 拓扑指针。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>NodeWithScore</code>（第 43~45 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>QueryResponse</code>（第 49~52 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>SentenceNodeParser</code>（第 55~85 行）】这是一个独立领域模型类。其核心职责定义为：按句切分并自动串联 PREVIOUS / NEXT 双向链表的节点解析器。。类内部暴露了 2 个方法：<code>__init__(self, sentences_per_node)</code>、<code>get_nodes_from_documents(self, documents)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SentenceNodeParser.__init__</code>（第 58~59 行）属于同步实例方法，入参签名为 <code>(self, sentences_per_node)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SentenceNodeParser.get_nodes_from_documents</code>（第 61~85 行）属于同步实例方法，入参签名为 <code>(self, documents)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ResponseSynthesizer</code>（第 108~132 行）】这是一个独立领域模型类。其核心职责定义为：LlamaIndex 风格响应合成器，支持 compact（紧凑拼装）与 refine（逐块精炼）模式。。类内部暴露了 2 个方法：<code>__init__(self, response_mode)</code>、<code>synthesize(self, query, nodes)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ResponseSynthesizer.__init__</code>（第 111~114 行）属于同步实例方法，入参签名为 <code>(self, response_mode)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ResponseSynthesizer.synthesize</code>（第 116~132 行）属于同步实例方法，入参签名为 <code>(self, query, nodes)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>VectorStoreIndex</code>（第 135~201 行）】这是一个独立领域模型类。其核心职责定义为：LlamaIndex 风格向量索引：支持邻域节点扩展（expand_prev_next=True）。。类内部暴露了 4 个方法：<code>__init__(self, nodes)</code>、<code>from_documents(cls, documents, parser)</code>、<code>retrieve(self, query, similarity_top_k, expand_prev_next)</code>、<code>as_query_engine(self, similarity_top_k, response_mode, expand_prev_next)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>VectorStoreIndex.__init__</code>（第 138~141 行）属于同步实例方法，入参签名为 <code>(self, nodes)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>VectorStoreIndex.from_documents</code>（第 144~150 行）属于同步实例方法，入参签名为 <code>(cls, documents, parser)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>VectorStoreIndex.retrieve</code>（第 152~187 行）属于同步实例方法，入参签名为 <code>(self, query, similarity_top_k, expand_prev_next)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>VectorStoreIndex.as_query_engine</code>（第 189~201 行）属于同步实例方法，入参签名为 <code>(self, similarity_top_k, response_mode, expand_prev_next)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>SummaryIndex</code>（第 204~224 行）】这是一个独立领域模型类。其核心职责定义为：LlamaIndex 风格摘要索引：遍历全量节点用于全局归纳总结。。类内部暴露了 3 个方法：<code>__init__(self, nodes)</code>、<code>from_documents(cls, documents, parser)</code>、<code>as_query_engine(self, response_mode)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SummaryIndex.__init__</code>（第 207~208 行）属于同步实例方法，入参签名为 <code>(self, nodes)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SummaryIndex.from_documents</code>（第 211~217 行）属于同步实例方法，入参签名为 <code>(cls, documents, parser)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SummaryIndex.as_query_engine</code>（第 219~224 行）属于同步实例方法，入参签名为 <code>(self, response_mode)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>RetrieverQueryEngine</code>（第 227~236 行）】这是一个独立领域模型类。类内部暴露了 2 个方法：<code>__init__(self, retriever_fn, synthesizer, engine_name)</code>、<code>query(self, question)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>RetrieverQueryEngine.__init__</code>（第 228~231 行）属于同步实例方法，入参签名为 <code>(self, retriever_fn, synthesizer, engine_name)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>RetrieverQueryEngine.query</code>（第 233~236 行）属于同步实例方法，入参签名为 <code>(self, question)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>RouterQueryEngine</code>（第 239~255 行）】这是一个独立领域模型类。其核心职责定义为：意图路由查询引擎：自动判断走 SummaryIndex 全局总结还是 VectorStoreIndex 细节精查。。类内部暴露了 2 个方法：<code>__init__(self, vector_engine, summary_engine)</code>、<code>query(self, question)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>RouterQueryEngine.__init__</code>（第 244~250 行）属于同步实例方法，入参签名为 <code>(self, vector_engine, summary_engine)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>RouterQueryEngine.query</code>（第 252~255 行）属于同步实例方法，入参签名为 <code>(self, question)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>_embed_text</code>（第 88~101 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text, dim)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【函数契约拆解 · <code>_cosine</code>（第 104~105 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(a, b)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day35_llamaindex_core.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day35/day35_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day35/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：LlamaIndex vs LangChain 风格基准横评与架构选型器（src/day35_framework_benchmark.py）</h3><p>模块 <code>src/day35_framework_benchmark.py</code> 共计 120 行源码，其中包含 3 行中文工程注释（注释密度约 2.5%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-035 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>sys</code>、<code>time</code>、<code>dataclasses (dataclass)</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List)</code>、<code>src.day35_llamaindex_core (Document, RouterQueryEngine, SummaryIndex, VectorStoreIndex)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>BenchmarkRow</code>（第 26~30 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>run_framework_benchmark</code>（第 61~98 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【函数契约拆解 · <code>recommend_framework</code>（第 101~110 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(need_multi_agent, heavy_doc_summary)</code>。职责说明：企业级技术选型决策辅助器。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day35_framework_benchmark.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day35/day35_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day35/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day35_llamaindex_core.py（共 279 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day35_llamaindex_core.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import hashlib</code></td><td>核心意图：代表语句：`import hashlib`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>class Document:</code></td><td>核心意图：代表语句：`class Document:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>if not self.doc_id:</code></td><td>核心意图：代表语句：`if not self.doc_id:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>不仅保存文本与元数据，还通过 relationships 维护 SOURCE / PREVIOUS / NEXT 拓扑指针。</code></td><td>核心意图：代表语句：`不仅保存文本与元数据，还通过 relationships 维护 SOURCE / PREVIOUS / NEXT 拓扑指针。`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L49-L56</code></td><td><code>class QueryResponse:</code></td><td>核心意图：代表语句：`class QueryResponse:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L57-L64</code></td><td><code>def __init__(self, sentences_per_node: int = 1) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self, sentences_per_node: int = 1) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>doc_nodes: List[TextNode] = []</code></td><td>核心意图：代表语句：`doc_nodes: List[TextNode] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>relationships={&quot;SOURCE&quot;: doc.doc_id},</code></td><td>核心意图：串联同一文档内相邻节点的 PREVIOUS / NEXT 双向指针。代表语句：`relationships={&quot;SOURCE&quot;: doc.doc_id},`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>if i &lt; len(doc_nodes) - 1:</code></td><td>核心意图：代表语句：`if i &lt; len(doc_nodes) - 1:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>vec = [0.0] * dim</code></td><td>核心意图：代表语句：`vec = [0.0] * dim`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>for tok in tokens:</code></td><td>核心意图：代表语句：`for tok in tokens:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L105-L112</code></td><td><code>return sum(x * y for x, y in zip(a, b))</code></td><td>核心意图：代表语句：`return sum(x * y for x, y in zip(a, b))`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>raise ValueError(f&quot;Unsupported response_mode: {response_mode}&quot;)</code></td><td>核心意图：代表语句：`raise ValueError(f&quot;Unsupported response_mode: {response_mode}&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>evidences = [</code></td><td>核心意图：refine 模式：逐个节点增量精炼摘要（典型用于 SummaryIndex 全局总结）。代表语句：`evidences = [`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>for idx, n in enumerate(nodes, start=1):</code></td><td>核心意图：代表语句：`for idx, n in enumerate(nodes, start=1):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L137-L144</code></td><td><code>def __init__(self, nodes: Sequence[TextNode]) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self, nodes: Sequence[TextNode]) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L145-L152</code></td><td><code>cls,</code></td><td>核心意图：代表语句：`cls,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L153-L160</code></td><td><code>self,</code></td><td>核心意图：代表语句：`self,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L168</code></td><td><code>for n in self.nodes</code></td><td>核心意图：代表语句：`for n in self.nodes`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L169-L176</code></td><td><code>expanded: List[NodeWithScore] = []</code></td><td>核心意图：利用 TextNode.relationships 的 PREVIOUS 指针自动补全前文上下文，消除「上述标准」指代断层。代表语句：`expanded: List[NodeWithScore] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L177-L184</code></td><td><code>NodeWithScore(</code></td><td>核心意图：代表语句：`NodeWithScore(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L185-L192</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L193-L200</code></td><td><code>expand_prev_next: bool = True,</code></td><td>核心意图：代表语句：`expand_prev_next: bool = True,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L201-L208</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L209-L216</code></td><td><code>@classmethod</code></td><td>核心意图：代表语句：`@classmethod`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L217-L224</code></td><td><code>return cls(node_parser.get_nodes_from_documents(documents))</code></td><td>核心意图：代表语句：`return cls(node_parser.get_nodes_from_documents(documents))`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L225-L232</code></td><td><code>class RetrieverQueryEngine:</code></td><td>核心意图：代表语句：`class RetrieverQueryEngine:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L233-L240</code></td><td><code>def query(self, question: str) -&gt; QueryResponse:</code></td><td>核心意图：代表语句：`def query(self, question: str) -&gt; QueryResponse:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L241-L248</code></td><td><code>SUMMARY_TRIGGERS = (&quot;总结&quot;, &quot;概览&quot;, &quot;全文&quot;, &quot;要点&quot;, &quot;归纳&quot;, &quot;都有哪些规定&quot;, &quot;梳理一下&quot;)</code></td><td>核心意图：代表语句：`SUMMARY_TRIGGERS = (&quot;总结&quot;, &quot;概览&quot;, &quot;全文&quot;, &quot;要点&quot;, &quot;归纳&quot;, &quot;都有哪些规定&quot;, &quot;梳理一下&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L249-L256</code></td><td><code>self.vector_engine = vector_engine</code></td><td>核心意图：代表语句：`self.vector_engine = vector_engine`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L257-L264</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L265-L272</code></td><td><code>doc_id=&quot;fin_travel_2026&quot;,</code></td><td>核心意图：代表语句：`doc_id=&quot;fin_travel_2026&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L273-L279</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day35_framework_benchmark.py（共 120 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day35_framework_benchmark.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from dataclasses import dataclass</code></td><td>核心意图：代表语句：`from dataclasses import dataclass`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day35_llamaindex_core import (</code></td><td>核心意图：代表语句：`from src.day35_llamaindex_core import (`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>BENCHMARK_DOCS = [</code></td><td>核心意图：代表语句：`BENCHMARK_DOCS = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>metadata={&quot;source&quot;: &quot;差旅制度.md&quot;},</code></td><td>核心意图：代表语句：`metadata={&quot;source&quot;: &quot;差旅制度.md&quot;},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L49-L56</code></td><td><code>metadata={&quot;source&quot;: &quot;研发发布规范.md&quot;},</code></td><td>核心意图：专门测试「跨段指代」与「全文总结」两类高难场景。代表语句：`metadata={&quot;source&quot;: &quot;研发发布规范.md&quot;},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L57-L64</code></td><td><code>(&quot;请总结一下全部制度的核心要点&quot;, [&quot;600元&quot;, &quot;100元&quot;, &quot;周一至周四&quot;]),</code></td><td>核心意图：1. 模拟 LangChain 经典扁平切片检索（无 PREVIOUS 指针扩展、无 SummaryIndex 路由）。代表语句：`(&quot;请总结一下全部制度的核心要点&quot;, [&quot;600元&quot;, &quot;100元&quot;, &quot;周一至周四&quot;]),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>similarity_top_k=1, response_mode=&quot;compact&quot;, expand_prev_next=False</code></td><td>核心意图：2. LlamaIndex 风格：TextNode 邻域自动扩展 + RouterQueryEngine(Vector + Summary)。代表语句：`similarity_top_k=1, response_mode=&quot;compact&quot;, expand_prev_next=False`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>summary_engine=SummaryIndex.from_documents(BENCHMARK_DOCS).as_query_engi</code></td><td>核心意图：代表语句：`summary_engine=SummaryIndex.from_documents(BENCHMARK_DOCS).as_query_engine(`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>(&quot;LlamaIndex_NodeRouter&quot;, li_router, &quot;Node链表防断层、多态Index与全局摘要天然占优&quot;),</code></td><td>核心意图：代表语句：`(&quot;LlamaIndex_NodeRouter&quot;, li_router, &quot;Node链表防断层、多态Index与全局摘要天然占优&quot;),`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>elapsed_ms = (time.perf_counter() - t0) * 1000.0 / len(BENCHMARK_CASES)</code></td><td>核心意图：代表语句：`elapsed_ms = (time.perf_counter() - t0) * 1000.0 / len(BENCHMARK_CASES)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L97-L104</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>if need_multi_agent and not heavy_doc_summary:</code></td><td>核心意图：代表语句：`if need_multi_agent and not heavy_doc_summary:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day35/tests/test_day35.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day35/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day35/tests/test_day35.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 35 自动化单元测试：验证 LlamaIndex Node 链表、双索引路由与框架基准对比。&quot;&quot;&quot;
+
+from src.day35_framework_benchmark import recommend_framework, run_framework_benchmark
+from src.day35_llamaindex_core import (
+    Document,
+    RouterQueryEngine,
+    SentenceNodeParser,
+    SummaryIndex,
+    VectorStoreIndex,
+)
+
+
+def test_sentence_node_parser_builds_doubly_linked_relationships():
+    doc = Document(&quot;第一句规定标准。第二句补充例外。第三句说明审批。&quot;, doc_id=&quot;d_test&quot;)
+    nodes = SentenceNodeParser(sentences_per_node=1).get_nodes_from_documents([doc])
+    assert len(nodes) == 3
+    assert nodes[0].relationships[&quot;SOURCE&quot;] == &quot;d_test&quot;
+    assert &quot;PREVIOUS&quot; not in nodes[0].relationships
+    assert nodes[0].relationships[&quot;NEXT&quot;] == nodes[1].node_id
+    assert nodes[1].relationships[&quot;PREVIOUS&quot;] == nodes[0].node_id
+    assert nodes[1].relationships[&quot;NEXT&quot;] == nodes[2].node_id
+    assert nodes[2].relationships[&quot;PREVIOUS&quot;] == nodes[1].node_id
+    assert &quot;NEXT&quot; not in nodes[2].relationships
+
+
+def test_router_query_engine_routes_vector_and_summary():
+    doc = Document(
+        &quot;一线城市出差住宿上限每晚600元。上述标准同样适用于实习生。餐饮补助每天100元。&quot;,
+        doc_id=&quot;fin01&quot;,
+        metadata={&quot;source&quot;: &quot;差旅制度.md&quot;},
+    )
+    vec_idx = VectorStoreIndex.from_documents([doc])
+    sum_idx = SummaryIndex.from_documents([doc])
+    router = RouterQueryEngine(
+        vector_engine=vec_idx.as_query_engine(similarity_top_k=1, expand_prev_next=True),
+        summary_engine=sum_idx.as_query_engine(response_mode=&quot;refine&quot;),
+    )
+
+    detail_resp = router.query(&quot;实习生出差住宿适用什么标准？&quot;)
+    assert detail_resp.routed_engine == &quot;vector_index&quot;
+    assert &quot;600元&quot; in detail_resp.response and &quot;实习生&quot; in detail_resp.response
+
+    summary_resp = router.query(&quot;请总结这份差旅制度的全部要点&quot;)
+    assert summary_resp.routed_engine == &quot;summary_index&quot;
+    assert &quot;600元&quot; in summary_resp.response and &quot;100元&quot; in summary_resp.response
+
+
+def test_framework_benchmark_shows_node_router_advantage():
+    rows = run_framework_benchmark()
+    by_name = {r.framework: r for r in rows}
+    assert by_name[&quot;LlamaIndex_NodeRouter&quot;].completeness_rate &gt; by_name[&quot;LangChain_Flat_RAG&quot;].completeness_rate
+    assert by_name[&quot;LlamaIndex_NodeRouter&quot;].completeness_rate == 1.0
+
+    rec = recommend_framework(need_multi_agent=True, heavy_doc_summary=True)
+    assert &quot;Hybrid&quot; in rec[&quot;choice&quot;]
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-035</code>，承接自 Day 34 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day35-llamaindex-engine-benchmark</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day35-llamaindex-engine-benchmark）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day35-llamaindex-engine-benchmark
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day35.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-035）
+git add src/day35_llamaindex_core.py src/day35_framework_benchmark.py tests/test_day35.py
+git commit -m &quot;feat(day35): 实现LlamaIndex核心抽象(Document/TextNode/VectorStoreIndex/QueryEngine)与双框架基准对比
+
+Refs: STARMIND-035
+- 完成 LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day35-llamaindex-engine-benchmark</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-035 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-035 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day35_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day35_llamaindex_core.py src/day35_framework_benchmark.py
+    - echo &quot;Day 35 语法编译检查通过&quot;
+
+day35_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day35/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day35/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>用不到 240 行把 LlamaIndex 最值钱的 <code>TextNode</code> 双向链表和 <code>RouterQueryEngine</code> 讲透了！很多只会调包的人干了一年都不知道 <code>PREVIOUS/NEXT</code> 指针是怎么工作的。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>基准对比里专门设计了「上述标准」这种跨段指代题，太有说服力了！真实公司制度文档里满屏都是「上述/前述/同上」。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-035 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-035（LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：项目二「企业级知识库问答系统」启动前，架构评审组要求对 LangChain 路线与 LlamaIndex 路线进行原理剖析与小规模 PoC 基准测试，明确两者的适用场景与最终选型结论。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）遇到「请总结一下《差旅报销制度》的核心要点」这类全局摘要提问时，传统 Top-K 向量检索只取回 2~3 个碎片切片，总结严重残缺。；（2）普通扁平切片丢失了相邻段落的上下文关系（如「上述标准同样适用于实习生」的「上述」指代上一块）。；（3）团队对 LlamaIndex 与 LangChain 的选型停留在网上营销号口水战，缺乏可复现的代码级对比。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）完整实现 LlamaIndex 核心对象模型：<code>Document</code>、<code>TextNode</code>（含 <code>SOURCE / PREVIOUS / NEXT</code> 节点关系）、<code>SentenceNodeParser</code>。；（2）实现双索引结构：<code>VectorStoreIndex</code>（细节精准检索 + 前后节点窗口自动扩展）与 <code>SummaryIndex</code>（全节点扫描摘要），并实现 <code>RouterQueryEngine</code> 自动路由。；（3）编写基准测试脚本，对比 LlamaIndex 风格（Node 拓扑扩展）与 LangChain 风格（扁平切片管道）在上下文完整度、召回率、延迟与开发复杂度上的表现。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day35/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. LangChain vs LlamaIndex 架构选型红宝书】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：- **首选 LlamaIndex 的场景**：核心诉求是「高难度、多模态、超长/复杂结构文档检索与问答」（如财报表格、法律合同、百页技术白皮书），需要开箱即用的 <code>SentenceWindowNodeParser</code>、<code>AutoMergingRetriever</code>、<code>SubQuestionQueryEngine</code>、<code>RouterQueryEngine</code>。<br/>- **首选 LangChain / LangGraph 的场景**：核心诉求是「复杂多步骤工作流编排、多工具调用、多 Agent 状态机协同、人工介入审批（HITL）」以及需要极高定制自由度的全栈 AI 平台。<br/>- **大厂真实做法**：不要二极管二选一！很多团队用 LlamaIn…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：LlamaIndex 在 <code>v0.10+</code> 进行了彻底的模块化拆分，旧教程里的 <code>from llama_index import VectorStoreIndex</code> 已废弃，生产环境务必使用 <code>from llama_index.core import VectorStoreIndex, Document</code> 及独立插件包 <code>llama-index-llms-openai</code>、<code>llama-index-embeddings-huggingface</code>。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. LangChain vs LlamaIndex 架构选型红宝书」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生产环境官方 LlamaIndex 5 行极简代码对照】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：LlamaIndex 最大的工程爽点就是高内聚封装，5 行代码即可跑起一套完整知识库：<br/>```python<br/>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader</p>
+<p>documents = SimpleDirectoryReader(&#x27;./data/starmind_docs&#x27;).load_data()<br/>index = VectorStoreIndex.from_documents(documents)<br/>query_engine = index.as_query_engine(similarity_top_k=3, response_mode=&#x27;com…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：高封装是一把双刃剑——上手极快，但当线上出现奇葩 Bad Case 需要魔改底层 Prompt 或检索过滤逻辑时，一定要善用 <code>CallbackManager</code> / <code>LlamaDebugHandler</code> 打印出内部实际拼出来的 Prompt 和召回 Node，切忌当黑盒用！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生产环境官方 LlamaIndex 5 行极简代码对照」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 35 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day35/</code> 中亲手编写了 <code>src/day35_llamaindex_core.py</code>、<code>src/day35_framework_benchmark.py</code> 以及对应的自动化测试 <code>tests/test_day35.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day35_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 35 / STARMIND-035）：1. 已在分支 <code>feat/day35-llamaindex-engine-benchmark</code> 完成 LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 36）：明天（Day 36）我们正式进入**阶段项目二（上）——企业级知识库问答系统 StarMind-KB v2.0**，完成架构设计、多格式文档入库、混合检索+Rerank 引擎与 FastAPI 核心 REST API！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 35 掌握的「LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-035 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day35.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 35 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day35/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day35_llamaindex_core.py, src/day35_framework_benchmark.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>`SentenceNodeParser` 生成的 `TextNode` 链表必须正确维护 `PREVIOUS` 与 `NEXT` 指针及 `SOURCE` 原文档 ID。；`RouterQueryEngine` 能自动将「总结/概览」类问题路由至 `SummaryIndex`，将「具体金额/流程」类问题路由至 `VectorStoreIndex`。；`ResponseSynthesizer` 支持 `compact` 与 `refine` 两种响应合成模式。；所有 pytest 自动化测试 100% 本地离线通过。</td><td>运行 `pytest versions/day35/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day35/day35_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day35-llamaindex-engine-benchmark` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-035 需求时，我们的核心业务目标是：完整实现 LlamaIndex 核心对象模型：<code>Document</code>、<code>TextNode</code>（含 <code>SOURCE / PREVIOUS / NEXT</code> 节点关系）、<code>SentenceNodeParser</code>。；实现双索引结构：<code>VectorStoreIndex</code>（细节精准检索 + 前后节点窗口自动扩展）与 <code>SummaryIndex</code>（全节点扫描摘要），并实现 <code>RouterQueryEngine</code> 自动路由。；编写基准测试脚本，对比 LlamaIndex 风格（Node 拓扑扩展）与 LangChain 风格（扁平切片管道）在上下文完整度、召回率、延迟与开发复杂度上的表现。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. LangChain vs LlamaIndex 架构选型红宝书、2. 生产环境官方 LlamaIndex 5 行极简代码对照 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「LlamaIndex 核心架构与实战：Document/Node/Index/QueryEngine 与框架选型」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 35 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day35_llamaindex_core.py、src/day35_framework_benchmark.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天这场 LangChain vs LlamaIndex 深度实战对比，相信大家心里彻底有底了！在真实国内大厂项目里，两者从来不是非此即彼：文档解析、多级索引与复杂检索可以借鉴 LlamaIndex 的 Node 拓扑与多索引路由思想，而上层 API 编排与多 Agent 协同则由 LangChain/LangGraph 统筹。明天（Day 36）正式开工阶段项目二！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现双向邻域扩展器（同时拉取 PREVIOUS + CURRENT + NEXT）</strong><span class="badge">基础巩固</span></div><p>编写函数 <code>expand_bidirectional(node_map, hit_node)</code>：给定 <code>node_map</code> 和命中的 <code>TextNode</code>，若存在 <code>PREVIOUS</code> 和 <code>NEXT</code> 节点，按「前文 + 当前 + 后文」顺序拼接并返回完整上下文。</p><p><strong>💡 思路提示：</strong>分别从 `hit_node.relationships.get(&#x27;PREVIOUS&#x27;)` 与 `get(&#x27;NEXT&#x27;)` 查找节点，过滤掉 `None` 后拼接 `text`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-35-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-35-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 35 作业一参考答案：TextNode 双向邻域扩展器&quot;&quot;&quot;
+from typing import Dict
+from src.day35_llamaindex_core import Document, SentenceNodeParser, TextNode
+
+
+def expand_bidirectional(node_map: Dict[str, TextNode], hit_node: TextNode) -&gt; str:
+    parts = []
+    prev_id = hit_node.relationships.get(&quot;PREVIOUS&quot;)
+    next_id = hit_node.relationships.get(&quot;NEXT&quot;)
+    if prev_id and prev_id in node_map:
+        parts.append(node_map[prev_id].text)
+    parts.append(hit_node.text)
+    if next_id and next_id in node_map:
+        parts.append(node_map[next_id].text)
+    return &quot;&quot;.join(parts)
+
+
+if __name__ == &quot;__main__&quot;:
+    doc = Document(&quot;一线城市住宿上限600元。上述标准适用于实习生。超标需经VP审批。&quot;, doc_id=&quot;d1&quot;)
+    nodes = SentenceNodeParser(1).get_nodes_from_documents([doc])
+    nmap = {n.node_id: n for n in nodes}
+    merged = expand_bidirectional(nmap, nodes[1])
+    print(&quot;双向扩展上下文:&quot;, merged)
+    assert &quot;600元&quot; in merged and &quot;VP审批&quot; in merged
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>双向邻域扩展在条款前后都有条件限定（前面定义标准、后面写例外审批）时特别管用。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现 LlamaIndex 风格 MetadataPostprocessor（元数据过滤后处理器）</strong><span class="badge">企业实战</span></div><p>实现 <code>DepartmentNodePostprocessor(allowed_dept)</code>：接收 <code>List[NodeWithScore]</code>，仅保留 <code>metadata[&#x27;department&#x27;]</code> 等于 <code>allowed_dept</code> 或 <code>&#x27;public&#x27;</code> 的节点，模拟企业知识库部门权限隔离。</p><p><strong>💡 思路提示：</strong>遍历 `nodes`，检查 `n.node.metadata.get(&#x27;department&#x27;, &#x27;public&#x27;) in (allowed_dept, &#x27;public&#x27;)`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-35-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-35-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 35 作业二参考答案：基于部门权限的 NodePostprocessor&quot;&quot;&quot;
+from typing import List, Sequence
+from src.day35_llamaindex_core import NodeWithScore, TextNode
+
+
+class DepartmentNodePostprocessor:
+    def __init__(self, allowed_dept: str) -&gt; None:
+        self.allowed_dept = allowed_dept
+
+    def postprocess_nodes(self, nodes: Sequence[NodeWithScore]) -&gt; List[NodeWithScore]:
+        return [
+            n
+            for n in nodes
+            if n.node.metadata.get(&quot;department&quot;, &quot;public&quot;) in (self.allowed_dept, &quot;public&quot;)
+        ]
+
+
+if __name__ == &quot;__main__&quot;:
+    sample_nodes = [
+        NodeWithScore(TextNode(&quot;公共差旅制度&quot;, &quot;n1&quot;, {&quot;department&quot;: &quot;public&quot;}), 0.9),
+        NodeWithScore(TextNode(&quot;研发架构机密&quot;, &quot;n2&quot;, {&quot;department&quot;: &quot;rd&quot;}), 0.85),
+        NodeWithScore(TextNode(&quot;财务薪酬明细&quot;, &quot;n3&quot;, {&quot;department&quot;: &quot;finance&quot;}), 0.88),
+    ]
+    filtered = DepartmentNodePostprocessor(&quot;rd&quot;).postprocess_nodes(sample_nodes)
+    print(&quot;研发员工可见节点:&quot;, [n.node.node_id for n in filtered])
+    assert [n.node.node_id for n in filtered] == [&quot;n1&quot;, &quot;n2&quot;]
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>NodePostprocessor 是 LlamaIndex 极具扩展性的钩子层，重排、去重、权限过滤、时间衰减加权都可以作为 Postprocessor 链式插拔。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现 SubQuestionQueryEngine（跨文档子问题拆解引擎）</strong><span class="badge">架构进阶</span></div><p>面向多个按主题拆分的 <code>VectorStoreIndex</code>（如财务索引 + 研发索引），实现 <code>SubQuestionQueryEngine</code>：当用户问跨部门复合问题（「北京住宿上限多少，以及周五晚上能不能发版？」）时，自动拆分子问题分别查询并合并引用。</p><p><strong>💡 思路提示：</strong>按连接词（`以及/另外/，/和`）拆分子问题，分别调用 `vector_engine.query(sub_q)` 汇总回答与 `source_nodes`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-35-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-35-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 35 作业三参考答案：SubQuestionQueryEngine 跨主题子问题拆解&quot;&quot;&quot;
+import re
+from typing import List
+from src.day35_llamaindex_core import Document, QueryResponse, VectorStoreIndex
+
+
+class SubQuestionQueryEngine:
+    def __init__(self, vector_index: VectorStoreIndex) -&gt; None:
+        self.engine = vector_index.as_query_engine(similarity_top_k=1)
+
+    def query(self, complex_q: str) -&gt; QueryResponse:
+        sub_qs = [s.strip() for s in re.split(r&quot;以及|另外|[，,；;]&quot;, complex_q) if len(s.strip()) &gt;= 4]
+        answers: List[str] = []
+        all_nodes = []
+        for idx, sq in enumerate(sub_qs, start=1):
+            r = self.engine.query(sq)
+            answers.append(f&quot;子问题{idx}({sq}) -&gt; {r.source_nodes[0].node.text}&quot;)
+            all_nodes.extend(r.source_nodes)
+        return QueryResponse(response=&quot;\n&quot;.join(answers), source_nodes=all_nodes, routed_engine=&quot;sub_question&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    docs = [
+        Document(&quot;北京出差酒店住宿上限每晚600元。&quot;, doc_id=&quot;fin&quot;, metadata={&quot;source&quot;: &quot;财务制度.md&quot;}),
+        Document(&quot;生产环境严禁周五17:00之后非紧急发版。&quot;, doc_id=&quot;dev&quot;, metadata={&quot;source&quot;: &quot;研发规范.md&quot;}),
+    ]
+    sq_engine = SubQuestionQueryEngine(VectorStoreIndex.from_documents(docs))
+    res = sq_engine.query(&quot;北京出差住宿上限多少，以及周五晚上能不能发版？&quot;)
+    print(res.response)
+    assert &quot;600元&quot; in res.response and &quot;周五&quot; in res.response
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>SubQuestionQueryEngine 是 LlamaIndex 解决多跳、跨文档对比分析（如对比 A 季度与 B 季度财报）的招牌利器。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day34/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day36/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

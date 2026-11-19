@@ -1,0 +1,36 @@
+# 星辰智脑 (StarMind) 企业级 Agent 平台 Docker Compose 编排文件
+# 启动命令: docker compose up -d --build
+
+services:
+  starmind-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: starmind-enterprise-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - STARMIND_ENV=production
+      - STARMIND_LLM_PROVIDER=${STARMIND_LLM_PROVIDER:-local_mock}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://vllm:8001/v1}
+      - STARMIND_DB_PATH=/app/data/starmind.db
+      - STARMIND_LOG_LEVEL=INFO
+    volumes:
+      - starmind_data:/app/data
+      - starmind_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  starmind_data:
+    driver: local
+  starmind_logs:
+    driver: local

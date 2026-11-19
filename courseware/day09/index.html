@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 09：面向对象编程（下） | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 2 周</span>
+      <span class="badge badge-ticket">STARMIND-009</span>
+      <span class="badge">Day 09 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="9" onclick="toggleDayComplete(9, this)">标记今日已完成</button>
+      <a class="btn" href="../day08/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day10/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day09-oop-model-adapter</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day09/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day09/day09_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day09_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 2 周：第 2 周：面向对象、工程化与命令行 AI 助手实战</div>
+        <h1>Day 09：面向对象编程（下）</h1>
+        <p class="hero-sub">精通继承、多态、魔术方法与 @property，构建星辰智脑统一模型适配层 BaseModel</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-009</span>
+          <span class="hero-tag">分支：feat/day09-oop-model-adapter</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>昨天刚说完封装，今天一早 CTO 在群里下发了一个硬指标：星辰智脑不能被任何一家大模型厂商绑死！业务层写代码时，只管调 <code>model.generate(prompt)</code>，底层今天想切 DeepSeek/OpenAI、明天想切通义千问 Qwen，业务代码一行都不许改！这正是面向对象最迷人的杀手锏——**继承、抽象基类与多态**！今天 STARMIND-009 咱们亲手设计 <code>BaseModel -&gt; OpenAIModel / QwenModel</code> 统一适配层，再配上 <code>@property</code> 管住 <code>temperature</code> 合法范围，加上 <code>__str__</code>、<code>__len__</code>、<code>__call__</code> 魔术方法，写完你就彻底懂什么叫大厂架构感了。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天咱们封装了 ChatMessage 与 ChatSession 领域对象，解决了裸字典无校验的痛点。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 10）咱们把单文件脚本拆分成多文件工程包（Package），引入自定义异常体系与 venv 依赖管理。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 09 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 09）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：昨天咱们封装了 ChatMessage 与 ChatSession 领域对象，解决了裸字典无校验的痛点。 今天我们通过需求单 STARMIND-009，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day09/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 10）咱们把单文件脚本拆分成多文件工程包（Package），引入自定义异常体系与 venv 依赖管理。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>继承、super()、ABC 抽象基类与多态思想</td><td>讲解面向对象三大特性、方法重写（Override）、MRO 查找顺序与多态解耦。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>@property 与魔术方法实战：BaseModel 适配层</td><td>编写 BaseModel、OpenAIModel、QwenModel 及多模型路由器 ModelRouter。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>多态与属性越界单元测试</td><td>用 pytest 验证抽象类防实例化、temperature 越界拦截与多模型无缝切换。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>开闭原则复盘与课后作业</td><td>梳理 LangChain BaseChatModel 源码设计共鸣，完成 3 道梯度课后题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-009）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>企业 AI 平台需同时接入多家大模型供应商以实现高可用容灾与成本优化，但各家接口细节与计费参数不同，需要统一的抽象适配层屏蔽差异。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>业务代码里充斥大量 `if vendor == &#x27;openai&#x27;: ... elif vendor == &#x27;qwen&#x27;: ...`，每接入一个新模型就得改几十个文件。</li><li>外部可以直接把 `model.temperature = 999` 改爆，缺少属性写入拦截校验。</li><li>模型对象缺乏统一的字符串展示与便捷调用方式。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>掌握继承、`super()`、抽象基类（`abc.ABC` / `@abstractmethod`）与多态分发。</li><li>熟练使用 `@property` 与 `@xxx.setter` 实现带范围校验的安全属性。</li><li>理解高频魔术方法 `__str__`、`__repr__`、`__len__`、`__call__` 的工程用法。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>定义 `BaseModel` 抽象基类，禁止直接实例化，强制子类实现 `generate()` 方法。</li><li>实现 `OpenAIModel` 与 `QwenModel` 两个子类，重写各自请求头构造与本地模拟生成逻辑。</li><li>通过 `@property` 限制 `temperature` 必须在 `[0.0, 2.0]` 之间，越界抛 `ValueError`；pytest 全绿。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>全离线本地模拟生成，零外部 API Key 依赖。</li><li>新增第三家厂商（如 DeepSeekModel）只需新增子类，无需修改路由器代码（开闭原则）。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>今天的 <code>BaseModel</code> 设计就是业界著名的**模板方法 + 策略多态模式**（LangChain 的 <code>BaseChatModel</code> 和 LlamaIndex 的 <code>LLM</code> 基类都是这个套路）：<br/>1. **抽象基类 <code>BaseModel</code>（day09_base_model.py）**：统一保管 <code>model_name</code>、<code>temperature</code>（带 <code>@property</code> 范围校验）和调用次数统计 <code>_call_count</code>，并定义抽象方法 <code>generate(prompt)</code> 与公共魔术方法 <code>__call__</code>（让对象可以直接像函数一样 <code>model(&#x27;你好&#x27;)</code> 调用！）。<br/>2. **多态子类与路由层（day09_model_providers.py）**：<code>OpenAIModel</code> 和 <code>QwenModel</code> 各自通过 <code>super().__init__()</code> 复用父类初始化，仅重写厂商专属的鉴权头格式与回复生成逻辑。上层 <code>ModelRouter</code> 只面向 <code>BaseModel</code> 编程，彻底消灭 <code>if/elif</code> 供应商判断。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 9.1：多模型统一路由与多态调用流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">多模型统一路由与多态调用流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">业务层发起提问</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">router.ask(&#x27;qwen&#x27;, prompt)</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">ModelRouter 查找</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">从注册表获取 BaseModel</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">多态调用 model(prompt)</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">触发 __call__ -&gt; generate</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">子类执行厂商逻辑</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">OpenAIModel / QwenModel</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">返回统一响应字典</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">含 provider/model/reply</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">路由寻址</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="543.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">统一接口</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">动态分派</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="546.5" y="202.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">标准封装</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示业务请求进入 ModelRouter 后，按名称动态分发给不同厂商子类并统一记账的流程。</div></div><div class="diagram-card"><div class="diagram-title">图 9.2：BaseModel 继承体系与多态架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">BaseModel 继承体系与多态架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">BaseModel (ABC)</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">@property temperature / __call__</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">OpenAIModel</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">Bearer Token + GPT/DeepSeek</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">QwenModel</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">DashScope + 通义千问系列</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">ModelRouter</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">面向 BaseModel 统一调度</text>
+<line x1="231.0" y1="250" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">继承并实现 generate</text>
+<line x1="629.0" y1="250" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">继承并实现 generate</text>
+<line x1="430.0" y1="370" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">依赖抽象接口</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示抽象基类 BaseModel 与具体厂商实现类之间的继承与接口契约关系。</div></div><div class="diagram-card"><div class="diagram-title">图 9.3：@property 读写拦截与校验原理图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">@property 读写拦截与校验原理图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">外部赋值</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">model.temperature = val</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">@temperature.setter</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">检查 0.0 &lt;= val &lt;= 2.0</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">校验失败</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">抛出 ValueError 拦截</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">校验通过</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">写入 self._temperature</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示外部执行 model.temperature = 2.5 时，setter 如何拦截非法赋值并保护私有字段 _temperature。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 抽象基类（ABC）与 super() 继承</h3><p>继承 <code>abc.ABC</code> 并用 <code>@abstractmethod</code> 装饰的方法，相当于给所有子类签下「军令状」：子类必须实现该方法，否则无法实例化。子类重写 <code>__init__</code> 时，务必第一行调用 <code>super().__init__(...)</code>，确保父类初始化的属性全部就绪。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>如果父类定义了 `self.temperature = temperature` 走的是 `@property` setter，那么子类通过 `super().__init__` 传入非法温度值时也会自动触发校验，一处编写全族受益！</div><h3>2. 2. @property 让方法像属性一样自然读写</h3><p>相比 Java 满屏的 <code>getTemperature()</code> / <code>setTemperature()</code>，Python 用 <code>@property</code> 和 <code>@temperature.setter</code> 保持 <code>obj.temperature</code> 的简洁语法，同时在背后悄悄完成范围校验或延迟计算。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>在 setter 里千万不要写 `self.temperature = value`（会无限递归自己调用自己导致 `RecursionError`），必须写入带下划线的底层属性 `self._temperature = value`！</div><h3>3. 3. 常用魔术方法（Dunder Methods）</h3><p>- <code>__str__</code>：面向用户的友好打印（<code>print(obj)</code>）；<code>__repr__</code>：面向开发者的精确调试展示。<br/>- <code>__len__</code>：支持 <code>len(router)</code> 查看注册了多少个模型。<br/>- <code>__call__</code>：让对象实例可以像函数一样被括号调用 <code>model(&#x27;你好&#x27;)</code>，PyTorch 的 <code>nn.Module</code> 和 LangChain 的 <code>Runnable</code> 都在用！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>重写 `__eq__` 后如果还想把对象放进 `set` 或当作 `dict` 键，必须同时实现 `__hash__`。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【源码视角：LangChain 的 <code>BaseChatModel</code> 为什么长得跟咱们今天写的这么像？】<br/>如果你去翻 LangChain 的核心源码，会发现 <code>ChatOpenAI</code>、<code>ChatTongyi</code>、<code>ChatDeepSeek</code> 全部继承自同一个 <code>BaseChatModel</code>，父类管好了回调、缓存、重试、统一输入输出格式，子类只管实现 <code>_generate()</code>！今天你亲手写出的架构，就是一线开源框架的同款基因。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day09/</code> 与 <code>notebooks/day09/day09_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：定义星辰智脑抽象基类 BaseModel（含 @property 与魔术方法）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先立规矩！定义抽象基类 <code>BaseModel</code>，管好 <code>temperature</code> 合法范围、统一调用计数与 <code>__call__</code> 便捷入口。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day09_base_model.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-009 模块一：大模型统一抽象基类 BaseModel。
+演示 abc.ABC 抽象基类、@property 范围校验、模板方法与 __call__ / __str__ 魔术方法。
+&quot;&quot;&quot;
+
+from abc import ABC, abstractmethod
+from typing import Dict, Any
+
+
+class BaseModel(ABC):
+    &quot;&quot;&quot;星辰智脑所有大模型适配器的抽象基类。&quot;&quot;&quot;
+
+    provider: str = &quot;base&quot;
+
+    def __init__(self, model_name: str, temperature: float = 0.7) -&gt; None:
+        self.model_name: str = model_name
+        # 通过 @temperature.setter 触发构造期范围校验
+        self.temperature = temperature
+        self._call_count: int = 0
+
+    @property
+    def temperature(self) -&gt; float:
+        &quot;&quot;&quot;读取采样温度（只通过受控接口暴露私有字段 _temperature）。&quot;&quot;&quot;
+        return self._temperature
+
+    @temperature.setter
+    def temperature(self, value: float) -&gt; None:
+        &quot;&quot;&quot;拦截写入：强制限制温度必须在 [0.0, 2.0] 合法区间内。&quot;&quot;&quot;
+        val = float(value)
+        if not (0.0 &lt;= val &lt;= 2.0):
+            raise ValueError(f&quot;temperature 必须在 [0.0, 2.0] 之间，当前传入: {val}&quot;)
+        self._temperature = val
+
+    @property
+    def call_count(self) -&gt; int:
+        &quot;&quot;&quot;只读属性：返回当前模型实例累计被调用的次数。&quot;&quot;&quot;
+        return self._call_count
+
+    @abstractmethod
+    def build_headers(self) -&gt; Dict[str, str]:
+        &quot;&quot;&quot;抽象方法：子类必须实现各自厂商的 HTTP 鉴权请求头。&quot;&quot;&quot;
+
+    @abstractmethod
+    def _do_generate(self, prompt: str) -&gt; str:
+        &quot;&quot;&quot;抽象方法：子类实现具体的文本生成逻辑（本地模拟或真实 API）。&quot;&quot;&quot;
+
+    def generate(self, prompt: str) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;模板方法：统一完成空值检查、计数统计并委托子类生成回复。&quot;&quot;&quot;
+        cleaned = prompt.strip()
+        if not cleaned:
+            raise ValueError(&quot;提示词 prompt 不能为空&quot;)
+        self._call_count += 1
+        reply_text = self._do_generate(cleaned)
+        return {
+            &quot;provider&quot;: self.provider,
+            &quot;model&quot;: self.model_name,
+            &quot;temperature&quot;: self.temperature,
+            &quot;reply&quot;: reply_text,
+            &quot;call_index&quot;: self._call_count,
+        }
+
+    def __call__(self, prompt: str) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;魔术方法：支持直接将模型实例当作函数调用 model(&#x27;你好&#x27;)。&quot;&quot;&quot;
+        return self.generate(prompt)
+
+    def __str__(self) -&gt; str:
+        return f&quot;[{self.provider}] {self.model_name} (temp={self.temperature}, calls={self._call_count})&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;BaseModel 抽象基类定义完成，禁止直接实例化，请继承后使用。&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+BaseModel 抽象基类定义完成，禁止直接实例化，请继承后使用。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>generate()</code> 是经典的「模板方法」：把通用的空串校验、调用次数自增、结果字典包装留在父类，只把有差异的 <code>_do_generate()</code> 交给子类实现。<br/>2. <code>call_count</code> 只定义了 <code>@property</code> 没写 setter，天然变成了只读属性，外部无法伪造调用次数。</p><h3>实操步骤 2：步骤二：实现 OpenAIModel / QwenModel 多态子类与 ModelRouter</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在让 <code>OpenAIModel</code> 和 <code>QwenModel</code> 继承 <code>BaseModel</code>，再写一个支持 <code>len(router)</code> 的 <code>ModelRouter</code>，体验一行代码无痛切换模型的丝滑感。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day09_model_providers.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-009 模块二：OpenAIModel / QwenModel 多态实现与多模型路由器。
+演示继承、super() 调用、方法重写、多态分发以及 __len__ / __contains__ 魔术方法。
+&quot;&quot;&quot;
+
+from typing import Dict, Any
+from day09_base_model import BaseModel
+
+
+class OpenAIModel(BaseModel):
+    &quot;&quot;&quot;OpenAI / DeepSeek 兼容协议适配器（本地离线模拟版）。&quot;&quot;&quot;
+
+    provider: str = &quot;openai&quot;
+
+    def __init__(self, model_name: str = &quot;gpt-4o-mini&quot;, temperature: float = 0.7, api_key: str = &quot;mock-openai-key&quot;) -&gt; None:
+        super().__init__(model_name=model_name, temperature=temperature)
+        self._api_key = api_key
+
+    def build_headers(self) -&gt; Dict[str, str]:
+        return {
+            &quot;Authorization&quot;: f&quot;Bearer {self._api_key}&quot;,
+            &quot;Content-Type&quot;: &quot;application/json&quot;,
+        }
+
+    def _do_generate(self, prompt: str) -&gt; str:
+        return f&quot;[OpenAI:{self.model_name}|t={self.temperature}] 已收到指令「{prompt}」，建议采用结构化分步解答。&quot;
+
+
+class QwenModel(BaseModel):
+    &quot;&quot;&quot;阿里云通义千问（DashScope）适配器（本地离线模拟版）。&quot;&quot;&quot;
+
+    provider: str = &quot;qwen&quot;
+
+    def __init__(self, model_name: str = &quot;qwen-plus&quot;, temperature: float = 0.5, api_key: str = &quot;mock-qwen-key&quot;) -&gt; None:
+        super().__init__(model_name=model_name, temperature=temperature)
+        self._api_key = api_key
+
+    def build_headers(self) -&gt; Dict[str, str]:
+        return {
+            &quot;Authorization&quot;: f&quot;Bearer {self._api_key}&quot;,
+            &quot;X-DashScope-SSE&quot;: &quot;disable&quot;,
+            &quot;Content-Type&quot;: &quot;application/json&quot;,
+        }
+
+    def _do_generate(self, prompt: str) -&gt; str:
+        return f&quot;[通义千问:{self.model_name}|t={self.temperature}] 您好！针对「{prompt}」，星辰智脑中文知识库已为您整理完毕。&quot;
+
+
+class ModelRouter:
+    &quot;&quot;&quot;多模型统一路由器：面向 BaseModel 抽象接口编程，屏蔽厂商差异。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._registry: Dict[str, BaseModel] = {}
+
+    def register(self, alias: str, model: BaseModel) -&gt; None:
+        if not isinstance(model, BaseModel):
+            raise TypeError(&quot;注册对象必须是 BaseModel 的子类实例&quot;)
+        self._registry[alias] = model
+
+    def ask(self, alias: str, prompt: str) -&gt; Dict[str, Any]:
+        if alias not in self._registry:
+            raise KeyError(f&quot;未注册的模型别名: {alias}&quot;)
+        model = self._registry[alias]
+        # 多态调用：触发 BaseModel.__call__ -&gt; 具体子类的 _do_generate
+        return model(prompt)
+
+    def __len__(self) -&gt; int:
+        return len(self._registry)
+
+    def __contains__(self, alias: str) -&gt; bool:
+        return alias in self._registry
+
+
+if __name__ == &quot;__main__&quot;:
+    router = ModelRouter()
+    router.register(&quot;fast&quot;, OpenAIModel(&quot;gpt-4o-mini&quot;, temperature=0.3))
+    router.register(&quot;cn_pro&quot;, QwenModel(&quot;qwen-plus&quot;, temperature=0.5))
+
+    print(f&quot;已注册模型数量: {len(router)} | 包含 cn_pro: {&#x27;cn_pro&#x27; in router}&quot;)
+    for alias in (&quot;fast&quot;, &quot;cn_pro&quot;):
+        res = router.ask(alias, &quot;总结一下杭州星辰数科的核心优势&quot;)
+        print(f&quot;-&gt; {alias}: {res[&#x27;reply&#x27;]}&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+已注册模型数量: 2 | 包含 cn_pro: True
+-&gt; fast: [OpenAI:gpt-4o-mini|t=0.3] 已收到指令「总结一下杭州星辰数科的核心优势」，建议采用结构化分步解答。
+-&gt; cn_pro: [通义千问:qwen-plus|t=0.5] 您好！针对「总结一下杭州星辰数科的核心优势」，星辰智脑中文知识库已为您整理完毕。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>ModelRouter.register</code> 用 <code>isinstance(model, BaseModel)</code> 守住类型边界，确保只有遵守契约的模型才能注册进来。<br/>2. 实现 <code>__len__</code> 和 <code>__contains__</code> 后，路由器原生支持 <code>len(router)</code> 和 <code>&#x27;cn_pro&#x27; in router</code>，Pythonic 十足。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：定义星辰智脑抽象基类 BaseModel（含 @property 与魔术方法）（src/day09_base_model.py）</h3><p>模块 <code>src/day09_base_model.py</code> 共计 71 行源码，其中包含 1 行中文工程注释（注释密度约 1.4%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-009 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>abc (ABC, abstractmethod)</code>、<code>typing (Dict, Any)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>BaseModel</code>（第 10~67 行）】这是一个继承自 ABC。其核心职责定义为：星辰智脑所有大模型适配器的抽象基类。。类内部暴露了 9 个方法：<code>__init__(self, model_name, temperature)</code>、<code>temperature(self)</code>、<code>temperature(self, value)</code>、<code>call_count(self)</code>、<code>build_headers(self)</code>、<code>_do_generate(self, prompt)</code>、<code>generate(self, prompt)</code>、<code>__call__(self, prompt)</code>、<code>__str__(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BaseModel.__init__</code>（第 15~19 行）属于同步实例方法，入参签名为 <code>(self, model_name, temperature)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseModel.temperature</code>（第 22~24 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：读取采样温度（只通过受控接口暴露私有字段 _temperature）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseModel.temperature</code>（第 27~32 行）属于同步实例方法，入参签名为 <code>(self, value)</code>。文档说明：拦截写入：强制限制温度必须在 [0.0, 2.0] 合法区间内。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseModel.call_count</code>（第 35~37 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：只读属性：返回当前模型实例累计被调用的次数。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseModel.build_headers</code>（第 40~41 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：抽象方法：子类必须实现各自厂商的 HTTP 鉴权请求头。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseModel._do_generate</code>（第 44~45 行）属于同步实例方法，入参签名为 <code>(self, prompt)</code>。文档说明：抽象方法：子类实现具体的文本生成逻辑（本地模拟或真实 API）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day09_base_model.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day09/day09_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day09/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现 OpenAIModel / QwenModel 多态子类与 ModelRouter（src/day09_model_providers.py）</h3><p>模块 <code>src/day09_model_providers.py</code> 共计 82 行源码，其中包含 1 行中文工程注释（注释密度约 1.2%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-009 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>typing (Dict, Any)</code>、<code>day09_base_model (BaseModel)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>OpenAIModel</code>（第 10~26 行）】这是一个继承自 BaseModel。其核心职责定义为：OpenAI / DeepSeek 兼容协议适配器（本地离线模拟版）。。类内部暴露了 3 个方法：<code>__init__(self, model_name, temperature, api_key)</code>、<code>build_headers(self)</code>、<code>_do_generate(self, prompt)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>OpenAIModel.__init__</code>（第 15~17 行）属于同步实例方法，入参签名为 <code>(self, model_name, temperature, api_key)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>OpenAIModel.build_headers</code>（第 19~23 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>OpenAIModel._do_generate</code>（第 25~26 行）属于同步实例方法，入参签名为 <code>(self, prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>QwenModel</code>（第 29~46 行）】这是一个继承自 BaseModel。其核心职责定义为：阿里云通义千问（DashScope）适配器（本地离线模拟版）。。类内部暴露了 3 个方法：<code>__init__(self, model_name, temperature, api_key)</code>、<code>build_headers(self)</code>、<code>_do_generate(self, prompt)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>QwenModel.__init__</code>（第 34~36 行）属于同步实例方法，入参签名为 <code>(self, model_name, temperature, api_key)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>QwenModel.build_headers</code>（第 38~43 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>QwenModel._do_generate</code>（第 45~46 行）属于同步实例方法，入参签名为 <code>(self, prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ModelRouter</code>（第 49~71 行）】这是一个独立领域模型类。其核心职责定义为：多模型统一路由器：面向 BaseModel 抽象接口编程，屏蔽厂商差异。。类内部暴露了 5 个方法：<code>__init__(self)</code>、<code>register(self, alias, model)</code>、<code>ask(self, alias, prompt)</code>、<code>__len__(self)</code>、<code>__contains__(self, alias)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ModelRouter.__init__</code>（第 52~53 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ModelRouter.register</code>（第 55~58 行）属于同步实例方法，入参签名为 <code>(self, alias, model)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ModelRouter.ask</code>（第 60~65 行）属于同步实例方法，入参签名为 <code>(self, alias, prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ModelRouter.__len__</code>（第 67~68 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ModelRouter.__contains__</code>（第 70~71 行）属于同步实例方法，入参签名为 <code>(self, alias)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day09_model_providers.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day09/day09_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day09/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day09_base_model.py（共 71 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day09_base_model.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>class BaseModel(ABC):</code></td><td>核心意图：代表语句：`class BaseModel(ABC):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>self.temperature = temperature</code></td><td>核心意图：通过 @temperature.setter 触发构造期范围校验。代表语句：`self.temperature = temperature`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L25-L32</code></td><td><code>@temperature.setter</code></td><td>核心意图：代表语句：`@temperature.setter`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>@property</code></td><td>核心意图：代表语句：`@property`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;&quot;&quot;抽象方法：子类必须实现各自厂商的 HTTP 鉴权请求头。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;抽象方法：子类必须实现各自厂商的 HTTP 鉴权请求头。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>cleaned = prompt.strip()</code></td><td>核心意图：代表语句：`cleaned = prompt.strip()`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;temperature&quot;: self.temperature,</code></td><td>核心意图：代表语句：`&quot;temperature&quot;: self.temperature,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L71</code></td><td><code>def __str__(self) -&gt; str:</code></td><td>核心意图：代表语句：`def __str__(self) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day09_model_providers.py（共 82 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day09_model_providers.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>class OpenAIModel(BaseModel):</code></td><td>核心意图：代表语句：`class OpenAIModel(BaseModel):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>self._api_key = api_key</code></td><td>核心意图：代表语句：`self._api_key = api_key`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L25-L32</code></td><td><code>def _do_generate(self, prompt: str) -&gt; str:</code></td><td>核心意图：代表语句：`def _do_generate(self, prompt: str) -&gt; str:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L33-L40</code></td><td><code>def __init__(self, model_name: str = &quot;qwen-plus&quot;, temperature: float = 0</code></td><td>核心意图：代表语句：`def __init__(self, model_name: str = &quot;qwen-plus&quot;, temperature: float = 0.5, api_key: str =`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;X-DashScope-SSE&quot;: &quot;disable&quot;,</code></td><td>核心意图：代表语句：`&quot;X-DashScope-SSE&quot;: &quot;disable&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L49-L56</code></td><td><code>class ModelRouter:</code></td><td>核心意图：代表语句：`class ModelRouter:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>raise TypeError(&quot;注册对象必须是 BaseModel 的子类实例&quot;)</code></td><td>核心意图：多态调用：触发 BaseModel.__call__ -&gt; 具体子类的 _do_generate。代表语句：`raise TypeError(&quot;注册对象必须是 BaseModel 的子类实例&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>return model(prompt)</code></td><td>核心意图：代表语句：`return model(prompt)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L73-L80</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L82</code></td><td><code>res = router.ask(alias, &quot;总结一下杭州星辰数科的核心优势&quot;)</code></td><td>核心意图：代表语句：`res = router.ask(alias, &quot;总结一下杭州星辰数科的核心优势&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day09/tests/test_day09.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day09/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day09/tests/test_day09.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-009 自动化单元测试。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day09_base_model import BaseModel
+from day09_model_providers import OpenAIModel, QwenModel, ModelRouter
+
+
+def test_cannot_instantiate_abstract_base_model():
+    with pytest.raises(TypeError):
+        BaseModel(&quot;abstract-only&quot;)  # type: ignore
+
+
+def test_temperature_property_validation():
+    m = OpenAIModel(&quot;gpt-4o-mini&quot;, temperature=0.8)
+    assert m.temperature == 0.8
+    m.temperature = 0.0
+    assert m.temperature == 0.0
+
+    with pytest.raises(ValueError):
+        m.temperature = 2.5
+    with pytest.raises(ValueError):
+        QwenModel(&quot;qwen-plus&quot;, temperature=-0.1)
+
+
+def test_polymorphic_router_and_dunder_methods():
+    router = ModelRouter()
+    oai = OpenAIModel(&quot;gpt-4o-mini&quot;, temperature=0.2)
+    qwen = QwenModel(&quot;qwen-max&quot;, temperature=0.6)
+
+    router.register(&quot;oai&quot;, oai)
+    router.register(&quot;qwen&quot;, qwen)
+    assert len(router) == 2
+    assert &quot;qwen&quot; in router
+
+    r1 = router.ask(&quot;oai&quot;, &quot;测试多态&quot;)
+    r2 = router.ask(&quot;qwen&quot;, &quot;测试多态&quot;)
+    assert r1[&quot;provider&quot;] == &quot;openai&quot; and oai.call_count == 1
+    assert r2[&quot;provider&quot;] == &quot;qwen&quot; and qwen.call_count == 1
+    assert &quot;X-DashScope-SSE&quot; in qwen.build_headers()
+    assert &quot;openai&quot; in str(oai)
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-009</code>，承接自 Day 08 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day09-oop-model-adapter</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day09-oop-model-adapter）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day09-oop-model-adapter
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day09.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-009）
+git add src/day09_base_model.py src/day09_model_providers.py tests/test_day09.py
+git commit -m &quot;feat(day09): 实现BaseModel抽象基类、OpenAIModel/QwenModel多态适配与@property安全校验
+
+Refs: STARMIND-009
+- 完成 面向对象编程（下） 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day09-oop-model-adapter</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-009 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-009 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day09_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day09_base_model.py src/day09_model_providers.py
+    - echo &quot;Day 09 语法编译检查通过&quot;
+
+day09_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day09/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day09/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>这套 <code>BaseModel -&gt; OpenAIModel / QwenModel</code> + <code>ModelRouter</code> 已经非常接近生产级 LLM 网关骨架了！模板方法和只读 <code>call_count</code> 属性设计得很扎实。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (QA 测试)</span><span>状态：Approved</span></div><p>确认直接实例化 <code>BaseModel</code> 会抛 <code>TypeError</code>，温度超界会抛 <code>ValueError</code>，多态切换无副作用。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-009 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-009（面向对象编程（下））为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：企业 AI 平台需同时接入多家大模型供应商以实现高可用容灾与成本优化，但各家接口细节与计费参数不同，需要统一的抽象适配层屏蔽差异。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）业务代码里充斥大量 <code>if vendor == &#x27;openai&#x27;: ... elif vendor == &#x27;qwen&#x27;: ...</code>，每接入一个新模型就得改几十个文件。；（2）外部可以直接把 <code>model.temperature = 999</code> 改爆，缺少属性写入拦截校验。；（3）模型对象缺乏统一的字符串展示与便捷调用方式。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）掌握继承、<code>super()</code>、抽象基类（<code>abc.ABC</code> / <code>@abstractmethod</code>）与多态分发。；（2）熟练使用 <code>@property</code> 与 <code>@xxx.setter</code> 实现带范围校验的安全属性。；（3）理解高频魔术方法 <code>__str__</code>、<code>__repr__</code>、<code>__len__</code>、<code>__call__</code> 的工程用法。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day09/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 抽象基类（ABC）与 super() 继承】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：继承 <code>abc.ABC</code> 并用 <code>@abstractmethod</code> 装饰的方法，相当于给所有子类签下「军令状」：子类必须实现该方法，否则无法实例化。子类重写 <code>__init__</code> 时，务必第一行调用 <code>super().__init__(...)</code>，确保父类初始化的属性全部就绪。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：如果父类定义了 <code>self.temperature = temperature</code> 走的是 <code>@property</code> setter，那么子类通过 <code>super().__init__</code> 传入非法温度值时也会自动触发校验，一处编写全族受益！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 抽象基类（ABC）与 super() 继承」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. @property 让方法像属性一样自然读写】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：相比 Java 满屏的 <code>getTemperature()</code> / <code>setTemperature()</code>，Python 用 <code>@property</code> 和 <code>@temperature.setter</code> 保持 <code>obj.temperature</code> 的简洁语法，同时在背后悄悄完成范围校验或延迟计算。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：在 setter 里千万不要写 <code>self.temperature = value</code>（会无限递归自己调用自己导致 <code>RecursionError</code>），必须写入带下划线的底层属性 <code>self._temperature = value</code>！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. @property 让方法像属性一样自然读写」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 常用魔术方法（Dunder Methods）】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：- <code>__str__</code>：面向用户的友好打印（<code>print(obj)</code>）；<code>__repr__</code>：面向开发者的精确调试展示。<br/>- <code>__len__</code>：支持 <code>len(router)</code> 查看注册了多少个模型。<br/>- <code>__call__</code>：让对象实例可以像函数一样被括号调用 <code>model(&#x27;你好&#x27;)</code>，PyTorch 的 <code>nn.Module</code> 和 LangChain 的 <code>Runnable</code> 都在用！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：重写 <code>__eq__</code> 后如果还想把对象放进 <code>set</code> 或当作 <code>dict</code> 键，必须同时实现 <code>__hash__</code>。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 常用魔术方法（Dunder Methods）」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 09 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day09/</code> 中亲手编写了 <code>src/day09_base_model.py</code>、<code>src/day09_model_providers.py</code> 以及对应的自动化测试 <code>tests/test_day09.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day09_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 09 / STARMIND-009）：1. 已在分支 <code>feat/day09-oop-model-adapter</code> 完成 面向对象编程（下） 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 10）：明天（Day 10）咱们把单文件脚本拆分成多文件工程包（Package），引入自定义异常体系与 venv 依赖管理。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 09 掌握的「面向对象编程（下）」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「面向对象编程（下）」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：面向对象编程（下） 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-009 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day09.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 09 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day09/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day09_base_model.py, src/day09_model_providers.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>定义 `BaseModel` 抽象基类，禁止直接实例化，强制子类实现 `generate()` 方法。；实现 `OpenAIModel` 与 `QwenModel` 两个子类，重写各自请求头构造与本地模拟生成逻辑。；通过 `@property` 限制 `temperature` 必须在 `[0.0, 2.0]` 之间，越界抛 `ValueError`；pytest 全绿。</td><td>运行 `pytest versions/day09/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day09/day09_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day09-oop-model-adapter` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「面向对象编程（下）」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-009 需求时，我们的核心业务目标是：掌握继承、<code>super()</code>、抽象基类（<code>abc.ABC</code> / <code>@abstractmethod</code>）与多态分发。；熟练使用 <code>@property</code> 与 <code>@xxx.setter</code> 实现带范围校验的安全属性。；理解高频魔术方法 <code>__str__</code>、<code>__repr__</code>、<code>__len__</code>、<code>__call__</code> 的工程用法。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 抽象基类（ABC）与 super() 继承、2. @property 让方法像属性一样自然读写、3. 常用魔术方法（Dunder Methods） 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「面向对象编程（下）」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 09 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day09_base_model.py、src/day09_model_providers.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>看看咱们刚写完的 <code>ModelRouter</code>：不管传进来的是 <code>OpenAIModel</code> 还是 <code>QwenModel</code>，它根本不关心具体类型，只要都是 <code>BaseModel</code> 的子类就能无缝切换，这就是多态（Polymorphism）的威力！明天咱们学习模块化分包、异常处理和虚拟环境，正式向多文件工程迈进。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：扩展 DeepSeekModel 子类</strong><span class="badge">基础巩固</span></div><p>继承一个简化的 <code>SimpleBaseLLM</code>，实现 <code>DeepSeekModel</code> 子类，新增 <code>enable_thinking: bool</code> 属性；当 <code>enable_thinking=True</code> 时，回复前自动加上 <code>&lt;think&gt;深度推理中...&lt;/think&gt;</code> 前缀。</p><p><strong>💡 思路提示：</strong>在子类 `__init__` 中调用 `super().__init__(model_name)` 并保存 `self.enable_thinking`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-9-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-9-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 9 课后题 1：扩展支持思考模式的 DeepSeekModel 子类。&quot;&quot;&quot;
+
+
+class SimpleBaseLLM:
+    def __init__(self, model_name: str) -&gt; None:
+        self.model_name = model_name
+
+    def generate(self, prompt: str) -&gt; str:
+        raise NotImplementedError
+
+
+class DeepSeekModel(SimpleBaseLLM):
+    def __init__(self, model_name: str = &quot;deepseek-reasoner&quot;, enable_thinking: bool = True) -&gt; None:
+        super().__init__(model_name)
+        self.enable_thinking = enable_thinking
+
+    def generate(self, prompt: str) -&gt; str:
+        prefix = &quot;&lt;think&gt;正在拆解问题逻辑...&lt;/think&gt; &quot; if self.enable_thinking else &quot;&quot;
+        return f&quot;{prefix}[{self.model_name}] 回答: {prompt}&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    ds = DeepSeekModel(enable_thinking=True)
+    print(ds.generate(&quot;解释什么是多态&quot;))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>考查 <code>super().__init__</code> 复用父类初始化以及子类扩展特有行为属性。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：带只读余额与充值拦截的 ApiWallet 类</strong><span class="badge">企业实战</span></div><p>设计 <code>ApiWallet</code> 类，使用 <code>@property</code> 暴露只读余额 <code>balance</code>，提供 <code>deposit(amount)</code> 与 <code>charge(amount)</code> 方法，禁止负数充值、禁止余额透支。</p><p><strong>💡 思路提示：</strong>底层用 `self._balance` 存储，任何非法金额均抛出 `ValueError`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-9-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-9-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 9 课后题 2：受保护的企业 API 余额钱包类。&quot;&quot;&quot;
+
+
+class ApiWallet:
+    def __init__(self, initial_balance: float = 0.0) -&gt; None:
+        if initial_balance &lt; 0:
+            raise ValueError(&quot;初始余额不能为负数&quot;)
+        self._balance = float(initial_balance)
+
+    @property
+    def balance(self) -&gt; float:
+        return round(self._balance, 4)
+
+    def deposit(self, amount: float) -&gt; None:
+        if amount &lt;= 0:
+            raise ValueError(&quot;充值金额必须大于 0&quot;)
+        self._balance += amount
+
+    def charge(self, amount: float) -&gt; None:
+        if amount &lt;= 0:
+            raise ValueError(&quot;扣费金额必须大于 0&quot;)
+        if amount &gt; self._balance:
+            raise ValueError(f&quot;余额不足: 当前 {self.balance}，需扣 {amount}&quot;)
+        self._balance -= amount
+
+
+if __name__ == &quot;__main__&quot;:
+    w = ApiWallet(10.0)
+    w.deposit(5.5)
+    w.charge(3.2)
+    print(&quot;剩余余额:&quot;, w.balance)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>资金与配额类对象绝不允许外部直接赋值 <code>w.balance = 99999</code>，必须通过只读 <code>@property</code> + 受控方法变更状态。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：支持上下文管理器（with 语句）的耗时统计器</strong><span class="badge">架构进阶</span></div><p>利用魔术方法 <code>__enter__</code> 与 <code>__exit__</code> 实现 <code>TimerContext</code> 类，使调用方可以用 <code>with TimerContext(&#x27;LLM调用&#x27;) as t:</code> 自动测量代码块执行耗时（毫秒）。</p><p><strong>💡 思路提示：</strong>`__enter__` 记录 `time.perf_counter()` 并返回 `self`；`__exit__` 计算差值存入 `self.elapsed_ms`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-9-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-9-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 9 课后题 3：基于 __enter__ / __exit__ 的模型调用耗时监控器。&quot;&quot;&quot;
+
+import time
+
+
+class TimerContext:
+    def __init__(self, label: str) -&gt; None:
+        self.label = label
+        self.elapsed_ms: float = 0.0
+        self._start: float = 0.0
+
+    def __enter__(self) -&gt; &quot;TimerContext&quot;:
+        self._start = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -&gt; bool:
+        self.elapsed_ms = round((time.perf_counter() - self._start) * 1000.0, 3)
+        # 返回 False 表示不吞掉代码块内部的异常
+        return False
+
+
+if __name__ == &quot;__main__&quot;:
+    with TimerContext(&quot;模拟推理&quot;) as timer:
+        _ = sum(range(10000))
+    print(f&quot;[{timer.label}] 耗时: {timer.elapsed_ms} ms&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>掌握上下文管理器协议是读懂数据库连接池、文件句柄、分布式锁源码的必备技能。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day08/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day10/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

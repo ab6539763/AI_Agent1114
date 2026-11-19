@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 52：微调数据集构建与 Self-Instruct 合成流水线 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 5 阶段 · 第 8 周</span>
+      <span class="badge badge-ticket">STARMIND-052</span>
+      <span class="badge">Day 52 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="52" onclick="toggleDayComplete(52, this)">标记今日已完成</button>
+      <a class="btn" href="../day51/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day53/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day52-dataset-pipeline-synth</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day52/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day52/day52_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day52_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 5 阶段：第五阶段：模型微调与部署 · 第 8 周：模型微调、本地推理部署与安全合规</div>
+        <h1>Day 52：微调数据集构建与 Self-Instruct 合成流水线</h1>
+        <p class="hero-sub">Alpaca/ShareGPT 格式规范、去重清洗过滤与 500 条星辰客服语料合成器</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-052</span>
+          <span class="hero-tag">分支：feat/day52-dataset-pipeline-synth</span>
+          <span class="hero-tag">角色：具备私有化模型微调、量化推理与容器化运维能力的高级 AI 平台工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>各位早，今天讲整个微调链路里最值钱、也最容易被忽视的一环——数据集工程。行业里有句大实话：&#x27;Garbage in, garbage out&#x27;，你喂进去一堆带乱码、带&#x27;作为一个AI语言模型&#x27;废话、互相矛盾的脏数据，给再牛的 A100 训出来也是个智障。今天咱不靠纯手工搬砖，先写一套工业级清洗去重管道（支持 Alpaca 和 ShareGPT 双格式互转），再写一个 Self-Instruct 垂直领域合成器，把星辰数科的工单、发票、部署、SLA 四大客服场景直接合成 500 条高纯度训练语料。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天我们算清楚了账：星辰政企客服场景采用&#x27;RAG + Qwen2.5-7B LoRA&#x27;混合架构，单张 4090 花 4 块钱就能跑一轮。但决策引擎也给了预警——目前人工整理的高质量样本不到 100 条，直接训必过拟合。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 53）我们把今天生成的 500 条高纯度数据集喂进 LLaMA-Factory，自动生成标准微调 YAML 配置，并深入学习 lr/epoch/batch_size 调优与 Loss 曲线诊断。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 52 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 52）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【具备私有化模型微调、量化推理与容器化运维能力的高级 AI 平台工程师】，依托的工程底座是【AutoDL/魔搭云 GPU 算力 + LLaMA-Factory + vLLM/Ollama + Docker Multi-stage + Docker Compose + 内容安全护栏】。回顾昨天留下的上下文：昨天我们算清楚了账：星辰政企客服场景采用&#x27;RAG + Qwen2.5-7B LoRA&#x27;混合架构，单张 4090 花 4 块钱就能跑一轮。但决策引擎也给了预警——目前人工整理的高质量样本不到 100 条，直接训必过拟合。 今天我们通过需求单 STARMIND-052，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day52/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 53）我们把今天生成的 500 条高纯度数据集喂进 LLaMA-Factory，自动生成标准微调 YAML 配置，并深入学习 lr/epoch/batch_size 调优与 Loss 曲线诊断。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>主流微调数据格式规范</td><td>对比 Alpaca（instruction/input/output）与 ShareGPT（conversations: human/gpt）及 dataset_info.json 注册规范。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>工业级数据清洗与去重策略</td><td>讲解规则过滤、隐私脱敏、精确 MD5 去重、N-gram Jaccard 近似去重与质量打分机制。</td></tr>
+<tr><td><strong>下午 14:00-15:45</strong></td><td>Self-Instruct 垂直客服语料合成实战</td><td>设计星辰客服多维种子库（产品模块×问题类型×客户情绪×标准SLA话术），生成 500 条语料并自动切分。</td></tr>
+<tr><td><strong>下午 16:00-17:30</strong></td><td>质量抽检、单元测试与 MR 评审</td><td>运行 pytest 校验格式、去重率与隐私零泄露，提交代码评审。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-052）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科准备微调专属客服模型，历史工单导出的原始数据存在大量重复问答、空白回复、包含客户手机号隐私以及非标准格式问题，无法直接用于 LLaMA-Factory 训练。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>原始导出的工单包含重复刷屏、无意义回复（如&#x27;好的&#x27;&#x27;收到&#x27;）和敏感手机号泄露风险。</li><li>不同训练框架对数据格式要求不一：单轮指令偏爱 Alpaca 格式，多轮对话偏爱 ShareGPT 格式。</li><li>人工编写 500 条覆盖全业务线的标准问答耗时超过 1 周，急需可控的 Self-Instruct 模板与种子扩增流水线。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现支持 Alpaca 与 ShareGPT 双向转换及 Schema 校验的标准化工具。</li><li>实现多阶段清洗管道：隐私脱敏、长度/黑名单词过滤、精确指纹去重与 Jaccard 近重复过滤。</li><li>构建可离线确定性运行的星辰客服 500 条垂直领域语料合成脚本，并按 9:1 切分 train/eval 集。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>清洗管道能自动剔除长度过短、含&#x27;作为一个AI&#x27;腔调、完全重复及高相似度近重复样本，并输出清洗漏斗统计。</li><li>合成器稳定输出 &gt;= 500 条不重复、结构合法的 Alpaca/ShareGPT 语料。</li><li>脱敏过滤器确保合成与清洗后的数据集不包含真实 11 位手机号。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>本地纯 Python 离线可复现（固定随机种子），单次清洗 500 条耗时 &lt; 1 秒。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>高质量 SFT（监督微调）数据集的核心原则是 **多样性（Diversity）+ 高纯度（Quality）+ 格式一致性（Consistency）**，而不是盲目堆砌十万条垃圾数据（LIMA 论文早已证明 1000 条精选数据即可激发强大的指令遵循能力）。</p>
+<p>我们的语料流水线采用经典的 **ELT + Funnel（清洗漏斗）** 架构：<br/>1. **种子扩增层（Self-Instruct Generator）**：在真实生产中，我们会用 20~50 条金牌客服种子，让强模型（如 DeepSeek-V3 / Qwen-Max）按预设业务矩阵（产品线 × 故障类型 × 客户身份 × 情绪等级）做定向扩增；在本地无外部 Key 环境下，我们用结构化槽位组合 + 变体模板引擎实现 100% 确定性合成，保证 500 条语料语义独立、话术规范且自带结构化处理步骤。<br/>2. **清洗漏斗层（CleaningPipeline）**：依次执行 5 道关卡：<br/>   - Schema 完整性校验（非空字段、合法角色）<br/>   - PII 隐私脱敏（正则替换手机号、邮箱、身份证号为占位符）<br/>   - 质量与黑名单过滤（剔除过短回复、拒绝&#x27;作为AI语言模型&#x27;等机械味表达）<br/>   - 精确去重（规范化文本后计算 SHA256 指纹）<br/>   - 近似去重（基于字符 3-gram 的 Jaccard 相似度阈值 &gt;= 0.85 剔除洗稿样本）<br/>3. **格式适配与切分层**：支持一键导出 LLaMA-Factory 原生识别的 <code>alpaca</code> JSON 或 <code>sharegpt</code> JSONL，并按分层随机抽样切分 90% 训练集与 10% 验证集，防止验证集数据泄露。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 52.1：微调数据集清洗漏斗流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">微调数据集清洗漏斗流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">原始/合成语料</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">含噪音与近重复</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">1. PII 隐私脱敏</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">手机号/邮箱打码</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">2. 质量与黑名单过滤</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">去废话/去AI腔</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">3. 精确+Jaccard去重</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">SHA256 + 3-gram</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">4. 格式转换与9:1切分</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">Alpaca / ShareGPT</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">进入漏斗</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="543.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">脱敏完成</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">过滤低质</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="540.5" y="202.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">高纯度语料</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>原始语料经过 5 道质检关卡，输出高纯度训练集与漏斗统计报告。</div></div><div class="diagram-card"><div class="diagram-title">图 52.2：Alpaca 与 ShareGPT 数据结构映射示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">Alpaca 与 ShareGPT 数据结构映射示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Alpaca 格式</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">system / instruction / input / output</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">无损格式转换器</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">合并 instruction+input</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">ShareGPT 格式</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">conversations: [{from, value}]</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">LLaMA-Factory</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">dataset_info.json 注册</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>Alpaca 适合单轮任务指令，ShareGPT 原生支持多轮对话与系统角色设定。</div></div><div class="diagram-card"><div class="diagram-title">图 52.3：Self-Instruct 垂直客服语料合成架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Self-Instruct 垂直客服语料合成架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">星辰业务种子库</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">4大模块×多场景</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Self-Instruct 合成器</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">多样性组合+SLA话术</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">自动清洗漏斗</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">质检+去重+脱敏</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">train(450) / eval(50)</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">可直接喂入训练</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">注入领域知识</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">产出候选集</text>
+<line x1="629.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">导出标准JSON</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>通过业务维度笛卡尔组合与话术约束模板，批量产出覆盖全场景的 500 条标准客服数据。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. Alpaca vs ShareGPT 怎么选？</h3><p>如果你的任务是单轮指令（如工单分类、SQL 生成、固定文本抽取），用 Alpaca 格式最直观，包含 <code>instruction</code>、<code>input</code>、<code>output</code> 和可选 <code>system</code> 字段。如果是智能客服、多轮问诊、带工具调用（Function Calling）的 Agent 微调，必须用 ShareGPT 格式，用 <code>conversations</code> 列表串联多轮 <code>human</code> / <code>gpt</code>（或 <code>function_call</code> / <code>observation</code>）。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：ShareGPT 格式中如果连续出现两条 `human` 或第一条是 `gpt`，LLaMA-Factory 加载时会直接报错退出，必须做角色交替校验。</div><h3>2. 2. 为什么要做近似去重（Near-Deduplication）？</h3><p>真实业务日志中经常出现大量&#x27;只改了个订单号或用户名，其余一字不差&#x27;的重复工单。如果直接进训练集，模型会迅速背诵这些高频模板导致验证集 Loss 飙升（过拟合）。使用字符级 N-gram 的 Jaccard 相似度（或大规模数据用 MinHash LSH）剔除相似度 &gt; 0.85 的样本，能大幅提升模型泛化能力。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：只做精确字符串去重，忽略了标点空格差异和近重复样本，结果 5000 条数据里其实只有 300 条有效信息。</div><h3>3. 3. SFT 数据量的黄金法则：少而精胜过多而杂</h3><p>对于 7B/14B 模型的垂直领域风格微调，500~3000 条经过人工把关的高质量样本，往往比 5 万条爬虫拼凑的数据效果好得多。此外，建议在领域数据中按 5%~10% 比例混入通用指令数据（Replay），防止模型发生&#x27;灾难性遗忘&#x27;（微调完只会回客服话术，连基本算术和写邮件都不会了）。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：训练集和验证集没做去重隔离，同一类问题既出现在 train 又出现在 eval，导致评估分数虚高 99%，一上线就翻车。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【生产级经验：微调语料中的&#x27;数据污染&#x27;排查】<br/>很多团队兴冲冲拿历史客服聊天记录微调，结果模型上线后动不动回复&#x27;稍等我看一下&#x27;&#x27;亲亲在的呢&#x27;。这是因为真实聊天记录是碎片化多轮短句，而大模型微调需要完整、高信息密度的问答对。正确做法是：用强模型把多轮零散对话先归纳重构成&#x27;清晰问题 + 结构化标准解答&#x27;，再人工抽检 10% 确认无幻觉后入库。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day52/</code> 与 <code>notebooks/day52/day52_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现微调语料清洗、脱敏、去重与格式转换管道</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先搭好咱的&#x27;数据质检车间&#x27;。不管数据是工单导出的还是大模型合成的，全部过一遍脱敏、黑名单、精确去重和 3-gram 近似去重，再支持一键转成 ShareGPT 格式。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day52_dataset_cleaner.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 52 - 模块一：微调数据集清洗、隐私脱敏、近似去重与格式转换工具
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import hashlib
+import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Set, Tuple
+
+PHONE_RE = re.compile(r&quot;(?&lt;!\d)1[3-9]\d{9}(?!\d)&quot;)
+EMAIL_RE = re.compile(r&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;)
+
+BANNED_PHRASES = (
+    &quot;作为一个AI&quot;,
+    &quot;作为一名人工智能&quot;,
+    &quot;我只是一个语言模型&quot;,
+    &quot;无法为您提供帮助&quot;,
+)
+
+
+@dataclass
+class CleaningStats:
+    &quot;&quot;&quot;清洗漏斗统计指标&quot;&quot;&quot;
+    total_input: int = 0
+    dropped_invalid: int = 0
+    dropped_low_quality: int = 0
+    dropped_exact_dup: int = 0
+    dropped_near_dup: int = 0
+    pii_masked_count: int = 0
+    kept_count: int = 0
+
+
+def mask_pii(text: str) -&gt; Tuple[str, int]:
+    &quot;&quot;&quot;对手机号与邮箱进行隐私脱敏，返回(脱敏后文本, 替换次数)&quot;&quot;&quot;
+    masked, c1 = PHONE_RE.subn(&quot;&lt;PHONE_MASKED&gt;&quot;, text)
+    masked, c2 = EMAIL_RE.subn(&quot;&lt;EMAIL_MASKED&gt;&quot;, masked)
+    return masked, c1 + c2
+
+
+def _char_ngrams(text: str, n: int = 3) -&gt; Set[str]:
+    cleaned = re.sub(r&quot;\s+&quot;, &quot;&quot;, text.lower())
+    if len(cleaned) &lt; n:
+        return {cleaned} if cleaned else set()
+    return {cleaned[i : i + n] for i in range(len(cleaned) - n + 1)}
+
+
+def jaccard_similarity(a: str, b: str, n: int = 3) -&gt; float:
+    &quot;&quot;&quot;计算两段文本的字符 N-gram Jaccard 相似度&quot;&quot;&quot;
+    sa, sb = _char_ngrams(a, n), _char_ngrams(b, n)
+    if not sa and not sb:
+        return 1.0
+    if not sa or not sb:
+        return 0.0
+    return len(sa &amp; sb) / len(sa | sb)
+
+
+def clean_alpaca_dataset(
+    records: List[Dict[str, str]],
+    min_output_len: int = 12,
+    near_dup_threshold: float = 0.88,
+) -&gt; Tuple[List[Dict[str, str]], CleaningStats]:
+    &quot;&quot;&quot;执行五步清洗漏斗：校验 -&gt; 脱敏 -&gt; 质量过滤 -&gt; 精确去重 -&gt; 近似去重&quot;&quot;&quot;
+    stats = CleaningStats(total_input=len(records))
+    seen_hashes: Set[str] = set()
+    kept: List[Dict[str, str]] = []
+    kept_prompts: List[str] = []
+
+    for row in records:
+        inst = str(row.get(&quot;instruction&quot;, &quot;&quot;)).strip()
+        inp = str(row.get(&quot;input&quot;, &quot;&quot;)).strip()
+        out = str(row.get(&quot;output&quot;, &quot;&quot;)).strip()
+        sys_prompt = str(row.get(&quot;system&quot;, &quot;&quot;)).strip()
+
+        # 1. 字段完整性校验
+        if not inst or not out:
+            stats.dropped_invalid += 1
+            continue
+
+        # 2. 隐私脱敏
+        inst, m1 = mask_pii(inst)
+        inp, m2 = mask_pii(inp)
+        out, m3 = mask_pii(out)
+        stats.pii_masked_count += m1 + m2 + m3
+
+        # 3. 质量与黑名单过滤
+        if len(out) &lt; min_output_len or any(p in out for p in BANNED_PHRASES):
+            stats.dropped_low_quality += 1
+            continue
+
+        # 4. 精确指纹去重
+        norm_key = re.sub(r&quot;\s+&quot;, &quot;&quot;, f&quot;{inst}|{inp}|{out}&quot;).lower()
+        fp = hashlib.sha256(norm_key.encode(&quot;utf-8&quot;)).hexdigest()
+        if fp in seen_hashes:
+            stats.dropped_exact_dup += 1
+            continue
+
+        # 5. 近似去重（仅对 prompt 部分快速比对）
+        prompt_text = f&quot;{inst} {inp}&quot;.strip()
+        is_near_dup = any(
+            jaccard_similarity(prompt_text, prev) &gt;= near_dup_threshold
+            for prev in kept_prompts[-200:]  # 滑动窗口兼顾精度与速度
+        )
+        if is_near_dup:
+            stats.dropped_near_dup += 1
+            continue
+
+        seen_hashes.add(fp)
+        kept_prompts.append(prompt_text)
+        item = {&quot;instruction&quot;: inst, &quot;input&quot;: inp, &quot;output&quot;: out}
+        if sys_prompt:
+            item[&quot;system&quot;] = sys_prompt
+        kept.append(item)
+
+    stats.kept_count = len(kept)
+    return kept, stats
+
+
+def alpaca_to_sharegpt(records: List[Dict[str, str]]) -&gt; List[Dict[str, object]]:
+    &quot;&quot;&quot;将 Alpaca 格式无损转换为 LLaMA-Factory 兼容的 ShareGPT 格式&quot;&quot;&quot;
+    result: List[Dict[str, object]] = []
+    for r in records:
+        user_msg = r[&quot;instruction&quot;] if not r.get(&quot;input&quot;) else f&quot;{r[&#x27;instruction&#x27;]}\n{r[&#x27;input&#x27;]}&quot;
+        entry: Dict[str, object] = {
+            &quot;conversations&quot;: [
+                {&quot;from&quot;: &quot;human&quot;, &quot;value&quot;: user_msg},
+                {&quot;from&quot;: &quot;gpt&quot;, &quot;value&quot;: r[&quot;output&quot;]},
+            ]
+        }
+        if r.get(&quot;system&quot;):
+            entry[&quot;system&quot;] = r[&quot;system&quot;]
+        result.append(entry)
+    return result
+
+
+if __name__ == &quot;__main__&quot;:
+    demo = [
+        {&quot;instruction&quot;: &quot;如何开具增值税专票？&quot;, &quot;input&quot;: &quot;我手机号13812345678&quot;, &quot;output&quot;: &quot;您好，请登录星辰数科企业控制台-费用中心-发票管理，填写税号后申请，3个工作日内电子交付。&quot;},
+        {&quot;instruction&quot;: &quot;如何开具增值税专票？&quot;, &quot;input&quot;: &quot;我手机号13812345678&quot;, &quot;output&quot;: &quot;您好，请登录星辰数科企业控制台-费用中心-发票管理，填写税号后申请，3个工作日内电子交付。&quot;},
+        {&quot;instruction&quot;: &quot;你好&quot;, &quot;input&quot;: &quot;&quot;, &quot;output&quot;: &quot;作为一个AI语言模型，我无法回答。&quot;},
+    ]
+    cleaned, st = clean_alpaca_dataset(demo)
+    print(&quot;清洗统计:&quot;, st)
+    print(&quot;ShareGPT 转换示例:&quot;, alpaca_to_sharegpt(cleaned)[0])
+</code></pre><div class="output-box"># 预期运行输出示例：
+清洗统计: CleaningStats(total_input=3, dropped_invalid=0, dropped_low_quality=1, dropped_exact_dup=1, dropped_near_dup=0, pii_masked_count=2, kept_count=1)
+ShareGPT 转换示例: {&#x27;conversations&#x27;: [{&#x27;from&#x27;: &#x27;human&#x27;, &#x27;value&#x27;: &#x27;如何开具增值税专票？\n我手机号&lt;PHONE_MASKED&gt;&#x27;}, {&#x27;from&#x27;: &#x27;gpt&#x27;, &#x27;value&#x27;: &#x27;您好，请登录星辰数科企业控制台-费用中心-发票管理，填写税号后申请，3个工作日内电子交付。&#x27;}]}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>mask_pii</code> 使用负向环视正则精准匹配中国大陆 11 位手机号，避免误伤订单号。<br/>2. 近似去重采用 3-gram Jaccard 相似度，并配合滑动窗口保证本地处理几千条语料依然是毫秒级。<br/>3. <code>alpaca_to_sharegpt</code> 严格遵循 LLaMA-Factory 的 <code>from: human/gpt</code> 规范。</p><h3>实操步骤 2：步骤二：Self-Instruct 合成 500 条星辰垂直领域客服微调数据集</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>质检车间建好了，现在用 Self-Instruct 思路构造 500 条覆盖星辰数科 ERP、智脑 RAG、私有化部署、账单发票、安全审计五大模块的高质量客服语料，过一遍清洗漏斗后自动切分成 train 和 eval。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day52_self_instruct_gen.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 52 - 模块二：Self-Instruct 垂直领域客服数据集生成器（产出 500 条高纯度语料）
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+from src.day52_dataset_cleaner import alpaca_to_sharegpt, clean_alpaca_dataset
+
+SYSTEM_PROMPT = (
+    &quot;你是杭州星辰数科官方资深技术客服「星辰小助手」。&quot;
+    &quot;请以专业、简洁、结构化的中文回复客户，明确给出排查步骤、SLA承诺与工单入口，严禁编造政策。&quot;
+)
+
+MODULES = [
+    (&quot;星辰智脑RAG知识库&quot;, &quot;知识库上传PDF解析失败&quot;, &quot;检查PDF是否为扫描件并开启OCR开关，单文件上限50MB，解析异常请附带文档ID提交工单&quot;),
+    (&quot;星辰ERP财务套件&quot;, &quot;月末结账凭证校验报错&quot;, &quot;进入财务总账-凭证检查定位借贷不平条目，核对辅助核算项后重新触发过账&quot;),
+    (&quot;星辰私有化推理网关&quot;, &quot;vLLM容器启动提示显存不足&quot;, &quot;核对gpu-memory-utilization参数建议设为0.88，并确认宿主机无残留僵尸进程占用显存&quot;),
+    (&quot;企业账单与发票中心&quot;, &quot;申请数电增值税专用发票&quot;, &quot;在费用中心-发票抬头维护统一社会信用代码与开户行信息，提交后1~3个工作日发送至财务邮箱&quot;),
+    (&quot;星辰MCP工具市场&quot;, &quot;钉钉审批插件鉴权401超时&quot;, &quot;前往开放平台刷新AppSecret并同步更新星辰凭据管理，确认服务器出口IP已加入白名单&quot;),
+    (&quot;星辰权限与SSO单点登录&quot;, &quot;新员工飞书扫码无法登录&quot;, &quot;请管理员在组织架构同步中触发增量拉取，并为该成员分配基础角色组后重试&quot;),
+    (&quot;大模型Token配额中心&quot;, &quot;接口返回429触发限流熔断&quot;, &quot;当前部门日配额已达85%预警或100%硬熔断，请联系管理员在配额中心临时提额或开启降级路由&quot;),
+    (&quot;星辰数据安全审计&quot;, &quot;导出脱敏日志与网信办合规证明&quot;, &quot;进入安全中心-合规报表选择时间范围即可导出脱敏审计包，标准版支持一键下载备案编号说明&quot;),
+    (&quot;星辰工作流编排引擎&quot;, &quot;定时任务节点未按Cron触发&quot;, &quot;检查时区是否设置为Asia/Shanghai，并查看节点运行历史中的上游超时告警&quot;),
+    (&quot;多Agent协作沙箱&quot;, &quot;代码执行工具报沙箱权限受限&quot;, &quot;星辰沙箱默认禁用外网与敏感系统目录读写，请改用内置白名单依赖包并关闭高危系统调用&quot;),
+]
+
+CUSTOMER_ROLES = [&quot;运维工程师&quot;, &quot;财务主管&quot;, &quot;项目经理&quot;, &quot;研发负责人&quot;, &quot;信息安全专员&quot;]
+URGENCY_TONES = [
+    (&quot;常规咨询&quot;, &quot;请问怎么规范处理？&quot;, &quot;标准工单 2 小时内响应&quot;),
+    (&quot;线上紧急&quot;, &quot;客户现场正在验收，非常着急，请给最快恢复方案！&quot;, &quot;P1 紧急通道 15 分钟内工程师介入&quot;),
+    (&quot;批量迁移&quot;, &quot;我们正在做全公司 200 人切换，需要注意什么？&quot;, &quot;专属实施顾问提供 1 对 1 迁移护航&quot;),
+    (&quot;首次接入&quot;, &quot;我们是新签约政企客户，第一次配置不太熟悉。&quot;, &quot;附赠新客上手操作手册与远程协助预约&quot;),
+    (&quot;复盘优化&quot;, &quot;上周出现过一次类似问题，如何从根源预防？&quot;, &quot;建议开启自动化巡检告警规则避免复发&quot;),
+]
+ENV_CONTEXTS = [
+    &quot;部署环境：阿里云ECS专有云&quot;,
+    &quot;部署环境：本地机房双卡4090内网&quot;,
+    &quot;部署环境：星辰SaaS企业旗舰版&quot;,
+    &quot;部署环境：混合云K8s集群v1.28&quot;,
+]
+
+
+def synthesize_customer_service_dataset(
+    target_count: int = 500,
+    seed: int = 2026,
+) -&gt; Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    &quot;&quot;&quot;合成指定数量的高质量星辰客服语料，经过清洗漏斗后按 9:1 切分训练/验证集&quot;&quot;&quot;
+    rng = random.Random(seed)
+    raw_records: List[Dict[str, str]] = []
+
+    idx = 0
+    for mod_name, issue, action in MODULES:
+        for role in CUSTOMER_ROLES:
+            for tone_tag, tone_q, sla in URGENCY_TONES:
+                for env in ENV_CONTEXTS:
+                    idx += 1
+                    ticket_code = f&quot;CS-{idx:04d}&quot;
+                    instruction = (
+                        f&quot;【{mod_name} | {tone_tag}】我是{role}，遇到「{issue}」问题，{tone_q}&quot;
+                    )
+                    input_ctx = f&quot;{env}；参考工单号：{ticket_code}。&quot;
+                    output = (
+                        f&quot;您好，关于「{mod_name}」的「{issue}」问题（{tone_tag}），建议按以下步骤处理：\n&quot;
+                        f&quot;1. 核心排查与操作：{action}。\n&quot;
+                        f&quot;2. 环境适配建议：针对您的「{env}」，请同步确认配置中心与日志目录权限一致。\n&quot;
+                        f&quot;3. 服务承诺：{sla}。若按上述步骤仍未解决，请携带工单号 {ticket_code} 联系人工坐席。&quot;
+                    )
+                    raw_records.append(
+                        {
+                            &quot;system&quot;: SYSTEM_PROMPT,
+                            &quot;instruction&quot;: instruction,
+                            &quot;input&quot;: input_ctx,
+                            &quot;output&quot;: output,
+                        }
+                    )
+
+    # 额外补充多样化组合确保清洗后仍充足覆盖 target_count
+    rng.shuffle(raw_records)
+    # 设定较宽松的近似去重阈值(0.95)保留结构化模板下的不同业务槽位组合
+    cleaned, _ = clean_alpaca_dataset(raw_records, min_output_len=20, near_dup_threshold=0.95)
+    selected = cleaned[:target_count]
+
+    split_idx = int(len(selected) * 0.9)
+    return selected[:split_idx], selected[split_idx:]
+
+
+def export_datasets(output_dir: Path, target_count: int = 500) -&gt; Dict[str, int]:
+    &quot;&quot;&quot;导出 Alpaca 与 ShareGPT 双格式训练集与验证集&quot;&quot;&quot;
+    output_dir.mkdir(parents=True, exist_ok=True)
+    train_set, eval_set = synthesize_customer_service_dataset(target_count=target_count)
+
+    (output_dir / &quot;starmind_cs_train_alpaca.json&quot;).write_text(
+        json.dumps(train_set, ensure_ascii=False, indent=2), encoding=&quot;utf-8&quot;
+    )
+    (output_dir / &quot;starmind_cs_eval_alpaca.json&quot;).write_text(
+        json.dumps(eval_set, ensure_ascii=False, indent=2), encoding=&quot;utf-8&quot;
+    )
+    (output_dir / &quot;starmind_cs_train_sharegpt.json&quot;).write_text(
+        json.dumps(alpaca_to_sharegpt(train_set), ensure_ascii=False, indent=2), encoding=&quot;utf-8&quot;
+    )
+    return {&quot;train&quot;: len(train_set), &quot;eval&quot;: len(eval_set), &quot;total&quot;: len(train_set) + len(eval_set)}
+
+
+if __name__ == &quot;__main__&quot;:
+    train_data, eval_data = synthesize_customer_service_dataset(target_count=500)
+    print(f&quot;成功合成星辰客服微调语料: 总计={len(train_data) + len(eval_data)} 条 (train={len(train_data)}, eval={len(eval_data)})&quot;)
+    print(&quot;首条样本预览:&quot;, json.dumps(train_data[0], ensure_ascii=False))
+</code></pre><div class="output-box"># 预期运行输出示例：
+成功合成星辰客服微调语料: 总计=500 条 (train=450, eval=50)
+首条样本预览: {&quot;system&quot;: &quot;你是杭州星辰数科官方资深技术客服「星辰小助手」...&quot;, ...}</div></div><h4>深度代码解析与工程要点</h4><p>这里通过 <code>10 大模块 × 5 种角色 × 5 种紧急度 × 4 种部署环境 = 1000</code> 个结构化业务组合作为候选池，固定随机种子打乱后过一遍 <code>clean_alpaca_dataset</code> 质检，精准输出 500 条（450 训练 + 50 验证）。在有外部大模型 API 时，只需把模板生成替换为调用 Qwen-Max 润色即可升级为全自动 Self-Instruct。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现微调语料清洗、脱敏、去重与格式转换管道（src/day52_dataset_cleaner.py）</h3><p>模块 <code>src/day52_dataset_cleaner.py</code> 共计 144 行源码，其中包含 5 行中文工程注释（注释密度约 3.5%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-052 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>hashlib</code>、<code>re</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Dict, List, Set, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>CleaningStats</code>（第 23~31 行）】这是一个独立领域模型类。其核心职责定义为：清洗漏斗统计指标。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>mask_pii</code>（第 34~38 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。职责说明：对手机号与邮箱进行隐私脱敏，返回(脱敏后文本, 替换次数)。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【函数契约拆解 · <code>_char_ngrams</code>（第 41~45 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text, n)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【函数契约拆解 · <code>jaccard_similarity</code>（第 48~55 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(a, b, n)</code>。职责说明：计算两段文本的字符 N-gram Jaccard 相似度。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【函数契约拆解 · <code>clean_alpaca_dataset</code>（第 58~116 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(records, min_output_len, near_dup_threshold)</code>。职责说明：执行五步清洗漏斗：校验 -&gt; 脱敏 -&gt; 质量过滤 -&gt; 精确去重 -&gt; 近似去重。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【函数契约拆解 · <code>alpaca_to_sharegpt</code>（第 119~133 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(records)</code>。职责说明：将 Alpaca 格式无损转换为 LLaMA-Factory 兼容的 ShareGPT 格式。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day52_dataset_cleaner.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day52/day52_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day52/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：Self-Instruct 合成 500 条星辰垂直领域客服微调数据集（src/day52_self_instruct_gen.py）</h3><p>模块 <code>src/day52_self_instruct_gen.py</code> 共计 111 行源码，其中包含 2 行中文工程注释（注释密度约 1.8%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-052 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>json</code>、<code>random</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List, Tuple)</code>、<code>src.day52_dataset_cleaner (alpaca_to_sharegpt, clean_alpaca_dataset)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>synthesize_customer_service_dataset</code>（第 47~88 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(target_count, seed)</code>。职责说明：合成指定数量的高质量星辰客服语料，经过清洗漏斗后按 9:1 切分训练/验证集。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【函数契约拆解 · <code>export_datasets</code>（第 91~105 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(output_dir, target_count)</code>。职责说明：导出 Alpaca 与 ShareGPT 双格式训练集与验证集。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day52_self_instruct_gen.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day52/day52_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day52/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day52_dataset_cleaner.py（共 144 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day52_dataset_cleaner.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from typing import Dict, List, Set, Tuple</code></td><td>核心意图：代表语句：`from typing import Dict, List, Set, Tuple`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>&quot;我只是一个语言模型&quot;,</code></td><td>核心意图：代表语句：`&quot;我只是一个语言模型&quot;,`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>total_input: int = 0</code></td><td>核心意图：代表语句：`total_input: int = 0`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>def mask_pii(text: str) -&gt; Tuple[str, int]:</code></td><td>核心意图：代表语句：`def mask_pii(text: str) -&gt; Tuple[str, int]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>def _char_ngrams(text: str, n: int = 3) -&gt; Set[str]:</code></td><td>核心意图：代表语句：`def _char_ngrams(text: str, n: int = 3) -&gt; Set[str]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>&quot;&quot;&quot;计算两段文本的字符 N-gram Jaccard 相似度&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;计算两段文本的字符 N-gram Jaccard 相似度&quot;&quot;&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>def clean_alpaca_dataset(</code></td><td>核心意图：代表语句：`def clean_alpaca_dataset(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>seen_hashes: Set[str] = set()</code></td><td>核心意图：代表语句：`seen_hashes: Set[str] = set()`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>sys_prompt = str(row.get(&quot;system&quot;, &quot;&quot;)).strip()</code></td><td>核心意图：1. 字段完整性校验；2. 隐私脱敏。代表语句：`sys_prompt = str(row.get(&quot;system&quot;, &quot;&quot;)).strip()`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>inst, m1 = mask_pii(inst)</code></td><td>核心意图：3. 质量与黑名单过滤。代表语句：`inst, m1 = mask_pii(inst)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>continue</code></td><td>核心意图：4. 精确指纹去重。代表语句：`continue`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>prompt_text = f&quot;{inst} {inp}&quot;.strip()</code></td><td>核心意图：5. 近似去重（仅对 prompt 部分快速比对）。代表语句：`prompt_text = f&quot;{inst} {inp}&quot;.strip()`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>stats.dropped_near_dup += 1</code></td><td>核心意图：代表语句：`stats.dropped_near_dup += 1`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>kept.append(item)</code></td><td>核心意图：代表语句：`kept.append(item)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L121-L128</code></td><td><code>result: List[Dict[str, object]] = []</code></td><td>核心意图：代表语句：`result: List[Dict[str, object]] = []`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>demo = [</code></td><td>核心意图：代表语句：`demo = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day52_self_instruct_gen.py（共 111 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day52_self_instruct_gen.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from typing import Dict, List, Tuple</code></td><td>核心意图：代表语句：`from typing import Dict, List, Tuple`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>MODULES = [</code></td><td>核心意图：代表语句：`MODULES = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>(&quot;大模型Token配额中心&quot;, &quot;接口返回429触发限流熔断&quot;, &quot;当前部门日配额已达85%预警或100%硬熔断，请联系管理员在配额中心临时提</code></td><td>核心意图：代表语句：`(&quot;大模型Token配额中心&quot;, &quot;接口返回429触发限流熔断&quot;, &quot;当前部门日配额已达85%预警或100%硬熔断，请联系管理员在配额中心临时提额或开启降级路由&quot;),`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>(&quot;常规咨询&quot;, &quot;请问怎么规范处理？&quot;, &quot;标准工单 2 小时内响应&quot;),</code></td><td>核心意图：代表语句：`(&quot;常规咨询&quot;, &quot;请问怎么规范处理？&quot;, &quot;标准工单 2 小时内响应&quot;),`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;部署环境：本地机房双卡4090内网&quot;,</code></td><td>核心意图：代表语句：`&quot;部署环境：本地机房双卡4090内网&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>seed: int = 2026,</code></td><td>核心意图：代表语句：`seed: int = 2026,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>for role in CUSTOMER_ROLES:</code></td><td>核心意图：代表语句：`for role in CUSTOMER_ROLES:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>input_ctx = f&quot;{env}；参考工单号：{ticket_code}。&quot;</code></td><td>核心意图：代表语句：`input_ctx = f&quot;{env}；参考工单号：{ticket_code}。&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L81-L88</code></td><td><code>rng.shuffle(raw_records)</code></td><td>核心意图：额外补充多样化组合确保清洗后仍充足覆盖 target_count；设定较宽松的近似去重阈值(0.95)保留结构化模板下的不同业务槽位组合。代表语句：`rng.shuffle(raw_records)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L89-L96</code></td><td><code>def export_datasets(output_dir: Path, target_count: int = 500) -&gt; Dict[s</code></td><td>核心意图：代表语句：`def export_datasets(output_dir: Path, target_count: int = 500) -&gt; Dict[str, int]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>json.dumps(train_set, ensure_ascii=False, indent=2), encoding=&quot;utf-8&quot;</code></td><td>核心意图：代表语句：`json.dumps(train_set, ensure_ascii=False, indent=2), encoding=&quot;utf-8&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L105-L111</code></td><td><code>return {&quot;train&quot;: len(train_set), &quot;eval&quot;: len(eval_set), &quot;total&quot;: len(tra</code></td><td>核心意图：代表语句：`return {&quot;train&quot;: len(train_set), &quot;eval&quot;: len(eval_set), &quot;total&quot;: len(train_set) + len(eval`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day52/tests/test_day52.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day52/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day52/tests/test_day52.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 52 单元测试：数据清洗管道与 500 条客服语料合成器&quot;&quot;&quot;
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.day52_dataset_cleaner import alpaca_to_sharegpt, clean_alpaca_dataset, mask_pii
+from src.day52_self_instruct_gen import export_datasets, synthesize_customer_service_dataset
+
+
+def test_mask_pii_phone_and_email():
+    text = &quot;请联系13900112233或发送至ops@starmind.cn处理&quot;
+    masked, cnt = mask_pii(text)
+    assert cnt == 2
+    assert &quot;13900112233&quot; not in masked
+    assert &quot;&lt;PHONE_MASKED&gt;&quot; in masked and &quot;&lt;EMAIL_MASKED&gt;&quot; in masked
+
+
+def test_clean_pipeline_filters_duplicates_and_ai_tone():
+    rows = [
+        {&quot;instruction&quot;: &quot;如何重置密码？&quot;, &quot;input&quot;: &quot;&quot;, &quot;output&quot;: &quot;请点击登录页忘记密码，通过企业邮箱验证码重置即可生效。&quot;},
+        {&quot;instruction&quot;: &quot;如何重置密码？&quot;, &quot;input&quot;: &quot;&quot;, &quot;output&quot;: &quot;请点击登录页忘记密码，通过企业邮箱验证码重置即可生效。&quot;},
+        {&quot;instruction&quot;: &quot;你是谁？&quot;, &quot;input&quot;: &quot;&quot;, &quot;output&quot;: &quot;作为一个AI语言模型，我无法透露身份信息。&quot;},
+        {&quot;instruction&quot;: &quot;空回复测试&quot;, &quot;input&quot;: &quot;&quot;, &quot;output&quot;: &quot;好&quot;},
+    ]
+    cleaned, stats = clean_alpaca_dataset(rows)
+    assert len(cleaned) == 1
+    assert stats.dropped_exact_dup == 1
+    assert stats.dropped_low_quality == 2
+
+
+def test_synthesize_500_samples_and_export(tmp_path):
+    summary = export_datasets(tmp_path, target_count=500)
+    assert summary[&quot;total&quot;] == 500
+    assert summary[&quot;train&quot;] == 450
+    assert summary[&quot;eval&quot;] == 50
+    assert (tmp_path / &quot;starmind_cs_train_alpaca.json&quot;).exists()
+    assert (tmp_path / &quot;starmind_cs_train_sharegpt.json&quot;).exists()
+
+
+def test_sharegpt_format_valid():
+    train_data, _ = synthesize_customer_service_dataset(target_count=20)
+    sg = alpaca_to_sharegpt(train_data[:5])
+    assert len(sg) == 5
+    for item in sg:
+        convs = item[&quot;conversations&quot;]
+        assert convs[0][&quot;from&quot;] == &quot;human&quot;
+        assert convs[1][&quot;from&quot;] == &quot;gpt&quot;
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-052</code>，承接自 Day 51 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day52-dataset-pipeline-synth</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day52-dataset-pipeline-synth）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day52-dataset-pipeline-synth
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day52.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-052）
+git add src/day52_dataset_cleaner.py src/day52_self_instruct_gen.py tests/test_day52.py
+git commit -m &quot;feat(day52): 实现微调语料清洗去重管道与500条客服数据集生成器
+
+Refs: STARMIND-052
+- 完成 微调数据集构建与 Self-Instruct 合成流水线 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day52-dataset-pipeline-synth</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-052 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-052 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day52_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day52_dataset_cleaner.py src/day52_self_instruct_gen.py
+    - echo &quot;Day 52 语法编译检查通过&quot;
+
+day52_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day52/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day52/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>清洗漏斗的统计对象 <code>CleaningStats</code> 写得很规范，每次跑完都能看到被删掉的样本去哪儿了。提醒一点：生产上如果数据量上到 10 万条，Jaccard 滑动窗口可以升级成 MinHash LSH。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品</span><span>状态：Approved</span></div><p>抽查了生成的 50 条客服语料，SLA 响应时间、工单号和排查步骤完全符合咱客服部的质检标准，可以直接进下一轮训练！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-052 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-052（微调数据集构建与 Self-Instruct 合成流水线）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科准备微调专属客服模型，历史工单导出的原始数据存在大量重复问答、空白回复、包含客户手机号隐私以及非标准格式问题，无法直接用于 LLaMA-Factory 训练。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）原始导出的工单包含重复刷屏、无意义回复（如&#x27;好的&#x27;&#x27;收到&#x27;）和敏感手机号泄露风险。；（2）不同训练框架对数据格式要求不一：单轮指令偏爱 Alpaca 格式，多轮对话偏爱 ShareGPT 格式。；（3）人工编写 500 条覆盖全业务线的标准问答耗时超过 1 周，急需可控的 Self-Instruct 模板与种子扩增流水线。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现支持 Alpaca 与 ShareGPT 双向转换及 Schema 校验的标准化工具。；（2）实现多阶段清洗管道：隐私脱敏、长度/黑名单词过滤、精确指纹去重与 Jaccard 近重复过滤。；（3）构建可离线确定性运行的星辰客服 500 条垂直领域语料合成脚本，并按 9:1 切分 train/eval 集。，必须全部翻译成可量化的测试用例和监控指标（例如 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day52/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. Alpaca vs ShareGPT 怎么选？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：如果你的任务是单轮指令（如工单分类、SQL 生成、固定文本抽取），用 Alpaca 格式最直观，包含 <code>instruction</code>、<code>input</code>、<code>output</code> 和可选 <code>system</code> 字段。如果是智能客服、多轮问诊、带工具调用（Function Calling）的 Agent 微调，必须用 ShareGPT 格式，用 <code>conversations</code> 列表串联多轮 <code>human</code> / <code>gpt</code>（或 <code>function_call</code> / <code>observation</code>）。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：ShareGPT 格式中如果连续出现两条 <code>human</code> 或第一条是 <code>gpt</code>，LLaMA-Factory 加载时会直接报错退出，必须做角色交替校验。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. Alpaca vs ShareGPT 怎么选？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 为什么要做近似去重（Near-Deduplication）？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：真实业务日志中经常出现大量&#x27;只改了个订单号或用户名，其余一字不差&#x27;的重复工单。如果直接进训练集，模型会迅速背诵这些高频模板导致验证集 Loss 飙升（过拟合）。使用字符级 N-gram 的 Jaccard 相似度（或大规模数据用 MinHash LSH）剔除相似度 &gt; 0.85 的样本，能大幅提升模型泛化能力。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：只做精确字符串去重，忽略了标点空格差异和近重复样本，结果 5000 条数据里其实只有 300 条有效信息。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 为什么要做近似去重（Near-Deduplication）？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. SFT 数据量的黄金法则：少而精胜过多而杂】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：对于 7B/14B 模型的垂直领域风格微调，500~3000 条经过人工把关的高质量样本，往往比 5 万条爬虫拼凑的数据效果好得多。此外，建议在领域数据中按 5%~10% 比例混入通用指令数据（Replay），防止模型发生&#x27;灾难性遗忘&#x27;（微调完只会回客服话术，连基本算术和写邮件都不会了）。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：训练集和验证集没做去重隔离，同一类问题既出现在 train 又出现在 eval，导致评估分数虚高 99%，一上线就翻车。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. SFT 数据量的黄金法则：少而精胜过多而杂」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 52 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day52/</code> 中亲手编写了 <code>src/day52_dataset_cleaner.py</code>、<code>src/day52_self_instruct_gen.py</code> 以及对应的自动化测试 <code>tests/test_day52.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day52_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 52 / STARMIND-052）：1. 已在分支 <code>feat/day52-dataset-pipeline-synth</code> 完成 微调数据集构建与 Self-Instruct 合成流水线 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 显存 OOM 崩溃、低质量脏数据导致微调过拟合灾难性遗忘、容器 root 权限安全隐患、敏感 PII 数据未脱敏出境 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 53）：明天（Day 53）我们把今天生成的 500 条高纯度数据集喂进 LLaMA-Factory，自动生成标准微调 YAML 配置，并深入学习 lr/epoch/batch_size 调优与 Loss 曲线诊断。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 52 掌握的「微调数据集构建与 Self-Instruct 合成流水线」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（AutoDL/魔搭云 GPU 算力 + LLaMA-Factory + vLLM/Ollama + Docker Multi-stage + Docker Compose + 内容安全护栏），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「微调数据集构建与 Self-Instruct 合成流水线」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：微调数据集构建与 Self-Instruct 合成流水线 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-052 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 微调/RAG/Prompt 选型决策、Alpaca/ShareGPT 数据清洗与去重、LLaMA-Factory LoRA 微调、模型合并与 GPTQ/AWQ/GGUF 量化、Ollama/vLLM 高吞吐部署、Docker 编排与内容合规 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day52.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（显存 OOM 崩溃、低质量脏数据导致微调过拟合灾难性遗忘、容器 root 权限安全隐患、敏感 PII 数据未脱敏出境）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 52 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day52/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day52_dataset_cleaner.py, src/day52_self_instruct_gen.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>清洗管道能自动剔除长度过短、含&#x27;作为一个AI&#x27;腔调、完全重复及高相似度近重复样本，并输出清洗漏斗统计。；合成器稳定输出 &gt;= 500 条不重复、结构合法的 Alpaca/ShareGPT 语料。；脱敏过滤器确保合成与清洗后的数据集不包含真实 11 位手机号。</td><td>运行 `pytest versions/day52/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day52/day52_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day52-dataset-pipeline-synth` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「微调数据集构建与 Self-Instruct 合成流水线」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-052 需求时，我们的核心业务目标是：实现支持 Alpaca 与 ShareGPT 双向转换及 Schema 校验的标准化工具。；实现多阶段清洗管道：隐私脱敏、长度/黑名单词过滤、精确指纹去重与 Jaccard 近重复过滤。；构建可离线确定性运行的星辰客服 500 条垂直领域语料合成脚本，并按 9:1 切分 train/eval 集。。最初我们也评估过极简脚本方案，但在 显存 OOM 崩溃、低质量脏数据导致微调过拟合灾难性遗忘、容器 root 权限安全隐患、敏感 PII 数据未脱敏出境 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. Alpaca vs ShareGPT 怎么选？、2. 为什么要做近似去重（Near-Deduplication）？、3. SFT 数据量的黄金法则：少而精胜过多而杂 这几层解耦抽象，既满足了当前阶段的 vLLM 并发吞吐 &gt;= 50 tokens/s，容器健康检查 30s 自动拉起，PII 脱敏与违规词拦截 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「微调数据集构建与 Self-Instruct 合成流水线」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 微调/RAG/Prompt 选型决策、Alpaca/ShareGPT 数据清洗与去重、LLaMA-Factory LoRA 微调、模型合并与 GPTQ/AWQ/GGUF 量化、Ollama/vLLM 高吞吐部署、Docker 编排与内容合规 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 52 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day52_dataset_cleaner.py、src/day52_self_instruct_gen.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>漂亮！500 条星辰客服高质量微调语料已经落盘，重复率 0%，格式合规率 100%，还顺带切好了 90% 训练集和 10% 验证集。记住：以后在公司做微调，花 70% 时间在数据清洗和 Bad Case 构造上，花 30% 时间调参，效果绝对吊打只会调学习率的同行。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：为清洗管道增加身份证号与银行卡号脱敏规则</strong><span class="badge">基础巩固</span></div><p>扩展 <code>mask_pii</code> 函数，支持将 18 位中国大陆居民身份证号（含末位 X/x）替换为 <code>&lt;ID_CARD_MASKED&gt;</code>，并编写断言测试。</p><p><strong>💡 思路提示：</strong>正则可使用 `r&#x27;(?&lt;!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)&#x27;`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-52-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-52-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import re
+from src.day52_dataset_cleaner import mask_pii
+
+ID_CARD_RE = re.compile(
+    r&quot;(?&lt;!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)&quot;
+)
+
+
+def mask_pii_extended(text: str) -&gt; str:
+    text, _ = mask_pii(text)
+    return ID_CARD_RE.sub(&quot;&lt;ID_CARD_MASKED&gt;&quot;, text)
+
+
+assert &quot;&lt;ID_CARD_MASKED&gt;&quot; in mask_pii_extended(&quot;客户证件号33010619950512123X，手机13800138000&quot;)
+print(&quot;身份证与手机号联合脱敏通过！&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>政企客服日志极易泄露身份证号，脱敏必须在数据落盘前执行，防止敏感信息被模型记忆后在推理阶段吐出。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：生成 LLaMA-Factory 的 dataset_info.json 注册表</strong><span class="badge">企业实战</span></div><p>编写函数自动生成 LLaMA-Factory 所需的 <code>dataset_info.json</code>，同时注册 <code>starmind_cs_alpaca</code> 和 <code>starmind_cs_sharegpt</code> 两个数据集条目。</p><p><strong>💡 思路提示：</strong>Alpaca 需配置 `columns: {prompt, query, response, system}`；ShareGPT 需配置 `formatting: sharegpt` 与 `tags`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-52-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-52-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import json
+
+
+def build_dataset_info() -&gt; dict:
+    return {
+        &quot;starmind_cs_alpaca&quot;: {
+            &quot;file_name&quot;: &quot;starmind_cs_train_alpaca.json&quot;,
+            &quot;columns&quot;: {
+                &quot;prompt&quot;: &quot;instruction&quot;,
+                &quot;query&quot;: &quot;input&quot;,
+                &quot;response&quot;: &quot;output&quot;,
+                &quot;system&quot;: &quot;system&quot;,
+            },
+        },
+        &quot;starmind_cs_sharegpt&quot;: {
+            &quot;file_name&quot;: &quot;starmind_cs_train_sharegpt.json&quot;,
+            &quot;formatting&quot;: &quot;sharegpt&quot;,
+            &quot;columns&quot;: {&quot;messages&quot;: &quot;conversations&quot;, &quot;system&quot;: &quot;system&quot;},
+            &quot;tags&quot;: {
+                &quot;role_tag&quot;: &quot;from&quot;,
+                &quot;content_tag&quot;: &quot;value&quot;,
+                &quot;user_tag&quot;: &quot;human&quot;,
+                &quot;assistant_tag&quot;: &quot;gpt&quot;,
+            },
+        },
+    }
+
+
+print(json.dumps(build_dataset_info(), ensure_ascii=False, indent=2))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>注册 <code>dataset_info.json</code> 是使用 LLaMA-Factory 时新手最常写错字段名的环节，自动化生成可彻底杜绝 KeyError。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：构建防灾难性遗忘的通用语料混洗采样器</strong><span class="badge">架构进阶</span></div><p>实现函数 <code>mix_with_general_replay(domain_data, general_data, replay_ratio=0.1)</code>，按 10% 比例从通用指令集中抽样混入垂直领域训练集，保持最终样本打乱均匀且不修改原列表。</p><p><strong>💡 思路提示：</strong>计算 `need_general = int(len(domain_data) * replay_ratio / (1 - replay_ratio))`，取 `min(need_general, len(general_data))` 后合并打乱。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-52-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-52-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>import random
+from typing import Dict, List
+
+
+def mix_with_general_replay(
+    domain_data: List[Dict[str, str]],
+    general_data: List[Dict[str, str]],
+    replay_ratio: float = 0.1,
+    seed: int = 42,
+) -&gt; List[Dict[str, str]]:
+    if not (0.0 &lt;= replay_ratio &lt; 0.5):
+        raise ValueError(&quot;replay_ratio 建议控制在 [0, 0.5)&quot;)
+    rng = random.Random(seed)
+    need = int(len(domain_data) * replay_ratio / max(1e-6, 1.0 - replay_ratio))
+    sampled_general = rng.sample(general_data, min(need, len(general_data)))
+    mixed = list(domain_data) + sampled_general
+    rng.shuffle(mixed)
+    return mixed
+
+
+res = mix_with_general_replay([{&quot;id&quot;: i} for i in range(90)], [{&quot;id&quot;: f&quot;g{i}&quot;} for i in range(50)], 0.1)
+print(f&quot;混洗后总样本数: {len(res)}&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>混入 5%~10% 通用高质量指令数据（如 Belle/COIG 精选）是业界最成熟的防灾难性遗忘手段，既保留领域专业度又不损害通用推理能力。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day51/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day53/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

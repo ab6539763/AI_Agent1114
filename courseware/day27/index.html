@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 27：Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 4 周</span>
+      <span class="badge badge-ticket">STARMIND-027</span>
+      <span class="badge">Day 27 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="27" onclick="toggleDayComplete(27, this)">标记今日已完成</button>
+      <a class="btn" href="../day26/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day28/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day27-memory-sqlite-session</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day27/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day27/day27_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day27_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 4 周：第4周：LangChain 核心架构与 RAG 文档预处理</div>
+        <h1>Day 27：Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化</h1>
+        <p class="hero-sub">告别金鱼脑！实现支持多员工并发隔离的 RunnableWithMessageHistory 与记忆裁剪引擎</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-027</span>
+          <span class="hero-tag">分支：feat/day27-memory-sqlite-session</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊！今天聊聊让大模型「长记性」的核心技术——Memory 记忆机制。很多人以为多轮对话很简单，不就是拿个 Python <code>list</code> 把聊天记录存下来，每次全塞给大模型吗？真上生产这么写，三天必出大事故：第一，所有员工共用一个全局 list，张三的薪资咨询串到李四窗口里，直接 P0 级数据泄露；第二，聊到第 30 轮，历史消息飙到 20K Token，不仅账单爆炸，还会触发模型上下文超限报错；第三，服务一重启，所有聊天记录全丢。今天老陈带大家按 LangChain 0.3 最新规范，亲手实现 <code>SQLiteChatMessageHistory</code>（按 <code>session_id</code> 严格物理隔离）、<code>WindowMemory</code>、<code>SummaryBufferMemory</code> 和 <code>RunnableWithMessageHistory</code>！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 26）我们用 LCEL 管道符串起了多步推理流水线。但测试同学一测就发现：第一句说「我叫小王，在研发部」，第二句问「我叫什么名字？」，链直接装傻——因为大模型本身是无状态的（Stateless），每次 HTTP 请求都是全新失忆。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 28）我们将正式迈出企业级 RAG 系统的第一步：多格式文档加载（PDF/Word/MD/HTML/CSV）与中文递归分块（RecursiveCharacterTextSplitter）。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 27 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 27）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 26）我们用 LCEL 管道符串起了多步推理流水线。但测试同学一测就发现：第一句说「我叫小王，在研发部」，第二句问「我叫什么名字？」，链直接装傻——因为大模型本身是无状态的（Stateless），每次 HTTP 请求都是全新失忆。 今天我们通过需求单 STARMIND-027，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day27/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 28）我们将正式迈出企业级 RAG 系统的第一步：多格式文档加载（PDF/Word/MD/HTML/CSV）与中文递归分块（RecursiveCharacterTextSplitter）。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>Memory 演进史与架构选型</td><td>对比 LangChain 旧版 ConversationBufferMemory 与新版 RunnableWithMessageHistory，剖析 Redis/SQLite/PostgreSQL 存储选型。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>SQLiteChatMessageHistory 持久化实操</td><td>设计会话表结构与复合索引，实现按 session_id 增删查与元数据落盘。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>窗口记忆、摘要记忆与 RunnableWithMessageHistory</td><td>手写 WindowMemory、SummaryBufferMemory，并将其无缝接入 Day 26 的 LCEL 管道。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>并发隔离单测、Code Review 与作业实战</td><td>验证重启恢复、多用户隔离与 Token 预算裁剪算法。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-027）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰智脑内部助手即将在全公司 800 名员工中灰度推广，员工在查询报销、休假、IT 故障时往往需要连续追问 5~15 轮，且服务需支持重启后恢复历史会话。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>无状态链无法理解多轮上下文，用户每轮都要重复背景信息。</li><li>内存态 dict 存历史在服务重启后丢失，且多实例部署时状态不一致。</li><li>长对话全量塞入 Prompt 导致 Token 费用失控与首字延迟（TTFT）飙升。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现 `BaseChatMessageHistory` 抽象及基于 SQLite 的 `SQLiteChatMessageHistory`，严格按 `session_id` 隔离并支持持久化。</li><li>实现两种企业级记忆压缩策略：滑动窗口记忆（保留最近 K 轮）与摘要缓冲记忆（超出阈值将早期对话压缩为摘要）。</li><li>实现 `RunnableWithMessageHistory` 包装器，无侵入地为任意 LCEL 链注入多轮记忆能力。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>不同 `session_id` 的并发读写完全隔离，绝不串台；重新实例化对象后可从 SQLite 恢复完整历史。</li><li>滑动窗口能精确截断保留最近 `k` 轮（`2*k` 条消息）；摘要记忆在超限时自动生成摘要并缩减消息数。</li><li>所有 pytest 单元测试（含跨会话隔离、重启持久化、窗口截断与摘要触发）100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>SQLite 写入支持线程安全与索引加速（按 `session_id, id` 建复合索引）。</li><li>单次历史加载耗时 &lt; 5ms。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>在 LangChain 0.2/0.3 中，官方正式废弃了状态与链耦合在一起的旧版 <code>ConversationChain</code>，转而推荐「存储与编排解耦」的 <code>RunnableWithMessageHistory</code> 架构：<br/>1. **历史存储层（ChatMessageHistory）**：只负责按 <code>session_id</code> 存取 <code>BaseMessage</code> 列表。开发环境用 SQLite，生产高并发集群无缝切换为 Redis（带 TTL 自动过期）或 PostgreSQL。<br/>2. **记忆压缩策略层（Memory Trimmer / Summarizer）**：在把历史消息送进大模型之前，经过一道「上下文网关」：<br/>   - **滑动窗口策略（Window）**：只取最近 $K$ 轮对话（$2K$ 条消息），简单高效、零额外 LLM 调用，适合客服与工单场景。<br/>   - **摘要缓冲策略（Summary Buffer）**：当历史消息总字符数/Token 超过阈值时，将较早的 $N$ 轮对话提炼成一条精简的「历史摘要」作为 <code>SystemMessage</code> 置顶，同时完整保留最近 $K$ 轮原文，兼顾长期记忆与低 Token 消耗。<br/>3. **无侵入包装层（RunnableWithMessageHistory）**：在每次 <code>invoke(input, config={&#x27;configurable&#x27;: {&#x27;session_id&#x27;: &#x27;...&#x27;}})</code> 前自动读取并裁剪历史，调用完成后自动将本轮 <code>HumanMessage</code> 和 <code>AIMessage</code> 持久化落盘。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 27.1：RunnableWithMessageHistory 运行时数据流图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 985 420" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="985" height="420" rx="12" fill="#fafafc"/>
+<text x="492.5" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">RunnableWithMessageHistory 运行时数据流图</text>
+<rect x="58.5" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="130.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">员工前端</text>
+<line x1="130.5" y1="88" x2="130.5" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="239.5" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="311.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">RunnableWithMessageHistory</text>
+<line x1="311.5" y1="88" x2="311.5" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="420.5" y="44" width="144" height="44" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="492.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">SQLiteChatMessageHistory</text>
+<line x1="492.5" y1="88" x2="492.5" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="601.5" y="44" width="144" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="673.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95">记忆策略器</text>
+<line x1="673.5" y1="88" x2="673.5" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="782.5" y="44" width="144" height="44" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="854.5" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#991b1b">底层 LCEL 链</text>
+<line x1="854.5" y1="88" x2="854.5" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="130.5" y1="122" x2="311.5" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="221.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. invoke(input, session_id)</text>
+<line x1="311.5" y1="174" x2="492.5" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="402.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. 1. get_messages(session_id)</text>
+<line x1="311.5" y1="226" x2="673.5" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="492.5" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. 2. 窗口裁剪/摘要压缩</text>
+<line x1="311.5" y1="278" x2="854.5" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="583.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. 3. 注入history并推理</text>
+<line x1="311.5" y1="330" x2="492.5" y2="330" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="402.0" y="322" text-anchor="middle" font-size="11.5" fill="#0f172a">5. 4. 追加写入本轮问答</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示每次带 session_id 的多轮调用如何完成「读取历史 -&gt; 策略裁剪 -&gt; LCEL推理 -&gt; 持久化写回」闭环。</div></div><div class="diagram-card"><div class="diagram-title">图 27.2：滑动窗口 vs 摘要缓冲记忆对比原理图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 356" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="356" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">滑动窗口 vs 摘要缓冲记忆对比原理图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">原始10轮对话</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">T1..T10 (20条消息)</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">WindowMemory (k=2)</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">直接丢弃T1..T8</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">输出: [T9, T10]</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">零额外成本 / 易忘背景</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">SummaryBufferMemory</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">T1..T8 -&gt; 摘要段落</text>
+<rect x="30" y="192" width="185" height="86" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<circle cx="48" cy="210" r="10" fill="#dc2626"/><text x="48" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5</text>
+<text x="128.5" y="230" text-anchor="middle" font-size="13" font-weight="700" fill="#991b1b">输出: [摘要] + [T9, T10]</text>
+<text x="122.5" y="256" text-anchor="middle" font-size="11" fill="#475569">保留关键事实 / 控Token</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="815.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>直观对比两种有界上下文策略在长对话场景下对早期信息的处理差异。</div></div><div class="diagram-card"><div class="diagram-title">图 27.3：多租户 SQLite 会话隔离表结构设计（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">多租户 SQLite 会话隔离表结构设计</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">会话 emp_zhangsan</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">报销咨询上下文</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">会话 emp_lisi</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">VPN故障上下文</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">复合索引</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">idx_session_id (session_id, id)</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">chat_messages 表</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">id | session_id | role | content | created_at</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">WHERE session_id=?</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">WHERE session_id=?</text>
+<line x1="629.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">毫秒级范围扫描</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>通过 session_id 复合索引与事务锁保证多员工并发对话零串台、重启零丢失。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么绝对不能用全局变量存聊天记录？</h3><p>FastAPI/Uvicorn 在处理多用户并发请求时，模块级全局变量是被所有请求共享的。如果把 <code>memory = ConversationBufferMemory()</code> 定义在路由函数外面，A 员工刚输入完自己的手机号，B 员工下一秒就能问出来！正确做法是：**Chain 本身必须完全无状态**，每次请求通过 <code>session_id</code>（建议格式为 <code>{tenant_id}:{user_id}:{conv_id}</code>）从外部数据库动态拉取该用户的专属历史。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：前端传过来的 `session_id` 绝对不能直接信任！生产环境必须结合 JWT Token 里的 `user_id` 校验该会话的归属权，防止越权窥探他人聊天记录（IDOR 漏洞）。</div><h3>2. 2. 生产环境 LangChain 真实写法对照</h3><p>在安装了 <code>langchain-community</code> 和 <code>langchain-core</code> 的项目中，核心写法与我们今日手写代码几乎一字不差：<br/>```python<br/>from langchain_community.chat_message_histories import SQLChatMessageHistory<br/>from langchain_core.runnables.history import RunnableWithMessageHistory</p>
+<p>def get_session_history(session_id: str):<br/>    return SQLChatMessageHistory(session_id=session_id, connection=&#x27;sqlite:///starmind_chat.db&#x27;)</p>
+<p>with_memory = RunnableWithMessageHistory(<br/>    runnable=prompt | llm,<br/>    get_session_history=get_session_history,<br/>    input_messages_key=&#x27;input&#x27;,<br/>    history_messages_key=&#x27;history&#x27;,<br/>)<br/>resp = with_memory.invoke({&#x27;input&#x27;: &#x27;我刚才问了啥？&#x27;}, config={&#x27;configurable&#x27;: {&#x27;session_id&#x27;: &#x27;u_1001&#x27;}})<br/>```</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：使用 `trim_messages` 或窗口裁剪时，必须保证截断后的第一条历史消息不是孤立的 `AIMessage`（某些大模型 API 如 Anthropic/部分 Qwen 模板严格要求 `user -&gt; assistant` 交替出现），因此按「整轮（2 条消息为一组）」裁剪是最稳妥的工程实践。</div><h3>3. 3. SQLite vs Redis 怎么选？</h3><p>中小团队 MVP 或单机内网部署（日活 &lt; 1000）直接用 SQLite WAL 模式足够稳定，还能免运维直接做 SQL 审计；一旦进入多副本 K8s 水平扩展，必须把近期热会话放 Redis（设置 24 小时 TTL），全量冷数据异步归档到 PostgreSQL 或 MySQL。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：SQLite 默认在多线程下会报 `SQLite objects created in a thread can only be used in that same thread`，生产封装时要么每次操作短连接 + `threading.Lock`，要么开启连接池与 WAL 模式。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【国内大厂真实踩坑：多轮记忆 + RAG 为什么不能直接把历史塞进检索？】<br/>提前给大家埋个伏笔（Day 32 和 Day 37 会重点攻克）：<br/>有了 Memory 之后，用户第 1 轮问「星辰数科年假有几天？」，第 2 轮紧接着问「那病假呢？」。如果你直接拿「那病假呢？」去向量库检索，向量相似度会一塌糊涂！<br/>所以企业级多轮 RAG 的标准姿势是：**Memory 不仅喂给最终生成模型，还要先喂给一个前置的 Query Rewriter（查询改写器）**，把「那病假呢？」改写成独立完整的「杭州星辰数科员工病假天数与请假规定」，再去检索知识库！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day27/</code> 与 <code>notebooks/day27/day27_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现线程安全、按 session_id 隔离的 SQLiteChatMessageHistory</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们先用 Python 标准库 <code>sqlite3</code> 撸一个生产级会话历史存储器。重点关注三点：表结构与复合索引设计、按 <code>session_id</code> 严格隔离、以及支持序列化还原为 <code>HumanMessage</code> / <code>AIMessage</code> / <code>SystemMessage</code>。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day27_sqlite_history.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 27 - 步骤一：基于 SQLite 的多会话隔离历史存储（SQLiteChatMessageHistory）
+对应生产包：langchain_community.chat_message_histories.SQLChatMessageHistory
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import sys
+import threading
+import time
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Dict, List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day25_chat_model import AIMessage, BaseMessage, HumanMessage, SystemMessage
+
+
+class BaseChatMessageHistory(ABC):
+    &quot;&quot;&quot;对话历史存储抽象基类。&quot;&quot;&quot;
+
+    @property
+    @abstractmethod
+    def messages(self) -&gt; List[BaseMessage]:
+        &quot;&quot;&quot;返回当前会话按时间升序排列的所有消息。&quot;&quot;&quot;
+
+    @abstractmethod
+    def add_message(self, message: BaseMessage) -&gt; None:
+        &quot;&quot;&quot;追加单条消息。&quot;&quot;&quot;
+
+    def add_user_message(self, content: str) -&gt; None:
+        self.add_message(HumanMessage(content=content))
+
+    def add_ai_message(self, content: str) -&gt; None:
+        self.add_message(AIMessage(content=content))
+
+    @abstractmethod
+    def clear(self) -&gt; None:
+        &quot;&quot;&quot;清空当前会话的全部消息（不影响其他 session_id）。&quot;&quot;&quot;
+
+
+class InMemoryChatMessageHistory(BaseChatMessageHistory):
+    &quot;&quot;&quot;内存态会话存储，适合临时脚本与轻量单测。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._messages: List[BaseMessage] = []
+
+    @property
+    def messages(self) -&gt; List[BaseMessage]:
+        return list(self._messages)
+
+    def add_message(self, message: BaseMessage) -&gt; None:
+        self._messages.append(message)
+
+    def clear(self) -&gt; None:
+        self._messages.clear()
+
+
+class SQLiteChatMessageHistory(BaseChatMessageHistory):
+    &quot;&quot;&quot;
+    企业级 SQLite 持久化会话历史：
+    - 通过 session_id 严格隔离多员工对话。
+    - 内置复合索引 (session_id, id) 与线程锁，支持多线程并发读写。
+    &quot;&quot;&quot;
+
+    _lock = threading.Lock()
+    _ROLE_TO_CLS = {
+        &quot;system&quot;: SystemMessage,
+        &quot;user&quot;: HumanMessage,
+        &quot;assistant&quot;: AIMessage,
+    }
+
+    def __init__(self, session_id: str, db_path: str = &quot;starmind_memory.db&quot;) -&gt; None:
+        if not session_id or not session_id.strip():
+            raise ValueError(&quot;session_id 不能为空&quot;)
+        self.session_id = session_id.strip()
+        self.db_path = db_path
+        self._init_db()
+
+    def _connect(self) -&gt; sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -&gt; None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                &quot;&quot;&quot;
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT &#x27;{}&#x27;,
+                    created_at REAL NOT NULL
+                )
+                &quot;&quot;&quot;
+            )
+            conn.execute(
+                &quot;&quot;&quot;
+                CREATE INDEX IF NOT EXISTS idx_chat_session_id
+                ON chat_messages (session_id, id)
+                &quot;&quot;&quot;
+            )
+
+    @property
+    def messages(self) -&gt; List[BaseMessage]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                &quot;SELECT role, content, metadata_json FROM chat_messages WHERE session_id = ? ORDER BY id ASC&quot;,
+                (self.session_id,),
+            ).fetchall()
+        result: List[BaseMessage] = []
+        for row in rows:
+            cls = self._ROLE_TO_CLS.get(row[&quot;role&quot;], HumanMessage)
+            meta = json.loads(row[&quot;metadata_json&quot;])
+            msg = cls(content=row[&quot;content&quot;])
+            msg.additional_kwargs = meta
+            result.append(msg)
+        return result
+
+    def add_message(self, message: BaseMessage) -&gt; None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                &quot;&quot;&quot;
+                INSERT INTO chat_messages (session_id, role, content, metadata_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                &quot;&quot;&quot;,
+                (
+                    self.session_id,
+                    message.role,
+                    message.content,
+                    json.dumps(message.additional_kwargs, ensure_ascii=False),
+                    time.time(),
+                ),
+            )
+
+    def clear(self) -&gt; None:
+        with self._lock, self._connect() as conn:
+            conn.execute(&quot;DELETE FROM chat_messages WHERE session_id = ?&quot;, (self.session_id,))
+
+    @classmethod
+    def list_sessions(cls, db_path: str) -&gt; List[str]:
+        &quot;&quot;&quot;运维辅助：列出数据库中所有活跃的 session_id。&quot;&quot;&quot;
+        with cls._lock, sqlite3.connect(db_path) as conn:
+            rows = conn.execute(
+                &quot;SELECT DISTINCT session_id FROM chat_messages ORDER BY session_id ASC&quot;
+            ).fetchall()
+        return [r[0] for r in rows]
+
+
+if __name__ == &quot;__main__&quot;:
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = str(Path(tmpdir) / &quot;demo_chat.db&quot;)
+        h_zhang = SQLiteChatMessageHistory(&quot;emp_zhangsan&quot;, db_path=db)
+        h_li = SQLiteChatMessageHistory(&quot;emp_lisi&quot;, db_path=db)
+
+        h_zhang.add_user_message(&quot;我叫张三，在杭州星辰数科财务部&quot;)
+        h_zhang.add_ai_message(&quot;你好张三，请问财务报销有什么可以帮您？&quot;)
+        h_li.add_user_message(&quot;我叫李四，VPN连不上了&quot;)
+
+        print(&quot;活跃会话:&quot;, SQLiteChatMessageHistory.list_sessions(db))
+        print(&quot;张三历史条数:&quot;, len(h_zhang.messages), &quot;| 内容:&quot;, [m.content for m in h_zhang.messages])
+        print(&quot;李四历史条数:&quot;, len(h_li.messages), &quot;| 内容:&quot;, [m.content for m in h_li.messages])
+</code></pre><div class="output-box"># 预期运行输出示例：
+活跃会话: [&#x27;emp_lisi&#x27;, &#x27;emp_zhangsan&#x27;]
+张三历史条数: 2 | 内容: [&#x27;我叫张三，在杭州星辰数科财务部&#x27;, &#x27;你好张三，请问财务报销有什么可以帮您？&#x27;]
+李四历史条数: 1 | 内容: [&#x27;我叫李四，VPN连不上了&#x27;]</div></div><h4>深度代码解析与工程要点</h4><p>1. 使用 <code>CREATE INDEX IF NOT EXISTS idx_chat_session_id ON chat_messages (session_id, id)</code>，这样即使表里存了 100 万条员工消息，查某个 <code>session_id</code> 的历史也是毫秒级索引扫描。<br/>2. 用 <code>threading.Lock()</code> + <code>with self._connect() as conn:</code> 既保证了多线程写入不报 <code>database is locked</code>，又确保每次写完自动提交事务。<br/>3. <code>clear()</code> 严格带 <code>WHERE session_id = ?</code>，只删当前会话，绝不误删其他同事记录。</p><h3>实操步骤 2：步骤二：实现窗口记忆、摘要缓冲记忆与 RunnableWithMessageHistory</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>存储层稳了，现在把「滑动窗口裁剪」、「摘要压缩」和 <code>RunnableWithMessageHistory</code> 装配起来，让任何无状态的 LCEL 链秒变支持多轮记忆、绝不失忆也不爆 Token 的智能对话引擎！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day27_memory_chain.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 27 - 步骤二：窗口记忆、摘要缓冲记忆与 RunnableWithMessageHistory 包装器
+对应生产包：langchain_core.runnables.history.RunnableWithMessageHistory
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day25_chat_model import AIMessage, BaseMessage, HumanMessage, StarMindChatModel, SystemMessage
+from src.day26_lcel_core import Runnable
+from src.day27_sqlite_history import BaseChatMessageHistory, SQLiteChatMessageHistory
+
+
+class WindowMemoryStrategy:
+    &quot;&quot;&quot;滑动窗口记忆策略：仅保留最近 k 轮对话（每轮 = 1条用户 + 1条AI）。&quot;&quot;&quot;
+
+    def __init__(self, k: int = 3) -&gt; None:
+        if k &lt; 1:
+            raise ValueError(&quot;窗口轮数 k 必须 &gt;= 1&quot;)
+        self.k = k
+
+    def compress(self, messages: List[BaseMessage]) -&gt; List[BaseMessage]:
+        max_msgs = self.k * 2
+        if len(messages) &lt;= max_msgs:
+            return list(messages)
+        return list(messages[-max_msgs:])
+
+
+class SummaryBufferMemoryStrategy:
+    &quot;&quot;&quot;
+    摘要缓冲记忆策略（对应 ConversationSummaryBufferMemory）：
+    - 当历史消息总字符数 &lt;= max_chars 时原样保留；
+    - 超限时将早期消息压缩为一条 SystemMessage 摘要，并保留最近 keep_recent_turns 轮原文。
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        max_chars: int = 180,
+        keep_recent_turns: int = 2,
+        summarizer: Optional[Callable[[List[BaseMessage]], str]] = None,
+    ) -&gt; None:
+        self.max_chars = max_chars
+        self.keep_recent_turns = keep_recent_turns
+        self._summarizer = summarizer or self._default_extractive_summarizer
+
+    @staticmethod
+    def _default_extractive_summarizer(older_msgs: List[BaseMessage]) -&gt; str:
+        &quot;&quot;&quot;离线确定性摘要器（生产环境可替换为轻量 LLM 摘要链）。&quot;&quot;&quot;
+        facts: List[str] = []
+        for msg in older_msgs:
+            if msg.role == &quot;user&quot;:
+                snippet = msg.content.strip().replace(&quot;\n&quot;, &quot; &quot;)[:40]
+                facts.append(f&quot;用户提及「{snippet}」&quot;)
+        joined = &quot;；&quot;.join(facts) if facts else &quot;此前进行了常规寒暄&quot;
+        return f&quot;【早期对话摘要】{joined}。&quot;
+
+    def compress(self, messages: List[BaseMessage]) -&gt; List[BaseMessage]:
+        total_chars = sum(len(m.content) for m in messages)
+        keep_count = self.keep_recent_turns * 2
+        if total_chars &lt;= self.max_chars or len(messages) &lt;= keep_count:
+            return list(messages)
+        older = messages[:-keep_count]
+        recent = messages[-keep_count:]
+        summary_text = self._summarizer(older)
+        return [SystemMessage(content=summary_text), *recent]
+
+
+class RunnableWithMessageHistory(Runnable[Dict[str, Any], AIMessage]):
+    &quot;&quot;&quot;
+    无侵入多轮记忆包装器：
+    自动根据 session_id 读取历史 -&gt; 执行记忆裁剪/摘要 -&gt; 注入 history 运行底层链 -&gt; 写回本轮对话。
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        runnable: Runnable[Dict[str, Any], AIMessage],
+        get_session_history: Callable[[str], BaseChatMessageHistory],
+        memory_strategy: WindowMemoryStrategy | SummaryBufferMemoryStrategy | None = None,
+        input_messages_key: str = &quot;input&quot;,
+        history_messages_key: str = &quot;history&quot;,
+    ) -&gt; None:
+        self.runnable = runnable
+        self.get_session_history = get_session_history
+        self.memory_strategy = memory_strategy or WindowMemoryStrategy(k=5)
+        self.input_messages_key = input_messages_key
+        self.history_messages_key = history_messages_key
+
+    def invoke(self, input_data: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -&gt; AIMessage:
+        session_id = (config or {}).get(&quot;configurable&quot;, {}).get(&quot;session_id&quot;)
+        if not session_id:
+            raise ValueError(&quot;调用 RunnableWithMessageHistory 必须在 config.configurable 中提供 session_id&quot;)
+
+        history_store = self.get_session_history(session_id)
+        compressed_history = self.memory_strategy.compress(history_store.messages)
+
+        user_input = str(input_data[self.input_messages_key])
+        payload = {**input_data, self.history_messages_key: compressed_history}
+        ai_msg = self.runnable.invoke(payload)
+
+        # 对话完成后再持久化落盘（确保异常时不污染历史）
+        history_store.add_user_message(user_input)
+        history_store.add_ai_message(ai_msg.content)
+        return ai_msg
+
+
+def _memory_aware_chat_handler(messages: List[BaseMessage]) -&gt; str:
+    &quot;&quot;&quot;模拟能读取多轮历史上下文（含摘要）的星辰智能助手。&quot;&quot;&quot;
+    full_context = &quot;\n&quot;.join(m.content for m in messages[:-1])
+    question = messages[-1].content
+
+    # 简单从历史上下文中提取员工姓名与部门，验证记忆是否生效
+    name_match = re.search(r&quot;我叫([\u4e00-\u9fffA-Za-z0-9]{2,8})&quot;, full_context)
+    dept_match = re.search(r&quot;在([\u4e00-\u9fffA-Za-z0-9]{2,10}部)&quot;, full_context)
+
+    if &quot;我是谁&quot; in question or &quot;我叫什么&quot; in question:
+        if name_match:
+            dept_info = f&quot;，来自{dept_match.group(1)}&quot; if dept_match else &quot;&quot;
+            return f&quot;我记得您！您是{name_match.group(1)}{dept_info}。&quot;
+        return &quot;抱歉，当前会话记忆里还没有您的姓名信息，方便告诉我怎么称呼您吗？&quot;
+
+    return f&quot;已收到您的消息：「{question}」（当前参考历史消息 {len(messages) - 1} 条）。&quot;
+
+
+class ContextualChatChain(Runnable[Dict[str, Any], AIMessage]):
+    &quot;&quot;&quot;将 system + history + current_input 拼装后送入 ChatModel。&quot;&quot;&quot;
+
+    def __init__(self, system_prompt: str) -&gt; None:
+        self.system_prompt = system_prompt
+        self.model = StarMindChatModel(model_name=&quot;starmind-memory-llm&quot;, handler=_memory_aware_chat_handler)
+
+    def invoke(self, input_data: Dict[str, Any]) -&gt; AIMessage:
+        msgs: List[BaseMessage] = [SystemMessage(content=self.system_prompt)]
+        msgs.extend(input_data.get(&quot;history&quot;, []))
+        msgs.append(HumanMessage(content=input_data[&quot;input&quot;]))
+        return self.model.invoke(msgs)
+
+
+if __name__ == &quot;__main__&quot;:
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = str(Path(tmpdir) / &quot;starmind_sessions.db&quot;)
+        base_chain = ContextualChatChain(&quot;你是杭州星辰数科企业助手，请结合上下文准确回答。&quot;)
+        chat_with_memory = RunnableWithMessageHistory(
+            runnable=base_chain,
+            get_session_history=lambda sid: SQLiteChatMessageHistory(sid, db_path=db_file),
+            memory_strategy=SummaryBufferMemoryStrategy(max_chars=120, keep_recent_turns=1),
+        )
+
+        cfg_a = {&quot;configurable&quot;: {&quot;session_id&quot;: &quot;emp_wang&quot;}}
+        cfg_b = {&quot;configurable&quot;: {&quot;session_id&quot;: &quot;emp_chen&quot;}}
+
+        print(&quot;小王 第1轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;你好，我叫王小明，在研发部做Python后端开发&quot;}, config=cfg_a).content)
+        print(&quot;小王 第2轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;请问今年年假怎么折算，另外出差补贴标准是多少？&quot;}, config=cfg_a).content)
+        print(&quot;小王 第3轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;考考你，我叫什么名字？&quot;}, config=cfg_a).content)
+        print(&quot;老陈 第1轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;考考你，我叫什么名字？&quot;}, config=cfg_b).content)
+</code></pre><div class="output-box"># 预期运行输出示例：
+小王 第1轮: 已收到您的消息：「你好，我叫王小明，在研发部做Python后端开发」（当前参考历史消息 1 条）。
+小王 第2轮: 已收到您的消息：「请问今年年假怎么折算，另外出差补贴标准是多少？」（当前参考历史消息 3 条）。
+小王 第3轮: 我记得您！您是王小明，来自研发部。
+老陈 第1轮: 抱歉，当前会话记忆里还没有您的姓名信息，方便告诉我怎么称呼您吗？</div></div><h4>深度代码解析与工程要点</h4><p>1. 注意看第 3 轮时，由于前两轮对话字符数超过了 <code>max_chars=120</code>，<code>SummaryBufferMemoryStrategy</code> 自动把第 1 轮压缩进了 <code>【早期对话摘要】</code>，所以即使滑动窗口只保留最近 1 轮，小王问「我叫什么名字」依然能精准答出「王小明，来自研发部」！<br/>2. 同时，老陈使用 <code>session_id=&#x27;emp_chen&#x27;</code> 提问时，系统回答「没有您的姓名信息」，证明了多会话绝对隔离。<br/>3. 落盘动作放在 <code>self.runnable.invoke()</code> 成功返回之后，避免大模型报错时把残缺的半轮对话写进数据库。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现线程安全、按 session_id 隔离的 SQLiteChatMessageHistory（src/day27_sqlite_history.py）</h3><p>模块 <code>src/day27_sqlite_history.py</code> 共计 171 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-027 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>json</code>、<code>sqlite3</code>、<code>sys</code>、<code>threading</code>、<code>time</code>、<code>abc (ABC, abstractmethod)</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List)</code>、<code>src.day25_chat_model (AIMessage, BaseMessage, HumanMessage, SystemMessage)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>BaseChatMessageHistory</code>（第 24~44 行）】这是一个继承自 ABC。其核心职责定义为：对话历史存储抽象基类。。类内部暴露了 5 个方法：<code>messages(self)</code>、<code>add_message(self, message)</code>、<code>add_user_message(self, content)</code>、<code>add_ai_message(self, content)</code>、<code>clear(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BaseChatMessageHistory.messages</code>（第 29~30 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：返回当前会话按时间升序排列的所有消息。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseChatMessageHistory.add_message</code>（第 33~34 行）属于同步实例方法，入参签名为 <code>(self, message)</code>。文档说明：追加单条消息。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseChatMessageHistory.add_user_message</code>（第 36~37 行）属于同步实例方法，入参签名为 <code>(self, content)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseChatMessageHistory.add_ai_message</code>（第 39~40 行）属于同步实例方法，入参签名为 <code>(self, content)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BaseChatMessageHistory.clear</code>（第 43~44 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：清空当前会话的全部消息（不影响其他 session_id）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>InMemoryChatMessageHistory</code>（第 47~61 行）】这是一个继承自 BaseChatMessageHistory。其核心职责定义为：内存态会话存储，适合临时脚本与轻量单测。。类内部暴露了 4 个方法：<code>__init__(self)</code>、<code>messages(self)</code>、<code>add_message(self, message)</code>、<code>clear(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>InMemoryChatMessageHistory.__init__</code>（第 50~51 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>InMemoryChatMessageHistory.messages</code>（第 54~55 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>InMemoryChatMessageHistory.add_message</code>（第 57~58 行）属于同步实例方法，入参签名为 <code>(self, message)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>InMemoryChatMessageHistory.clear</code>（第 60~61 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>SQLiteChatMessageHistory</code>（第 64~154 行）】这是一个继承自 BaseChatMessageHistory。其核心职责定义为：企业级 SQLite 持久化会话历史：<br/>- 通过 session_id 严格隔离多员工对话。<br/>- 内置复合索引 (session_id, id) 与线程锁，支持多线程并发读写。。类内部暴露了 7 个方法：<code>__init__(self, session_id, db_path)</code>、<code>_connect(self)</code>、<code>_init_db(self)</code>、<code>messages(self)</code>、<code>add_message(self, message)</code>、<code>clear(self)</code>、<code>list_sessions(cls, db_path)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory.__init__</code>（第 78~83 行）属于同步实例方法，入参签名为 <code>(self, session_id, db_path)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory._connect</code>（第 85~88 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory._init_db</code>（第 90~109 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory.messages</code>（第 112~125 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory.add_message</code>（第 127~141 行）属于同步实例方法，入参签名为 <code>(self, message)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLiteChatMessageHistory.clear</code>（第 143~145 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day27_sqlite_history.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day27/day27_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day27/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现窗口记忆、摘要缓冲记忆与 RunnableWithMessageHistory（src/day27_memory_chain.py）</h3><p>模块 <code>src/day27_memory_chain.py</code> 共计 164 行源码，其中包含 2 行中文工程注释（注释密度约 1.2%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-027 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Any, Callable, Dict, List, Optional)</code>、<code>src.day25_chat_model (AIMessage, BaseMessage, HumanMessage, StarMindChatModel, SystemMessage)</code>、<code>src.day26_lcel_core (Runnable)</code>、<code>src.day27_sqlite_history (BaseChatMessageHistory, SQLiteChatMessageHistory)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>WindowMemoryStrategy</code>（第 22~34 行）】这是一个独立领域模型类。其核心职责定义为：滑动窗口记忆策略：仅保留最近 k 轮对话（每轮 = 1条用户 + 1条AI）。。类内部暴露了 2 个方法：<code>__init__(self, k)</code>、<code>compress(self, messages)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>WindowMemoryStrategy.__init__</code>（第 25~28 行）属于同步实例方法，入参签名为 <code>(self, k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>WindowMemoryStrategy.compress</code>（第 30~34 行）属于同步实例方法，入参签名为 <code>(self, messages)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>SummaryBufferMemoryStrategy</code>（第 37~73 行）】这是一个独立领域模型类。其核心职责定义为：摘要缓冲记忆策略（对应 ConversationSummaryBufferMemory）：<br/>- 当历史消息总字符数 &lt;= max_chars 时原样保留；<br/>- 超限时将早期消息压缩为一条 SystemMessage 摘要，并保留最近 keep_recent_turns 轮原文。。类内部暴露了 3 个方法：<code>__init__(self, max_chars, keep_recent_turns, summarizer)</code>、<code>_default_extractive_summarizer(older_msgs)</code>、<code>compress(self, messages)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SummaryBufferMemoryStrategy.__init__</code>（第 44~52 行）属于同步实例方法，入参签名为 <code>(self, max_chars, keep_recent_turns, summarizer)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SummaryBufferMemoryStrategy._default_extractive_summarizer</code>（第 55~63 行）属于同步实例方法，入参签名为 <code>(older_msgs)</code>。文档说明：离线确定性摘要器（生产环境可替换为轻量 LLM 摘要链）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SummaryBufferMemoryStrategy.compress</code>（第 65~73 行）属于同步实例方法，入参签名为 <code>(self, messages)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>RunnableWithMessageHistory</code>（第 76~111 行）】这是一个继承自 Runnable[Dict[str, Any], AIMessage]。其核心职责定义为：无侵入多轮记忆包装器：<br/>自动根据 session_id 读取历史 -&gt; 执行记忆裁剪/摘要 -&gt; 注入 history 运行底层链 -&gt; 写回本轮对话。。类内部暴露了 2 个方法：<code>__init__(self, runnable, get_session_history, memory_strategy, input_messages_key, history_messages_key)</code>、<code>invoke(self, input_data, config)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>RunnableWithMessageHistory.__init__</code>（第 82~94 行）属于同步实例方法，入参签名为 <code>(self, runnable, get_session_history, memory_strategy, input_messages_key, history_messages_key)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>RunnableWithMessageHistory.invoke</code>（第 96~111 行）属于同步实例方法，入参签名为 <code>(self, input_data, config)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ContextualChatChain</code>（第 132~143 行）】这是一个继承自 Runnable[Dict[str, Any], AIMessage]。其核心职责定义为：将 system + history + current_input 拼装后送入 ChatModel。。类内部暴露了 2 个方法：<code>__init__(self, system_prompt)</code>、<code>invoke(self, input_data)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ContextualChatChain.__init__</code>（第 135~137 行）属于同步实例方法，入参签名为 <code>(self, system_prompt)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ContextualChatChain.invoke</code>（第 139~143 行）属于同步实例方法，入参签名为 <code>(self, input_data)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>_memory_aware_chat_handler</code>（第 114~129 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(messages)</code>。职责说明：模拟能读取多轮历史上下文（含摘要）的星辰智能助手。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day27_memory_chain.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day27/day27_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day27/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day27_sqlite_history.py（共 171 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day27_sqlite_history.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import sqlite3</code></td><td>核心意图：代表语句：`import sqlite3`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>ROOT = Path(__file__).resolve().parents[1]</code></td><td>核心意图：代表语句：`ROOT = Path(__file__).resolve().parents[1]`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L25-L32</code></td><td><code>&quot;&quot;&quot;对话历史存储抽象基类。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;对话历史存储抽象基类。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L33-L40</code></td><td><code>def add_message(self, message: BaseMessage) -&gt; None:</code></td><td>核心意图：代表语句：`def add_message(self, message: BaseMessage) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>@abstractmethod</code></td><td>核心意图：代表语句：`@abstractmethod`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>def __init__(self) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>def add_message(self, message: BaseMessage) -&gt; None:</code></td><td>核心意图：代表语句：`def add_message(self, message: BaseMessage) -&gt; None:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;system&quot;: SystemMessage,</code></td><td>核心意图：代表语句：`&quot;system&quot;: SystemMessage,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>self.session_id = session_id.strip()</code></td><td>核心意图：代表语句：`self.session_id = session_id.strip()`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L89-L96</code></td><td><code>def _init_db(self) -&gt; None:</code></td><td>核心意图：代表语句：`def _init_db(self) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>role TEXT NOT NULL,</code></td><td>核心意图：代表语句：`role TEXT NOT NULL,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L105-L112</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L113-L120</code></td><td><code>with self._lock, self._connect() as conn:</code></td><td>核心意图：代表语句：`with self._lock, self._connect() as conn:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L121-L128</code></td><td><code>meta = json.loads(row[&quot;metadata_json&quot;])</code></td><td>核心意图：代表语句：`meta = json.loads(row[&quot;metadata_json&quot;])`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L129-L136</code></td><td><code>conn.execute(</code></td><td>核心意图：代表语句：`conn.execute(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L137-L144</code></td><td><code>message.content,</code></td><td>核心意图：代表语句：`message.content,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L145-L152</code></td><td><code>conn.execute(&quot;DELETE FROM chat_messages WHERE session_id = ?&quot;, (self.ses</code></td><td>核心意图：代表语句：`conn.execute(&quot;DELETE FROM chat_messages WHERE session_id = ?&quot;, (self.session_id,))`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L153-L160</code></td><td><code>).fetchall()</code></td><td>核心意图：代表语句：`).fetchall()`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>db = str(Path(tmpdir) / &quot;demo_chat.db&quot;)</code></td><td>核心意图：代表语句：`db = str(Path(tmpdir) / &quot;demo_chat.db&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L169-L171</code></td><td><code>print(&quot;活跃会话:&quot;, SQLiteChatMessageHistory.list_sessions(db))</code></td><td>核心意图：代表语句：`print(&quot;活跃会话:&quot;, SQLiteChatMessageHistory.list_sessions(db))`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day27_memory_chain.py（共 164 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day27_memory_chain.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import sys</code></td><td>核心意图：代表语句：`import sys`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day25_chat_model import AIMessage, BaseMessage, HumanMessage, S</code></td><td>核心意图：代表语句：`from src.day25_chat_model import AIMessage, BaseMessage, HumanMessage, StarMindChatModel, `。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>def __init__(self, k: int = 3) -&gt; None:</code></td><td>核心意图：代表语句：`def __init__(self, k: int = 3) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>return list(messages)</code></td><td>核心意图：代表语句：`return list(messages)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>- 超限时将早期消息压缩为一条 SystemMessage 摘要，并保留最近 keep_recent_turns 轮原文。</code></td><td>核心意图：代表语句：`- 超限时将早期消息压缩为一条 SystemMessage 摘要，并保留最近 keep_recent_turns 轮原文。`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>) -&gt; None:</code></td><td>核心意图：代表语句：`) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L57-L64</code></td><td><code>facts: List[str] = []</code></td><td>核心意图：代表语句：`facts: List[str] = []`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>def compress(self, messages: List[BaseMessage]) -&gt; List[BaseMessage]:</code></td><td>核心意图：代表语句：`def compress(self, messages: List[BaseMessage]) -&gt; List[BaseMessage]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>return [SystemMessage(content=summary_text), *recent]</code></td><td>核心意图：代表语句：`return [SystemMessage(content=summary_text), *recent]`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>) -&gt; None:</code></td><td>核心意图：代表语句：`) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>session_id = (config or {}).get(&quot;configurable&quot;, {}).get(&quot;session_id&quot;)</code></td><td>核心意图：代表语句：`session_id = (config or {}).get(&quot;configurable&quot;, {}).get(&quot;session_id&quot;)`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>payload = {**input_data, self.history_messages_key: compressed_history}</code></td><td>核心意图：对话完成后再持久化落盘（确保异常时不污染历史）。代表语句：`payload = {**input_data, self.history_messages_key: compressed_history}`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L113-L120</code></td><td><code>def _memory_aware_chat_handler(messages: List[BaseMessage]) -&gt; str:</code></td><td>核心意图：简单从历史上下文中提取员工姓名与部门，验证记忆是否生效。代表语句：`def _memory_aware_chat_handler(messages: List[BaseMessage]) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L121-L128</code></td><td><code>dept_match = re.search(r&quot;在([\u4e00-\u9fffA-Za-z0-9]{2,10}部)&quot;, full_conte</code></td><td>核心意图：代表语句：`dept_match = re.search(r&quot;在([\u4e00-\u9fffA-Za-z0-9]{2,10}部)&quot;, full_context)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>return f&quot;已收到您的消息：「{question}」（当前参考历史消息 {len(messages) - 1} 条）。&quot;</code></td><td>核心意图：代表语句：`return f&quot;已收到您的消息：「{question}」（当前参考历史消息 {len(messages) - 1} 条）。&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L137-L144</code></td><td><code>self.model = StarMindChatModel(model_name=&quot;starmind-memory-llm&quot;, handler</code></td><td>核心意图：代表语句：`self.model = StarMindChatModel(model_name=&quot;starmind-memory-llm&quot;, handler=_memory_aware_cha`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L145-L152</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>runnable=base_chain,</code></td><td>核心意图：代表语句：`runnable=base_chain,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L164</code></td><td><code>print(&quot;小王 第1轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;你好，我叫王小明，在研发部做Python</code></td><td>核心意图：代表语句：`print(&quot;小王 第1轮:&quot;, chat_with_memory.invoke({&quot;input&quot;: &quot;你好，我叫王小明，在研发部做Python后端开发&quot;}, config=cfg`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day27/tests/test_day27.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day27/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day27/tests/test_day27.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 27 自动化单元测试：验证 SQLite 持久化、多会话隔离、窗口裁剪与摘要压缩。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day25_chat_model import HumanMessage, AIMessage, SystemMessage
+from src.day27_sqlite_history import SQLiteChatMessageHistory
+from src.day27_memory_chain import (
+    ContextualChatChain,
+    RunnableWithMessageHistory,
+    SummaryBufferMemoryStrategy,
+    WindowMemoryStrategy,
+)
+
+
+def test_sqlite_persistence_and_isolation(tmp_path):
+    db_path = str(tmp_path / &quot;test_mem.db&quot;)
+    h1 = SQLiteChatMessageHistory(&quot;sess_a&quot;, db_path=db_path)
+    h2 = SQLiteChatMessageHistory(&quot;sess_b&quot;, db_path=db_path)
+    h1.add_user_message(&quot;A的消息&quot;)
+    h2.add_user_message(&quot;B的消息&quot;)
+
+    # 模拟服务重启：重新实例化读取
+    h1_reloaded = SQLiteChatMessageHistory(&quot;sess_a&quot;, db_path=db_path)
+    assert len(h1_reloaded.messages) == 1
+    assert h1_reloaded.messages[0].content == &quot;A的消息&quot;
+
+    h1_reloaded.clear()
+    assert len(h1_reloaded.messages) == 0
+    assert len(SQLiteChatMessageHistory(&quot;sess_b&quot;, db_path=db_path).messages) == 1
+
+
+def test_window_and_summary_strategies():
+    msgs = []
+    for i in range(5):
+        msgs.append(HumanMessage(content=f&quot;第{i}轮用户提问：非常详细的业务背景描述内容&quot;))
+        msgs.append(AIMessage(content=f&quot;第{i}轮AI回复：好的收到&quot;))
+
+    win = WindowMemoryStrategy(k=2)
+    trimmed = win.compress(msgs)
+    assert len(trimmed) == 4
+    assert &quot;第3轮&quot; in trimmed[0].content
+
+    summary = SummaryBufferMemoryStrategy(max_chars=80, keep_recent_turns=1)
+    compressed = summary.compress(msgs)
+    assert isinstance(compressed[0], SystemMessage)
+    assert &quot;早期对话摘要&quot; in compressed[0].content
+    assert len(compressed) == 3  # 1条摘要 + 最近1轮(2条)
+
+
+def test_runnable_with_message_history_end_to_end(tmp_path):
+    db_path = str(tmp_path / &quot;e2e.db&quot;)
+    chain = RunnableWithMessageHistory(
+        runnable=ContextualChatChain(&quot;你是星辰助手&quot;),
+        get_session_history=lambda sid: SQLiteChatMessageHistory(sid, db_path=db_path),
+        memory_strategy=SummaryBufferMemoryStrategy(max_chars=100, keep_recent_turns=1),
+    )
+
+    cfg_u1 = {&quot;configurable&quot;: {&quot;session_id&quot;: &quot;u1&quot;}}
+    cfg_u2 = {&quot;configurable&quot;: {&quot;session_id&quot;: &quot;u2&quot;}}
+
+    chain.invoke({&quot;input&quot;: &quot;你好，我叫林悦，在产品部&quot;}, config=cfg_u1)
+    chain.invoke({&quot;input&quot;: &quot;请帮我查一下下周会议室预定规则和投影仪报修流程&quot;}, config=cfg_u1)
+    r1 = chain.invoke({&quot;input&quot;: &quot;我叫什么？&quot;}, config=cfg_u1)
+    r2 = chain.invoke({&quot;input&quot;: &quot;我叫什么？&quot;}, config=cfg_u2)
+
+    assert &quot;林悦&quot; in r1.content and &quot;产品部&quot; in r1.content
+    assert &quot;还没有您的姓名&quot; in r2.content
+
+    with pytest.raises(ValueError, match=&quot;session_id&quot;):
+        chain.invoke({&quot;input&quot;: &quot;没有传session_id&quot;})
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-027</code>，承接自 Day 26 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day27-memory-sqlite-session</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day27-memory-sqlite-session）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day27-memory-sqlite-session
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day27.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-027）
+git add src/day27_sqlite_history.py src/day27_memory_chain.py tests/test_day27.py
+git commit -m &quot;feat(day27): 实现SQLite多会话隔离历史存储、窗口/摘要记忆与RunnableWithMessageHistory
+
+Refs: STARMIND-027
+- 完成 Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day27-memory-sqlite-session</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-027 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-027 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day27_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day27_sqlite_history.py src/day27_memory_chain.py
+    - echo &quot;Day 27 语法编译检查通过&quot;
+
+day27_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day27/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day27/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>把历史写回放在 <code>self.runnable.invoke</code> 成功之后非常正确！另外提醒一下，生产上 <code>session_id</code> 一定要做非空校验，你这里也补了，给个赞。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>SQLite 建表语句加上了 <code>(session_id, id)</code> 复合索引，后续如果表膨胀到几百万行，建议再加一个定时清理 30 天前历史记录的归档任务。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-027 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-027（Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰智脑内部助手即将在全公司 800 名员工中灰度推广，员工在查询报销、休假、IT 故障时往往需要连续追问 5~15 轮，且服务需支持重启后恢复历史会话。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）无状态链无法理解多轮上下文，用户每轮都要重复背景信息。；（2）内存态 dict 存历史在服务重启后丢失，且多实例部署时状态不一致。；（3）长对话全量塞入 Prompt 导致 Token 费用失控与首字延迟（TTFT）飙升。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现 <code>BaseChatMessageHistory</code> 抽象及基于 SQLite 的 <code>SQLiteChatMessageHistory</code>，严格按 <code>session_id</code> 隔离并支持持久化。；（2）实现两种企业级记忆压缩策略：滑动窗口记忆（保留最近 K 轮）与摘要缓冲记忆（超出阈值将早期对话压缩为摘要）。；（3）实现 <code>RunnableWithMessageHistory</code> 包装器，无侵入地为任意 LCEL 链注入多轮记忆能力。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day27/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么绝对不能用全局变量存聊天记录？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：FastAPI/Uvicorn 在处理多用户并发请求时，模块级全局变量是被所有请求共享的。如果把 <code>memory = ConversationBufferMemory()</code> 定义在路由函数外面，A 员工刚输入完自己的手机号，B 员工下一秒就能问出来！正确做法是：**Chain 本身必须完全无状态**，每次请求通过 <code>session_id</code>（建议格式为 <code>{tenant_id}:{user_id}:{conv_id}</code>）从外部数据库动态拉取该用户的专属历史。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：前端传过来的 <code>session_id</code> 绝对不能直接信任！生产环境必须结合 JWT Token 里的 <code>user_id</code> 校验该会话的归属权，防止越权窥探他人聊天记录（IDOR 漏洞）。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么绝对不能用全局变量存聊天记录？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生产环境 LangChain 真实写法对照】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在安装了 <code>langchain-community</code> 和 <code>langchain-core</code> 的项目中，核心写法与我们今日手写代码几乎一字不差：<br/>```python<br/>from langchain_community.chat_message_histories import SQLChatMessageHistory<br/>from langchain_core.runnables.history import RunnableWithMessageHistory</p>
+<p>def get_session_history(session_id: str):<br/>    return SQLChatMessageHistory(session_id=se…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：使用 <code>trim_messages</code> 或窗口裁剪时，必须保证截断后的第一条历史消息不是孤立的 <code>AIMessage</code>（某些大模型 API 如 Anthropic/部分 Qwen 模板严格要求 <code>user -&gt; assistant</code> 交替出现），因此按「整轮（2 条消息为一组）」裁剪是最稳妥的工程实践。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生产环境 LangChain 真实写法对照」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. SQLite vs Redis 怎么选？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：中小团队 MVP 或单机内网部署（日活 &lt; 1000）直接用 SQLite WAL 模式足够稳定，还能免运维直接做 SQL 审计；一旦进入多副本 K8s 水平扩展，必须把近期热会话放 Redis（设置 24 小时 TTL），全量冷数据异步归档到 PostgreSQL 或 MySQL。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：SQLite 默认在多线程下会报 <code>SQLite objects created in a thread can only be used in that same thread</code>，生产封装时要么每次操作短连接 + <code>threading.Lock</code>，要么开启连接池与 WAL 模式。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. SQLite vs Redis 怎么选？」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 27 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day27/</code> 中亲手编写了 <code>src/day27_sqlite_history.py</code>、<code>src/day27_memory_chain.py</code> 以及对应的自动化测试 <code>tests/test_day27.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day27_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 27 / STARMIND-027）：1. 已在分支 <code>feat/day27-memory-sqlite-session</code> 完成 Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 28）：明天（Day 28）我们将正式迈出企业级 RAG 系统的第一步：多格式文档加载（PDF/Word/MD/HTML/CSV）与中文递归分块（RecursiveCharacterTextSplitter）。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 27 掌握的「Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-027 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day27.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 27 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day27/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day27_sqlite_history.py, src/day27_memory_chain.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>不同 `session_id` 的并发读写完全隔离，绝不串台；重新实例化对象后可从 SQLite 恢复完整历史。；滑动窗口能精确截断保留最近 `k` 轮（`2*k` 条消息）；摘要记忆在超限时自动生成摘要并缩减消息数。；所有 pytest 单元测试（含跨会话隔离、重启持久化、窗口截断与摘要触发）100% 通过。</td><td>运行 `pytest versions/day27/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day27/day27_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day27-memory-sqlite-session` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-027 需求时，我们的核心业务目标是：实现 <code>BaseChatMessageHistory</code> 抽象及基于 SQLite 的 <code>SQLiteChatMessageHistory</code>，严格按 <code>session_id</code> 隔离并支持持久化。；实现两种企业级记忆压缩策略：滑动窗口记忆（保留最近 K 轮）与摘要缓冲记忆（超出阈值将早期对话压缩为摘要）。；实现 <code>RunnableWithMessageHistory</code> 包装器，无侵入地为任意 LCEL 链注入多轮记忆能力。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么绝对不能用全局变量存聊天记录？、2. 生产环境 LangChain 真实写法对照、3. SQLite vs Redis 怎么选？ 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「Memory记忆机制：多轮会话隔离、窗口摘要压缩与SQLite持久化」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 27 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day27_sqlite_history.py、src/day27_memory_chain.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天大家亲手踩实了多轮对话的三个关键工程点：持久化（SQLite 落盘不丢）、隔离性（<code>session_id</code> 绝不串台）、以及有界上下文（滑动窗口 + 增量摘要压缩）。记住了，生产环境永远不要无上限拼接历史消息！明天咱们正式切入 RAG 文档加载与中文切分。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现按 Token 预算精确裁剪的 TokenBudgetMemoryStrategy</strong><span class="badge">基础巩固</span></div><p>基于 Day 25 的 Token 估算思想，实现 <code>TokenBudgetMemoryStrategy(max_tokens)</code>：从最新一轮对话开始往前累加，尽可能保留更多完整对话轮次，直到总 Token 数即将超过 <code>max_tokens</code> 时停止（至少保留最新 1 轮，且按偶数组成对保留）。</p><p><strong>💡 思路提示：</strong>逆序每次取一对 `(human, ai)` 消息，计算 Token 累加，超限即 `break`，最后再反转回正序。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-27-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-27-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 27 作业一参考答案：按 Token 预算精确裁剪记忆&quot;&quot;&quot;
+import sys
+from pathlib import Path
+from typing import List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day25_chat_model import AIMessage, BaseChatModel, BaseMessage, HumanMessage
+
+
+class TokenBudgetMemoryStrategy:
+    def __init__(self, max_tokens: int = 120) -&gt; None:
+        self.max_tokens = max_tokens
+
+    def compress(self, messages: List[BaseMessage]) -&gt; List[BaseMessage]:
+        if len(messages) &lt;= 2:
+            return list(messages)
+        selected_rev: List[BaseMessage] = []
+        used = 0
+        # 按 (human, ai) 成对从后往前扫描
+        i = len(messages) - 1
+        while i &gt;= 1:
+            pair = [messages[i - 1], messages[i]]
+            pair_tokens = sum(BaseChatModel._estimate_tokens(m.content) for m in pair)
+            if selected_rev and used + pair_tokens &gt; self.max_tokens:
+                break
+            selected_rev.extend(reversed(pair))
+            used += pair_tokens
+            i -= 2
+        return list(reversed(selected_rev))
+
+
+if __name__ == &quot;__main__&quot;:
+    msgs = []
+    for idx in range(6):
+        msgs.append(HumanMessage(content=f&quot;问题{idx}：请详细介绍杭州星辰数科的差旅住宿报销标准与审批流&quot;))
+        msgs.append(AIMessage(content=f&quot;回答{idx}：一线城市每日上限600元，需部门主管审批&quot;))
+    strategy = TokenBudgetMemoryStrategy(max_tokens=60)
+    kept = strategy.compress(msgs)
+    print(&quot;原消息数:&quot;, len(msgs), &quot;-&gt; 裁剪后消息数:&quot;, len(kept))
+    assert len(kept) &lt; len(msgs) and len(kept) % 2 == 0
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>相比固定保留 K 轮，按 Token 预算裁剪能精确防止某轮用户粘贴 5000 字长日志导致上下文溢出，是生产环境最常用的策略。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：给 SQLiteChatMessageHistory 增加会话 TTL 自动过期清理</strong><span class="badge">企业实战</span></div><p>为 <code>SQLiteChatMessageHistory</code> 编写一个辅助类或方法 <code>purge_expired_sessions(db_path, ttl_seconds)</code>：删除所有 <code>created_at &lt; now - ttl_seconds</code> 的过期消息记录，并返回清理掉的行数。</p><p><strong>💡 思路提示：</strong>用 `DELETE FROM chat_messages WHERE created_at &lt; ?`，读取 `cursor.rowcount` 返回删除行数。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-27-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-27-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 27 作业二参考答案：SQLite 会话历史 TTL 过期清理&quot;&quot;&quot;
+import sqlite3
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day27_sqlite_history import SQLiteChatMessageHistory
+
+
+def purge_expired_messages(db_path: str, ttl_seconds: float, now: float | None = None) -&gt; int:
+    cutoff = (now or time.time()) - ttl_seconds
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.execute(&quot;DELETE FROM chat_messages WHERE created_at &lt; ?&quot;, (cutoff,))
+        return cur.rowcount
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = str(Path(tmpdir) / &quot;ttl.db&quot;)
+        h = SQLiteChatMessageHistory(&quot;emp_01&quot;, db_path=db)
+        h.add_user_message(&quot;一条旧消息&quot;)
+        # 模拟 2 天后清理 TTL=86400 的过期消息
+        deleted = purge_expired_messages(db, ttl_seconds=86400, now=time.time() + 172800)
+        print(&quot;清理过期消息条数:&quot;, deleted)
+        assert deleted == 1
+        assert len(h.messages) == 0
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>企业合规（如《个人信息保护法》）通常要求对话日志不得无限期留存。定期清理过期记录既控磁盘成本又满足审计要求。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现带用户越权防护的 SafeSessionFactory</strong><span class="badge">架构进阶</span></div><p>实现 <code>SafeSessionFactory(db_path)</code>：要求调用 <code>get_history(user_id, conv_id)</code> 时强制拼装复合主键 <code>f&#x27;{user_id}::{conv_id}&#x27;</code>，并禁止 <code>user_id</code> 或 <code>conv_id</code> 中包含 <code>::</code> 或空白字符，彻底杜绝水平越权（IDOR）。</p><p><strong>💡 思路提示：</strong>在工厂方法里先校验合法性，再返回 `SQLiteChatMessageHistory(session_id=f&#x27;{user_id}::{conv_id}&#x27;, db_path=...)`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-27-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-27-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 27 作业三参考答案：防水平越权（IDOR）的安全会话工厂&quot;&quot;&quot;
+import re
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day27_sqlite_history import SQLiteChatMessageHistory
+
+
+class SafeSessionFactory:
+    VALID_ID_RE = re.compile(r&quot;^[A-Za-z0-9_-]{1,64}$&quot;)
+
+    def __init__(self, db_path: str) -&gt; None:
+        self.db_path = db_path
+
+    def get_history(self, user_id: str, conv_id: str) -&gt; SQLiteChatMessageHistory:
+        if not self.VALID_ID_RE.match(user_id) or not self.VALID_ID_RE.match(conv_id):
+            raise ValueError(&quot;非法的 user_id 或 conv_id，存在注入或越权风险&quot;)
+        scoped_session_id = f&quot;{user_id}::{conv_id}&quot;
+        return SQLiteChatMessageHistory(session_id=scoped_session_id, db_path=self.db_path)
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        factory = SafeSessionFactory(str(Path(tmpdir) / &quot;safe.db&quot;))
+        h_a = factory.get_history(&quot;user_1001&quot;, &quot;conv_1&quot;)
+        h_b = factory.get_history(&quot;user_1002&quot;, &quot;conv_1&quot;)
+        h_a.add_user_message(&quot;仅1001可见的机密对话&quot;)
+        assert len(h_b.messages) == 0
+        print(&quot;越权隔离校验通过，user_1002 无法访问 conv_1 的 1001 数据。&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>即使两个员工的会话 ID 都叫 <code>conv_1</code>，通过服务端从鉴权 Token 中强制注入 <code>user_id::</code> 前缀，从根源上消灭水平越权漏洞。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day26/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day28/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

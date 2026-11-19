@@ -1,0 +1,15 @@
+# 星辰智脑 (StarMind) 企业级 Agent 平台与 70 天课程依赖清单
+# 推荐国内使用清华源安装：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+httpx>=0.27.0
+sqlalchemy>=2.0.30
+python-dotenv>=1.0.1
+jinja2>=3.1.4
+pytest>=8.3.0
+nbformat>=5.10.4
+nbclient>=0.10.0
+ipykernel>=6.29.5

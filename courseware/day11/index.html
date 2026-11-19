@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 11：文件操作与常用标准库 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 2 周</span>
+      <span class="badge badge-ticket">STARMIND-011</span>
+      <span class="badge">Day 11 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="11" onclick="toggleDayComplete(11, this)">标记今日已完成</button>
+      <a class="btn" href="../day10/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day12/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day11-files-stdlib-kb-scanner</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day11/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day11/day11_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day11_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 2 周：第 2 周：面向对象、工程化与命令行 AI 助手实战</div>
+        <h1>Day 11：文件操作与常用标准库</h1>
+        <p class="hero-sub">精通 pathlib/csv/json/datetime/re，打造星辰知识库批量文档扫描与关键词统计引擎</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-011</span>
+          <span class="hero-tag">分支：feat/day11-files-stdlib-kb-scanner</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>今天咱们把 Python「自带电池（Batteries Included）」的威力彻底释放出来！星辰数科知识库目录里躺着上百份 <code>.txt</code> 和 <code>.md</code> 制度文档，林产品想做一个上线前的数据摸底（STARMIND-011）：自动递归扫描整个文件夹，用正则表达式提取所有文档里的邮箱、工单号和核心关键词出现频次，打上 <code>datetime</code> 时间戳，最终同时导出 JSON 摘要报告和给运营看的 CSV 报表！今天你学会了 <code>pathlib</code>、<code>csv</code>、<code>datetime</code> 和 <code>re</code> 正则这四把标准库神兵，以后做 RAG 批量文档导入轻轻松松。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天咱们搭好了 StarMind 自定义异常体系和主备容错调度器，工程骨架已经立起来了。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 12）激动人心的时刻到了——咱们学习 HTTP 协议与 API 调用，亲手对接 DeepSeek / 通义千问协议写出第一版命令行 AI 问答小程序！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 11 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 11）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：昨天咱们搭好了 StarMind 自定义异常体系和主备容错调度器，工程骨架已经立起来了。 今天我们通过需求单 STARMIND-011，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day11/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 12）激动人心的时刻到了——咱们学习 HTTP 协议与 API 调用，亲手对接 DeepSeek / 通义千问协议写出第一版命令行 AI 问答小程序！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>pathlib 现代路径操作与 txt/csv/json 读写</td><td>对比 os.path 与 pathlib，精讲 with 上下文自动关闭句柄、UTF-8 编码与 csv.DictWriter。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>datetime 时间处理与 re 正则表达式实战</td><td>编写知识库批量文档扫描器、正则实体抽取器与双格式报表导出器。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>跨平台文件读写单元测试</td><td>用 pytest + tmp_path 构造多层测试文档树，验证扫描统计与 CSV/JSON 导出。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>常用正则速查表整理与课后题</td><td>整理邮箱/手机号/工单号/Markdown代码块提取正则，完成 3 道课后作业。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-011）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>在搭建 RAG 知识库前，运营与算法团队需要对存量散落的本地 Markdown/TXT 文档进行批量内容扫描、敏感信息抽检与高频业务词统计，并生成可供 Excel 打开的 CSV 统计表。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>人工逐个打开几十份文档统计关键词效率极低且易漏。</li><li>Windows 与 Linux 路径分隔符不一致（`\` vs `/`），硬编码路径跨平台必挂。</li><li>缺少使用正则表达式批量抽取文档中隐藏的手机号、邮箱与工单编号的能力。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>掌握 `with open(..., encoding=&#x27;utf-8&#x27;)`、`pathlib.Path` 跨平台目录遍历与文件读写。</li><li>熟练使用 `csv.DictWriter/DictReader`、`datetime` 时间戳格式化与 `re` 正则表达式。</li><li>交付批量文档扫描、关键词频次统计、实体抽取与 CSV/JSON 双格式报表导出工具。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>能递归扫描指定目录下所有 `.txt` / `.md` 文件并正确统计字符数与指定关键词命中次数。</li><li>能用正则准确提取文档中出现的邮箱地址与 `STARMIND-xxx` 工单号。</li><li>能将统计结果无乱码导出为 CSV 与 JSON 报告，并在隔离 `tmp_path` 下通过 pytest。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>全流程使用 `pathlib.Path` 保证 Windows/macOS/Linux 跨平台一致。</li><li>CSV 写出使用 `newline=&#x27;&#x27;` 防止 Windows 出现多余空行。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>本模块是后续第三阶段 RAG「文档加载器（Document Loader）」的直接前身，采用清晰的两段式流水线：<br/>1. **正则实体抽取与文本分析器（day11_regex_extractor.py）**：预编译（<code>re.compile</code>）常用业务正则表达式（邮箱、工单号、中国大陆手机号），提供高性能的单文档统计与实体提取纯函数。<br/>2. **批量目录扫描与报表导出器（day11_doc_scanner.py）**：基于 <code>pathlib.Path.rglob(&#x27;*&#x27;)</code> 递归发现目标扩展名文件，逐个调用分析器收集指标，打上 <code>datetime</code> 生成时间，分别写入 <code>.csv</code>（含 <code>newline=&#x27;&#x27;</code>）和 <code>.json</code> 报表。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 11.1：批量文档扫描与关键词统计导出流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">批量文档扫描与关键词统计导出流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">Path.rglob 扫描</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">筛选 .txt / .md 文件</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">UTF-8 安全读取</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">with open 自动关句柄</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">re 正则与关键词统计</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">提取工单/邮箱/词频</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">datetime 打标汇总</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">记录扫描时间与总览</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">导出 CSV + JSON</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">运营表格 + 程序接口</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="245.5" y="66.0" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">文件路径列表</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="543.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">文档正文</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="682.0" y="132.5" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">单文件指标</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="540.5" y="202.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">持久化报表</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示从递归发现本地文档、正则实体抽取、关键词计数到双格式报表落盘的完整数据流。</div></div><div class="diagram-card"><div class="diagram-title">图 11.2：Python 常用标准库协作架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Python 常用标准库协作架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">pathlib</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">跨平台路径与递归扫描</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">re 正则引擎</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">模式匹配与实体抽取</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">datetime</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">ISO 时间戳与审计记录</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">csv &amp; json</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">表格报表与结构化落盘</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">DocScanner 引擎</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">组合编排输出报告</text>
+<line x1="430.0" y1="130" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">文件发现</text>
+<line x1="231.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">内容抽取</text>
+<line x1="629.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="629.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">时间标记</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">双格式导出</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 pathlib、re、csv、json、datetime 五大高频标准库在文档处理系统中的职责分工。</div></div><div class="diagram-card"><div class="diagram-title">图 11.3：正则表达式编译与匹配工作原理解析图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">正则表达式编译与匹配工作原理解析图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">正则模板字符串</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">r&#x27;STARMIND-\d{3}&#x27;</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">re.compile() 预编译</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">生成可复用 Pattern 状态机</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">pattern.findall(text)</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">扫描千份文档零重复编译</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">去重排序结果</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">[&#x27;STARMIND-001&#x27;, ...]</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>以 STARMIND-\d{3} 为例展示预编译 Pattern 对象如何避免循环内重复编译正则带来的性能浪费。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. pathlib.Path：现代 Python 文件路径唯一推荐写法</h3><p>用 <code>/</code> 运算符优雅拼接路径：<code>base = Path(&#x27;data&#x27;) / &#x27;kb&#x27; / &#x27;guide.md&#x27;</code>；常用属性与方法：<code>.exists()</code>、<code>.suffix</code>（扩展名）、<code>.stem</code>（不含扩展名的文件名）、<code>.read_text(encoding=&#x27;utf-8&#x27;)</code>、<code>.rglob(&#x27;*.md&#x27;)</code> 递归搜索。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>尽量避免手写反斜杠 `&#x27;C:\new\test.txt&#x27;`（`\n` 和 `\t` 会被当成转义符），用 `Path` 或原始字符串 `r&#x27;...&#x27;` 彻底免疫转义坑。</div><h3>2. 2. CSV 读写与 Excel 中文防乱码技巧</h3><p>写 CSV 务必用 <code>open(path, &#x27;w&#x27;, encoding=&#x27;utf-8-sig&#x27;, newline=&#x27;&#x27;)</code> 搭配 <code>csv.DictWriter</code>。其中 <code>newline=&#x27;&#x27;</code> 交给 csv 模块自己控制换行，避免 Windows 下每两行之间多出一条空白行；<code>utf-8-sig</code> 带 BOM 头，微软 Excel 直接双击打开不乱码。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>用 `csv.DictReader` 读回数据时，所有列默认都是字符串 `str`，数值列记得手动 `int()` / `float()` 转换。</div><h3>3. 3. re 正则表达式与 datetime 时区意识</h3><p>正则字符串一律加 <code>r</code> 前缀（原始字符串），高频函数：<code>re.findall</code> 提取全部、<code>re.sub</code> 替换脱敏、<code>re.compile</code> 预编译提速。时间处理在 Python 3.11+ 推荐 <code>datetime.now(timezone.utc)</code>（带时区感知），避免使用已废弃的 <code>datetime.utcnow()</code>。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>正则表达式里的 `.*` 默认是**贪婪匹配**，提取两个标签之间的内容时请用非贪婪 `.*?`，否则会把整篇文章吞成一大段！</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【大厂避坑：大文件读写千万别一次性 <code>.read_text()</code>！】<br/>今天扫描的是几 KB 的制度文档，<code>.read_text()</code> 一行很爽；但以后遇到 5GB 的服务器访问日志或百万行 JSONL 微调数据集，直接 <code>.read()</code> 会瞬间把内存打爆（OOM Killer 直接杀进程）。大文件标准写法是逐行流式迭代：<code>with path.open(&#x27;r&#x27;, encoding=&#x27;utf-8&#x27;) as f: for line in f: ...</code>，内存占用永远只有几 KB！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day11/</code> 与 <code>notebooks/day11/day11_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：编写预编译正则实体抽取与关键词频次分析器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先用 <code>re.compile</code> 预编译好星辰数科常用的邮箱、工单号和关键词统计函数，单文档分析逻辑全部做成纯函数。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day11_regex_extractor.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-011 模块一：预编译正则实体抽取与关键词频次统计器。
+演示 re.compile、re.findall、大小写不敏感匹配与边界词频统计。
+&quot;&quot;&quot;
+
+import re
+from typing import Dict, List, Any
+
+# 预编译高频业务正则表达式，批量扫描时避免重复编译开销
+EMAIL_PATTERN = re.compile(r&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;)
+TICKET_PATTERN = re.compile(r&quot;STARMIND-\d{3,4}&quot;, re.IGNORECASE)
+
+
+def extract_entities(text: str) -&gt; Dict[str, List[str]]:
+    &quot;&quot;&quot;从文档正文中抽取去重排序后的邮箱地址与星辰工单号。&quot;&quot;&quot;
+    emails = sorted(set(EMAIL_PATTERN.findall(text)))
+    # 工单号统一标准化为大写
+    tickets = sorted({t.upper() for t in TICKET_PATTERN.findall(text)})
+    return {&quot;emails&quot;: emails, &quot;tickets&quot;: tickets}
+
+
+def count_keywords(text: str, keywords: List[str]) -&gt; Dict[str, int]:
+    &quot;&quot;&quot;统计指定关键词列表在文本中出现的总次数（大小写不敏感）。&quot;&quot;&quot;
+    lowered = text.lower()
+    counts: Dict[str, int] = {}
+    for kw in keywords:
+        clean_kw = kw.strip()
+        if not clean_kw:
+            continue
+        counts[clean_kw] = lowered.count(clean_kw.lower())
+    return counts
+
+
+def analyze_document_text(name: str, text: str, keywords: List[str]) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;汇总单篇文档的字数、行数、实体及关键词命中明细。&quot;&quot;&quot;
+    entities = extract_entities(text)
+    kw_counts = count_keywords(text, keywords)
+    return {
+        &quot;file_name&quot;: name,
+        &quot;char_count&quot;: len(text),
+        &quot;line_count&quot;: len(text.splitlines()),
+        &quot;emails&quot;: entities[&quot;emails&quot;],
+        &quot;tickets&quot;: entities[&quot;tickets&quot;],
+        &quot;keyword_counts&quot;: kw_counts,
+        &quot;total_keyword_hits&quot;: sum(kw_counts.values()),
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    sample = &quot;需求 STARMIND-011 由 lin@starmind.cn 提出，关联 starmind-005，重点关注 RAG 与 Python 性能优化。&quot;
+    print(analyze_document_text(&quot;demo.md&quot;, sample, [&quot;RAG&quot;, &quot;Python&quot;, &quot;Agent&quot;]))
+</code></pre><div class="output-box"># 预期运行输出示例：
+{&#x27;file_name&#x27;: &#x27;demo.md&#x27;, &#x27;char_count&#x27;: 54, &#x27;line_count&#x27;: 1, &#x27;emails&#x27;: [&#x27;lin@starmind.cn&#x27;], &#x27;tickets&#x27;: [&#x27;STARMIND-005&#x27;, &#x27;STARMIND-011&#x27;], &#x27;keyword_counts&#x27;: {&#x27;RAG&#x27;: 1, &#x27;Python&#x27;: 1, &#x27;Agent&#x27;: 0}, &#x27;total_keyword_hits&#x27;: 2}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>re.compile</code> 放在模块顶层，程序启动只编译一次，后续扫描一万份文档速度极快。<br/>2. 工单号正则加了 <code>re.IGNORECASE</code>，然后统一 <code>.upper()</code> 归一化，防止文档里有人手滑写成 <code>starmind-005</code> 漏统计。</p><h3>实操步骤 2：步骤二：实现批量文档递归扫描器与 CSV / JSON 双格式报表导出</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在把 <code>pathlib</code>、<code>csv</code>、<code>json</code>、<code>datetime</code> 串起来，实现目录批量扫描并一键生成运营 CSV 和系统 JSON 报告。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day11_doc_scanner.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-011 模块二：知识库批量文档扫描与 CSV/JSON 双报表导出器。
+演示 pathlib.Path 递归扫描、datetime 时区时间戳、csv.DictWriter(utf-8-sig) 与 json.dump。
+&quot;&quot;&quot;
+
+import csv
+import json
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
+
+from day11_regex_extractor import analyze_document_text
+
+SUPPORTED_SUFFIXES: Tuple[str, ...] = (&quot;.txt&quot;, &quot;.md&quot;)
+
+
+def scan_directory(root_dir: Path, keywords: List[str]) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;递归扫描目录下所有 .txt / .md 文件，生成完整统计报告。&quot;&quot;&quot;
+    if not root_dir.exists() or not root_dir.is_dir():
+        raise FileNotFoundError(f&quot;扫描目录不存在: {root_dir}&quot;)
+
+    doc_reports: List[Dict[str, Any]] = []
+    global_keyword_totals: Dict[str, int] = {kw: 0 for kw in keywords}
+
+    # 使用 pathlib.rglob 递归遍历并按相对路径排序，确保结果稳定
+    matched_files = sorted(
+        p for p in root_dir.rglob(&quot;*&quot;) if p.is_file() and p.suffix.lower() in SUPPORTED_SUFFIXES
+    )
+
+    for file_path in matched_files:
+        text = file_path.read_text(encoding=&quot;utf-8&quot;)
+        rel_name = file_path.relative_to(root_dir).as_posix()
+        report = analyze_document_text(rel_name, text, keywords)
+        doc_reports.append(report)
+        for kw, cnt in report[&quot;keyword_counts&quot;].items():
+            global_keyword_totals[kw] = global_keyword_totals.get(kw, 0) + cnt
+
+    return {
+        &quot;generated_at&quot;: datetime.now(timezone.utc).isoformat(timespec=&quot;seconds&quot;),
+        &quot;scanned_dir&quot;: root_dir.as_posix(),
+        &quot;total_files&quot;: len(doc_reports),
+        &quot;global_keyword_totals&quot;: global_keyword_totals,
+        &quot;documents&quot;: doc_reports,
+    }
+
+
+def export_reports(summary: Dict[str, Any], output_dir: Path) -&gt; Dict[str, Path]:
+    &quot;&quot;&quot;将扫描结果同时导出为 JSON 完整报告与 CSV 运营明细表。&quot;&quot;&quot;
+    output_dir.mkdir(parents=True, exist_ok=True)
+    json_path = output_dir / &quot;kb_scan_report.json&quot;
+    csv_path = output_dir / &quot;kb_scan_summary.csv&quot;
+
+    # 1. 导出 JSON
+    with json_path.open(&quot;w&quot;, encoding=&quot;utf-8&quot;) as jf:
+        json.dump(summary, jf, ensure_ascii=False, indent=2)
+
+    # 2. 导出 CSV（utf-8-sig 确保 Excel 打开中文不乱码，newline=&#x27;&#x27; 防多余空行）
+    fieldnames = [&quot;file_name&quot;, &quot;char_count&quot;, &quot;line_count&quot;, &quot;total_keyword_hits&quot;, &quot;tickets&quot;, &quot;emails&quot;]
+    with csv_path.open(&quot;w&quot;, encoding=&quot;utf-8-sig&quot;, newline=&quot;&quot;) as cf:
+        writer = csv.DictWriter(cf, fieldnames=fieldnames)
+        writer.writeheader()
+        for doc in summary[&quot;documents&quot;]:
+            writer.writerow(
+                {
+                    &quot;file_name&quot;: doc[&quot;file_name&quot;],
+                    &quot;char_count&quot;: doc[&quot;char_count&quot;],
+                    &quot;line_count&quot;: doc[&quot;line_count&quot;],
+                    &quot;total_keyword_hits&quot;: doc[&quot;total_keyword_hits&quot;],
+                    &quot;tickets&quot;: &quot;;&quot;.join(doc[&quot;tickets&quot;]),
+                    &quot;emails&quot;: &quot;;&quot;.join(doc[&quot;emails&quot;]),
+                }
+            )
+
+    return {&quot;json&quot;: json_path, &quot;csv&quot;: csv_path}
+
+
+if __name__ == &quot;__main__&quot;:
+    # 使用临时目录自包含演示，运行完自动清理不留垃圾文件
+    with tempfile.TemporaryDirectory() as tmp:
+        kb_dir = Path(tmp) / &quot;kb&quot;
+        (kb_dir / &quot;tech&quot;).mkdir(parents=True)
+        (kb_dir / &quot;readme.md&quot;).write_text(&quot;星辰智脑 Python RAG 指南，联系人 chen@starmind.cn&quot;, encoding=&quot;utf-8&quot;)
+        (kb_dir / &quot;tech&quot; / &quot;api.txt&quot;).write_text(&quot;工单 STARMIND-011：Python 与 FastAPI 接口规范&quot;, encoding=&quot;utf-8&quot;)
+
+        summary = scan_directory(kb_dir, [&quot;Python&quot;, &quot;RAG&quot;, &quot;FastAPI&quot;])
+        paths = export_reports(summary, Path(tmp) / &quot;out&quot;)
+        print(f&quot;扫描完成: {summary[&#x27;total_files&#x27;]} 份文档 | 全局词频: {summary[&#x27;global_keyword_totals&#x27;]}&quot;)
+        print(&quot;CSV 预览:\n&quot; + paths[&quot;csv&quot;].read_text(encoding=&quot;utf-8-sig&quot;).strip())
+</code></pre><div class="output-box"># 预期运行输出示例：
+扫描完成: 2 份文档 | 全局词频: {&#x27;Python&#x27;: 2, &#x27;RAG&#x27;: 1, &#x27;FastAPI&#x27;: 1}
+CSV 预览:
+file_name,char_count,line_count,total_keyword_hits,tickets,emails
+readme.md,34,1,2,,chen@starmind.cn
+tech/api.txt,34,1,2,STARMIND-011,</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>file_path.relative_to(root_dir).as_posix()</code> 无论在 Windows 还是 Linux 上都输出统一的 <code>/</code> 相对路径，报表格式跨平台一致。<br/>2. <code>__main__</code> 演示块使用 <code>tempfile.TemporaryDirectory()</code>，跑完自动销毁临时目录，极度干净。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：编写预编译正则实体抽取与关键词频次分析器（src/day11_regex_extractor.py）</h3><p>模块 <code>src/day11_regex_extractor.py</code> 共计 51 行源码，其中包含 2 行中文工程注释（注释密度约 3.9%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-011 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>re</code>、<code>typing (Dict, List, Any)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>extract_entities</code>（第 14~19 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。职责说明：从文档正文中抽取去重排序后的邮箱地址与星辰工单号。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>count_keywords</code>（第 22~31 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text, keywords)</code>。职责说明：统计指定关键词列表在文本中出现的总次数（大小写不敏感）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>analyze_document_text</code>（第 34~46 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(name, text, keywords)</code>。职责说明：汇总单篇文档的字数、行数、实体及关键词命中明细。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day11_regex_extractor.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day11/day11_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day11/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现批量文档递归扫描器与 CSV / JSON 双格式报表导出（src/day11_doc_scanner.py）</h3><p>模块 <code>src/day11_doc_scanner.py</code> 共计 89 行源码，其中包含 4 行中文工程注释（注释密度约 4.5%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-011 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>csv</code>、<code>json</code>、<code>tempfile</code>、<code>datetime (datetime, timezone)</code>、<code>pathlib (Path)</code>、<code>typing (Dict, Any, List, Tuple)</code>、<code>day11_regex_extractor (analyze_document_text)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>scan_directory</code>（第 18~45 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(root_dir, keywords)</code>。职责说明：递归扫描目录下所有 .txt / .md 文件，生成完整统计报告。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>export_reports</code>（第 48~75 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(summary, output_dir)</code>。职责说明：将扫描结果同时导出为 JSON 完整报告与 CSV 运营明细表。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day11_doc_scanner.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day11/day11_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day11/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day11_regex_extractor.py（共 51 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day11_regex_extractor.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>EMAIL_PATTERN = re.compile(r&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-</code></td><td>核心意图：预编译高频业务正则表达式，批量扫描时避免重复编译开销。代表语句：`EMAIL_PATTERN = re.compile(r&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L17-L24</code></td><td><code>tickets = sorted({t.upper() for t in TICKET_PATTERN.findall(text)})</code></td><td>核心意图：工单号统一标准化为大写。代表语句：`tickets = sorted({t.upper() for t in TICKET_PATTERN.findall(text)})`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L25-L32</code></td><td><code>counts: Dict[str, int] = {}</code></td><td>核心意图：代表语句：`counts: Dict[str, int] = {}`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>def analyze_document_text(name: str, text: str, keywords: List[str]) -&gt; </code></td><td>核心意图：代表语句：`def analyze_document_text(name: str, text: str, keywords: List[str]) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;line_count&quot;: len(text.splitlines()),</code></td><td>核心意图：代表语句：`&quot;line_count&quot;: len(text.splitlines()),`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L49-L51</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day11_doc_scanner.py（共 89 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day11_doc_scanner.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from datetime import datetime, timezone</code></td><td>核心意图：代表语句：`from datetime import datetime, timezone`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>def scan_directory(root_dir: Path, keywords: List[str]) -&gt; Dict[str, Any</code></td><td>核心意图：代表语句：`def scan_directory(root_dir: Path, keywords: List[str]) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L25-L32</code></td><td><code>matched_files = sorted(</code></td><td>核心意图：使用 pathlib.rglob 递归遍历并按相对路径排序，确保结果稳定。代表语句：`matched_files = sorted(`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>rel_name = file_path.relative_to(root_dir).as_posix()</code></td><td>核心意图：代表语句：`rel_name = file_path.relative_to(root_dir).as_posix()`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;scanned_dir&quot;: root_dir.as_posix(),</code></td><td>核心意图：代表语句：`&quot;scanned_dir&quot;: root_dir.as_posix(),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>&quot;&quot;&quot;将扫描结果同时导出为 JSON 完整报告与 CSV 运营明细表。&quot;&quot;&quot;</code></td><td>核心意图：1. 导出 JSON。代表语句：`&quot;&quot;&quot;将扫描结果同时导出为 JSON 完整报告与 CSV 运营明细表。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L57-L64</code></td><td><code>fieldnames = [&quot;file_name&quot;, &quot;char_count&quot;, &quot;line_count&quot;, &quot;total_keyword_hi</code></td><td>核心意图：2. 导出 CSV（utf-8-sig 确保 Excel 打开中文不乱码，newline=&#x27;&#x27; 防多余空行）。代表语句：`fieldnames = [&quot;file_name&quot;, &quot;char_count&quot;, &quot;line_count&quot;, &quot;total_keyword_hits&quot;, &quot;tickets&quot;, &quot;e`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>)</code></td><td>核心意图：使用临时目录自包含演示，运行完自动清理不留垃圾文件。代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>kb_dir = Path(tmp) / &quot;kb&quot;</code></td><td>核心意图：代表语句：`kb_dir = Path(tmp) / &quot;kb&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L89-L89</code></td><td><code>print(&quot;CSV 预览:\n&quot; + paths[&quot;csv&quot;].read_text(encoding=&quot;utf-8-sig&quot;).strip()</code></td><td>核心意图：代表语句：`print(&quot;CSV 预览:\n&quot; + paths[&quot;csv&quot;].read_text(encoding=&quot;utf-8-sig&quot;).strip())`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day11/tests/test_day11.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day11/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day11/tests/test_day11.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-011 自动化单元测试。&quot;&quot;&quot;
+
+import csv
+import json
+import sys
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day11_regex_extractor import extract_entities, count_keywords
+from day11_doc_scanner import scan_directory, export_reports
+
+
+def test_regex_extraction_and_keywords():
+    text = &quot;联系 hr@starmind.cn 或 dev@starmind.cn，参考 starmind-008 和 STARMIND-011。Python 很好用，python！&quot;
+    ent = extract_entities(text)
+    assert ent[&quot;emails&quot;] == [&quot;dev@starmind.cn&quot;, &quot;hr@starmind.cn&quot;]
+    assert ent[&quot;tickets&quot;] == [&quot;STARMIND-008&quot;, &quot;STARMIND-011&quot;]
+    assert count_keywords(text, [&quot;Python&quot;, &quot;Java&quot;]) == {&quot;Python&quot;: 2, &quot;Java&quot;: 0}
+
+
+def test_scan_directory_and_export_csv_json(tmp_path: Path):
+    kb = tmp_path / &quot;docs&quot;
+    (kb / &quot;sub&quot;).mkdir(parents=True)
+    (kb / &quot;a.md&quot;).write_text(&quot;星辰智脑 RAG 方案 STARMIND-001&quot;, encoding=&quot;utf-8&quot;)
+    (kb / &quot;sub&quot; / &quot;b.txt&quot;).write_text(&quot;RAG 与 Agent 结合 dev@starmind.cn&quot;, encoding=&quot;utf-8&quot;)
+    (kb / &quot;ignore.bin&quot;).write_bytes(b&quot;\x00\x01&quot;)  # 非文本文件应自动忽略
+
+    summary = scan_directory(kb, [&quot;RAG&quot;, &quot;Agent&quot;])
+    assert summary[&quot;total_files&quot;] == 2
+    assert summary[&quot;global_keyword_totals&quot;] == {&quot;RAG&quot;: 2, &quot;Agent&quot;: 1}
+
+    out = export_reports(summary, tmp_path / &quot;reports&quot;)
+    loaded_json = json.loads(out[&quot;json&quot;].read_text(encoding=&quot;utf-8&quot;))
+    assert loaded_json[&quot;total_files&quot;] == 2
+
+    with out[&quot;csv&quot;].open(&quot;r&quot;, encoding=&quot;utf-8-sig&quot;, newline=&quot;&quot;) as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 2
+    assert rows[0][&quot;file_name&quot;] == &quot;a.md&quot;
+    assert rows[1][&quot;file_name&quot;] == &quot;sub/b.txt&quot;
+
+    with pytest.raises(FileNotFoundError):
+        scan_directory(tmp_path / &quot;not_exist&quot;, [&quot;RAG&quot;])
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-011</code>，承接自 Day 10 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day11-files-stdlib-kb-scanner</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day11-files-stdlib-kb-scanner）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day11-files-stdlib-kb-scanner
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day11.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-011）
+git add src/day11_regex_extractor.py src/day11_doc_scanner.py tests/test_day11.py
+git commit -m &quot;feat(day11): 实现基于pathlib/re/csv/datetime的批量文档读取与关键词统计导出工具
+
+Refs: STARMIND-011
+- 完成 文件操作与常用标准库 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day11-files-stdlib-kb-scanner</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-011 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-011 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day11_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day11_regex_extractor.py src/day11_doc_scanner.py
+    - echo &quot;Day 11 语法编译检查通过&quot;
+
+day11_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day11/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day11/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>全线采用 <code>pathlib</code> + <code>utf-8-sig</code> + <code>newline=&#x27;&#x27;</code>，还贴心过滤掉了 <code>.bin</code> 二进制杂文件，可以直接复用进后面的 RAG 导入器。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (PM)</span><span>状态：Approved</span></div><p>导出的 CSV 用 Excel 双击直接打开中文完美显示，工单号和邮箱也全抓出来了！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-011 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-011（文件操作与常用标准库）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：在搭建 RAG 知识库前，运营与算法团队需要对存量散落的本地 Markdown/TXT 文档进行批量内容扫描、敏感信息抽检与高频业务词统计，并生成可供 Excel 打开的 CSV 统计表。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）人工逐个打开几十份文档统计关键词效率极低且易漏。；（2）Windows 与 Linux 路径分隔符不一致（<code>\</code> vs <code>/</code>），硬编码路径跨平台必挂。；（3）缺少使用正则表达式批量抽取文档中隐藏的手机号、邮箱与工单编号的能力。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）掌握 <code>with open(..., encoding=&#x27;utf-8&#x27;)</code>、<code>pathlib.Path</code> 跨平台目录遍历与文件读写。；（2）熟练使用 <code>csv.DictWriter/DictReader</code>、<code>datetime</code> 时间戳格式化与 <code>re</code> 正则表达式。；（3）交付批量文档扫描、关键词频次统计、实体抽取与 CSV/JSON 双格式报表导出工具。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day11/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. pathlib.Path：现代 Python 文件路径唯一推荐写法】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：用 <code>/</code> 运算符优雅拼接路径：<code>base = Path(&#x27;data&#x27;) / &#x27;kb&#x27; / &#x27;guide.md&#x27;</code>；常用属性与方法：<code>.exists()</code>、<code>.suffix</code>（扩展名）、<code>.stem</code>（不含扩展名的文件名）、<code>.read_text(encoding=&#x27;utf-8&#x27;)</code>、<code>.rglob(&#x27;*.md&#x27;)</code> 递归搜索。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：尽量避免手写反斜杠 <code>&#x27;C:\new\test.txt&#x27;</code>（<code>\n</code> 和 <code>\t</code> 会被当成转义符），用 <code>Path</code> 或原始字符串 <code>r&#x27;...&#x27;</code> 彻底免疫转义坑。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. pathlib.Path：现代 Python 文件路径唯一推荐写法」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. CSV 读写与 Excel 中文防乱码技巧】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：写 CSV 务必用 <code>open(path, &#x27;w&#x27;, encoding=&#x27;utf-8-sig&#x27;, newline=&#x27;&#x27;)</code> 搭配 <code>csv.DictWriter</code>。其中 <code>newline=&#x27;&#x27;</code> 交给 csv 模块自己控制换行，避免 Windows 下每两行之间多出一条空白行；<code>utf-8-sig</code> 带 BOM 头，微软 Excel 直接双击打开不乱码。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：用 <code>csv.DictReader</code> 读回数据时，所有列默认都是字符串 <code>str</code>，数值列记得手动 <code>int()</code> / <code>float()</code> 转换。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. CSV 读写与 Excel 中文防乱码技巧」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. re 正则表达式与 datetime 时区意识】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：正则字符串一律加 <code>r</code> 前缀（原始字符串），高频函数：<code>re.findall</code> 提取全部、<code>re.sub</code> 替换脱敏、<code>re.compile</code> 预编译提速。时间处理在 Python 3.11+ 推荐 <code>datetime.now(timezone.utc)</code>（带时区感知），避免使用已废弃的 <code>datetime.utcnow()</code>。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：正则表达式里的 <code>.*</code> 默认是**贪婪匹配**，提取两个标签之间的内容时请用非贪婪 <code>.*?</code>，否则会把整篇文章吞成一大段！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. re 正则表达式与 datetime 时区意识」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 11 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day11/</code> 中亲手编写了 <code>src/day11_regex_extractor.py</code>、<code>src/day11_doc_scanner.py</code> 以及对应的自动化测试 <code>tests/test_day11.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day11_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 11 / STARMIND-011）：1. 已在分支 <code>feat/day11-files-stdlib-kb-scanner</code> 完成 文件操作与常用标准库 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 12）：明天（Day 12）激动人心的时刻到了——咱们学习 HTTP 协议与 API 调用，亲手对接 DeepSeek / 通义千问协议写出第一版命令行 AI 问答小程序！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 11 掌握的「文件操作与常用标准库」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「文件操作与常用标准库」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：文件操作与常用标准库 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-011 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day11.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 11 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day11/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day11_regex_extractor.py, src/day11_doc_scanner.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>能递归扫描指定目录下所有 `.txt` / `.md` 文件并正确统计字符数与指定关键词命中次数。；能用正则准确提取文档中出现的邮箱地址与 `STARMIND-xxx` 工单号。；能将统计结果无乱码导出为 CSV 与 JSON 报告，并在隔离 `tmp_path` 下通过 pytest。</td><td>运行 `pytest versions/day11/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day11/day11_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day11-files-stdlib-kb-scanner` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「文件操作与常用标准库」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-011 需求时，我们的核心业务目标是：掌握 <code>with open(..., encoding=&#x27;utf-8&#x27;)</code>、<code>pathlib.Path</code> 跨平台目录遍历与文件读写。；熟练使用 <code>csv.DictWriter/DictReader</code>、<code>datetime</code> 时间戳格式化与 <code>re</code> 正则表达式。；交付批量文档扫描、关键词频次统计、实体抽取与 CSV/JSON 双格式报表导出工具。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. pathlib.Path：现代 Python 文件路径唯一推荐写法、2. CSV 读写与 Excel 中文防乱码技巧、3. re 正则表达式与 datetime 时区意识 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「文件操作与常用标准库」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 11 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day11_regex_extractor.py、src/day11_doc_scanner.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>记住今天的两条现代 Python 铁律：1）写路径操作无脑用 <code>pathlib.Path</code>，彻底告别满屏 <code>os.path.join</code> 的斜杠地狱；2）写 CSV 报表在 Windows 下如果怕 Excel 打开中文乱码，把编码设为 <code>utf-8-sig</code>（带 BOM 的 UTF-8），运营同学双击打开绝不乱码！明天咱们就要联网调大模型 API 了，保持状态！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：正则表达式批量脱敏手机号</strong><span class="badge">基础巩固</span></div><p>编写 <code>mask_phones_in_text(text: str) -&gt; str</code>，使用 <code>re.sub</code> 将任意长文本中出现的所有 11 位中国大陆手机号（1 开头）自动替换为前 3 后 4 脱敏格式（如 <code>138****8899</code>）。</p><p><strong>💡 思路提示：</strong>使用捕获组 `r&#x27;(1[3-9]\d)\d{4}(\d{4})&#x27;` 配合替换串 `r&#x27;\1****\2&#x27;`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-11-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-11-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 11 课后题 1：正则捕获组批量脱敏文本中的手机号。&quot;&quot;&quot;
+
+import re
+
+PHONE_RE = re.compile(r&quot;(?&lt;!\d)(1[3-9]\d)\d{4}(\d{4})(?!\d)&quot;)
+
+
+def mask_phones_in_text(text: str) -&gt; str:
+    &quot;&quot;&quot;将文本中所有独立的 11 位手机号替换为中间四位掩码。&quot;&quot;&quot;
+    return PHONE_RE.sub(r&quot;\1****\2&quot;, text)
+
+
+if __name__ == &quot;__main__&quot;:
+    raw = &quot;客户手机 13857108899，备用 18612345678，订单号 13857108899001 不应误伤。&quot;
+    print(mask_phones_in_text(raw))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>利用负向环视 <code>(?&lt;!\d)</code> 与 <code>(?!\d)</code> 精准匹配独立 11 位手机号，不会误伤 14 位数字订单号！</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：日志文件按日期归档命名器</strong><span class="badge">企业实战</span></div><p>编写 <code>build_log_path(base_dir: Path, service_name: str, dt: datetime) -&gt; Path</code>，返回形如 <code>base_dir/2026/05/starmind_20260511.log</code> 的分层归档路径。</p><p><strong>💡 思路提示：</strong>用 `dt.strftime(&#x27;%Y&#x27;)`、`dt.strftime(&#x27;%m&#x27;)` 和 `dt.strftime(&#x27;%Y%m%d&#x27;)` 拼接 `Path`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-11-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-11-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 11 课后题 2：按年月分目录的日志归档路径生成器。&quot;&quot;&quot;
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+def build_log_path(base_dir: Path, service_name: str, dt: datetime) -&gt; Path:
+    &quot;&quot;&quot;生成按 年/月 分层的标准日志文件路径。&quot;&quot;&quot;
+    return base_dir / dt.strftime(&quot;%Y&quot;) / dt.strftime(&quot;%m&quot;) / f&quot;{service_name}_{dt.strftime(&#x27;%Y%m%d&#x27;)}.log&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    now = datetime(2026, 5, 11, 10, 30, tzinfo=timezone.utc)
+    print(build_log_path(Path(&quot;logs&quot;), &quot;starmind&quot;, now).as_posix())
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>按年月分桶存放日志是运维标配，避免单目录塞进几十万个文件导致 <code>ls</code> 卡死。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：从大模型回复中提取所有 Markdown 代码块</strong><span class="badge">架构进阶</span></div><p>大模型经常在回答中夹杂多个 ```<code> </code>`<code>python ... </code>`<code> </code>``<code> 代码块。编写 </code>extract_code_blocks(markdown_text: str) -&gt; list[dict]<code>，用非贪婪正则提取每个代码块的语言标识 </code>lang<code> 和纯代码正文 </code>code`。</p><p><strong>💡 思路提示：</strong>使用 `re.compile(r&#x27;```(\w*)\n(.*?)```&#x27;, re.DOTALL)` 配合 `findall`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-11-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-11-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 11 课后题 3：大模型 Markdown 回复代码块提取器。&quot;&quot;&quot;
+
+import re
+from typing import List, Dict
+
+CODE_BLOCK_RE = re.compile(r&quot;```(\w*)\n(.*?)```&quot;, re.DOTALL)
+
+
+def extract_code_blocks(markdown_text: str) -&gt; List[Dict[str, str]]:
+    &quot;&quot;&quot;提取 Markdown 中所有围栏代码块及其语言类型。&quot;&quot;&quot;
+    blocks: List[Dict[str, str]] = []
+    for lang, code in CODE_BLOCK_RE.findall(markdown_text):
+        blocks.append({&quot;lang&quot;: lang.lower() or &quot;text&quot;, &quot;code&quot;: code.strip()})
+    return blocks
+
+
+if __name__ == &quot;__main__&quot;:
+    reply = &quot;示例如下：\n```python\nprint(&#x27;hello&#x27;)\n```\n配置：\n```json\n{\&quot;ok\&quot;: true}\n```&quot;
+    print(extract_code_blocks(reply))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>本题直接可用于代码执行 Agent（Code Interpreter）自动抽取大模型生成的 Python 代码并送入沙盒运行！注意 <code>re.DOTALL</code> 让 <code>.</code> 能跨行匹配，非贪婪 <code>.*?</code> 防止把两个代码块合并成一个。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day10/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day12/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

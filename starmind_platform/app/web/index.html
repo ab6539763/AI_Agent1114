@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>星辰智脑 StarMind · 企业级大模型 Agent 平台</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121931;
+      --panel-alt: #182242;
+      --border: #26335c;
+      --primary: #4f7cff;
+      --primary-hover: #3b68f0;
+      --accent: #18c39b;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --text: #edf2ff;
+      --muted: #93a3c8;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top right, #182752 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: rgba(18, 25, 49, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(79, 124, 255, 0.35);
+    }
+    .brand h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+    .brand small { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(24, 195, 155, 0.12);
+      border: 1px solid rgba(24, 195, 155, 0.35);
+      color: #6ef0cf;
+      font-size: 12px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .layout {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      flex: 1;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      gap: 20px;
+    }
+    nav {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: fit-content;
+    }
+    .nav-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      text-align: left;
+      padding: 11px 14px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.18s ease;
+    }
+    .nav-btn:hover { background: var(--panel-alt); color: var(--text); }
+    .nav-btn.active {
+      background: linear-gradient(90deg, rgba(79, 124, 255, 0.24), rgba(24, 195, 155, 0.1));
+      border-color: rgba(79, 124, 255, 0.45);
+      color: #fff;
+    }
+    main {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      min-height: 680px;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    h2 { margin: 0 0 6px; font-size: 20px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+    .card {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input, textarea, select {
+      width: 100%;
+      background: #0d1428;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 84px; }
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary:hover { background: var(--primary-hover); }
+    button.secondary {
+      background: #233056;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button.success { background: #149e7e; color: #fff; border: none; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+    button.danger { background: #c93b3b; color: #fff; border: none; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+    .chat-box {
+      height: 360px;
+      overflow-y: auto;
+      background: #0c1224;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .msg {
+      max-width: 82%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
+    .msg.assistant { align-self: flex-start; background: #1b274b; border: 1px solid var(--border); }
+    .output-pre {
+      background: #0b1122;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.55;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      color: #d7e3ff;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .kpi {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .kpi .k-label { font-size: 12px; color: var(--muted); }
+    .kpi .k-val { font-size: 24px; font-weight: 700; margin-top: 6px; color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+    th { background: #1c294f; color: #dbe7ff; }
+    .row-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .grid-2, .grid-4 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-logo">星</div>
+      <div>
+        <h1>星辰智脑 StarMind Enterprise Agent Platform</h1>
+        <small>杭州星辰数科 AI 平台工程部 · 企业级大模型与多 Agent 编排控制台</small>
+      </div>
+    </div>
+    <div class="status-pill" id="health-pill">
+      <span class="dot"></span>
+      <span id="health-text">正在连接引擎...</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav>
+      <button class="nav-btn active" onclick="switchTab('chat', this)">💬 多轮 SSE 智能对话</button>
+      <button class="nav-btn" onclick="switchTab('rag', this)">📚 企业知识库 RAG</button>
+      <button class="nav-btn" onclick="switchTab('agent', this)">🤖 多 Agent 与审批流</button>
+      <button class="nav-btn" onclick="switchTab('sql', this)">📊 Text-to-SQL 销售分析</button>
+      <button class="nav-btn" onclick="switchTab('mcp', this)">🔌 MCP 工具调试台</button>
+      <button class="nav-btn" onclick="switchTab('metrics', this)">📈 可观测性监控大盘</button>
+    </nav>
+
+    <main>
+      <!-- 1. 多轮 SSE 对话 -->
+      <section id="tab-chat" class="tab-pane active">
+        <h2>多轮 SSE 流式对话（含安全护栏 & PII 自动脱敏）</h2>
+        <p class="subtitle">支持上下文记忆持久化；尝试输入手机号/身份证号可观察自动脱敏，输入“忽略以上指令”可验证提示词注入拦截。</p>
+        <div class="chat-box" id="chat-box">
+          <div class="msg assistant">您好！我是星辰智脑 StarMind 企业级助手，请输入您的问题开始体验 SSE 打字机流式回复。</div>
+        </div>
+        <div class="row-actions">
+          <input id="chat-input" placeholder="例如：帮我规划企业大模型落地方案，我的手机号是 13812345678" onkeydown="if(event.key==='Enter') sendStreamChat()" />
+          <button class="primary" onclick="sendStreamChat()">流式发送</button>
+          <button class="secondary" onclick="resetSession()">新建会话</button>
+        </div>
+      </section>
+
+      <!-- 2. 企业知识库 RAG -->
+      <section id="tab-rag" class="tab-pane">
+        <h2>企业知识库混合检索 RAG（BM25 + 向量 + RRF + 溯源标注）</h2>
+        <p class="subtitle">已自动预置《差旅报销规范》《考勤年假制度》《AI研发安全合规手册》，支持在线入库与 Ragas 自动化评估。</p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>📥 知识文档入库</h3>
+            <label>文档名称</label>
+            <input id="rag-doc-name" value="星辰数科GPU算力申请指引.md" />
+            <label style="margin-top:10px;">文档内容（支持 md / txt / csv / json）</label>
+            <textarea id="rag-doc-content">杭州星辰数科算力申请指引：研发团队申请 A800/H800 GPU 集群用于 Qwen2.5-7B LoRA 微调，须提前 3 个工作日提交算力工单，单次训练预算超过 5000 元需部门总监审批。</textarea>
+            <div class="row-actions">
+              <button class="primary" onclick="ingestDoc()">切分并入库</button>
+            </div>
+            <pre class="output-pre" id="rag-ingest-out" style="margin-top:10px;">等待入库操作...</pre>
+          </div>
+          <div class="card">
+            <h3>🔍 溯源问答 & Ragas 质量评估</h3>
+            <label>提问内容</label>
+            <input id="rag-query-input" value="一线城市出差住宿报销标准是多少？金额超过5000元谁审批？" />
+            <div class="row-actions">
+              <button class="primary" onclick="queryRAG()">混合检索问答</button>
+              <button class="secondary" onclick="evalRAG()">Ragas 评估打分</button>
+            </div>
+            <pre class="output-pre" id="rag-query-out" style="margin-top:10px;">等待查询...</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Agent 编排与审批流 -->
+      <section id="tab-agent" class="tab-pane">
+        <h2>Agent 编排中心（ReAct 工具调用 / 多 Agent 协作 / Human-in-the-loop 审批流）</h2>
+        <p class="subtitle">体验自主工具推理、四专家接力协作报告，以及金额 >= 5000 元自动触发的人工审批中断与断点恢复。</p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>⚡ ReAct 工具推理 / 多 Agent 协作</h3>
+            <label>任务指令</label>
+            <input id="agent-input" value="帮我计算 (1280 + 320) * 1.13 并查询杭州天气" />
+            <div class="row-actions">
+              <button class="primary" onclick="runReAct()">运行 ReAct Agent</button>
+              <button class="secondary" onclick="runMultiAgent()">运行四专家 Multi-Agent</button>
+            </div>
+            <pre class="output-pre" id="agent-out" style="margin-top:10px;">等待执行...</pre>
+          </div>
+          <div class="card">
+            <h3>🛡️ StateGraph 人工审批中断流</h3>
+            <label>申请事项</label>
+            <input id="wf-item" value="采购 Qwen2.5 微调 GPU 算力卡时" />
+            <label style="margin-top:8px;">申请金额（元，>=5000 触发人工中断）</label>
+            <input id="wf-amount" type="number" value="12800" />
+            <div class="row-actions">
+              <button class="primary" onclick="startWorkflow()">发起审批工作流</button>
+              <button class="success" onclick="resumeWorkflow(true)">人工同意放行</button>
+              <button class="danger" onclick="resumeWorkflow(false)">人工驳回</button>
+            </div>
+            <pre class="output-pre" id="wf-out" style="margin-top:10px;">尚未发起工作流...</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Text-to-SQL -->
+      <section id="tab-sql" class="tab-pane">
+        <h2>Text-to-SQL 企业销售业绩实时分析（安全只读白名单）</h2>
+        <p class="subtitle">直连 SQLite `enterprise_sales` 真实业绩表，自然语言自动转只读 SELECT SQL 并严防 DROP/DELETE/UPDATE 注入。</p>
+        <div class="row-actions" style="margin-bottom:14px;">
+          <input id="sql-question" value="按销售大区统计订单数、总销售额和客单价并按销售额降序排列" />
+          <button class="primary" onclick="runSQL()">执行智能查数</button>
+        </div>
+        <pre class="output-pre" id="sql-meta">生成的只读 SQL 与业务解读将展示在此处...</pre>
+        <div id="sql-table-wrap"></div>
+      </section>
+
+      <!-- 5. MCP 工具调试台 -->
+      <section id="tab-mcp" class="tab-pane">
+        <h2>MCP（Model Context Protocol）JSON-RPC 2.0 工具调试台</h2>
+        <p class="subtitle">标准化暴露企业工具与只读资源，支持 `tools/list`、`tools/call` 与 `resources/list` 协议调用。</p>
+        <div class="row-actions" style="margin-bottom:12px;">
+          <button class="primary" onclick="loadMCPTools()">拉取 tools/list</button>
+          <button class="secondary" onclick="callMCPDemo()">测试 tools/call (calculator)</button>
+          <button class="secondary" onclick="callMCPResources()">拉取 resources/list</button>
+        </div>
+        <pre class="output-pre" id="mcp-out">点击上方按钮发起标准 JSON-RPC 2.0 MCP 调用...</pre>
+      </section>
+
+      <!-- 6. 可观测性监控面板 -->
+      <section id="tab-metrics" class="tab-pane">
+        <h2>全链路可观测性与 FinOps 成本监控大盘</h2>
+        <p class="subtitle">实时聚合平台 Trace / Span 延迟分位数（P50 / P95）、Token 消耗与人民币成本核算。</p>
+        <div class="row-actions" style="margin-bottom:14px;">
+          <button class="primary" onclick="loadMetrics()">刷新实时指标</button>
+        </div>
+        <div class="grid-4">
+          <div class="kpi"><div class="k-label">总追踪 Span 数</div><div class="k-val" id="m-spans">-</div></div>
+          <div class="kpi"><div class="k-label">延迟 P50 / P95 (ms)</div><div class="k-val" id="m-latency">-</div></div>
+          <div class="kpi"><div class="k-label">累计 Token 消耗</div><div class="k-val" id="m-tokens">-</div></div>
+          <div class="kpi"><div class="k-label">累计核算成本 (CNY)</div><div class="k-val" id="m-cost">-</div></div>
+        </div>
+        <pre class="output-pre" id="metrics-out">点击刷新获取最近链路记录...</pre>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let currentSessionId = "web-" + Math.random().toString(16).slice(2, 10);
+    let lastThreadId = null;
+
+    function switchTab(id, btn) {
+      document.querySelectorAll(".tab-pane").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".nav-btn").forEach(el => el.classList.remove("active"));
+      document.getElementById("tab-" + id).classList.add("active");
+      btn.classList.add("active");
+      if (id === "metrics") loadMetrics();
+      if (id === "mcp") loadMCPTools();
+    }
+
+    async function refreshHealth() {
+      try {
+        const res = await fetch("/api/v1/health");
+        const data = await res.json();
+        document.getElementById("health-text").textContent =
+          `运行正常 · ${data.llm_provider} (${data.llm_model}) · 知识片段 ${data.kb_chunks}`;
+      } catch (e) {
+        document.getElementById("health-text").textContent = "服务连接异常";
+      }
+    }
+
+    function appendMsg(role, text) {
+      const box = document.getElementById("chat-box");
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    function resetSession() {
+      currentSessionId = "web-" + Math.random().toString(16).slice(2, 10);
+      document.getElementById("chat-box").innerHTML =
+        '<div class="msg assistant">已开启全新加密脱敏会话（' + currentSessionId + '），请提问。</div>';
+    }
+
+    async function sendStreamChat() {
+      const input = document.getElementById("chat-input");
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = "";
+      appendMsg("user", msg);
+      const botDiv = appendMsg("assistant", "");
+
+      const resp = await fetch("/api/v1/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: currentSessionId, message: msg })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        botDiv.textContent = "🛡️ 安全护栏拦截：" + (err.message || resp.statusText);
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const evt = JSON.parse(line.slice(5).trim());
+          if (evt.type === "delta") {
+            botDiv.textContent += evt.content;
+            document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
+          }
+        }
+      }
+    }
+
+    async function ingestDoc() {
+      const resp = await fetch("/api/v1/rag/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doc_name: document.getElementById("rag-doc-name").value,
+          content: document.getElementById("rag-doc-content").value,
+          doc_format: "md"
+        })
+      });
+      document.getElementById("rag-ingest-out").textContent = JSON.stringify(await resp.json(), null, 2);
+      refreshHealth();
+    }
+
+    async function queryRAG() {
+      const resp = await fetch("/api/v1/rag/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: document.getElementById("rag-query-input").value, top_k: 3 })
+      });
+      document.getElementById("rag-query-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function evalRAG() {
+      const resp = await fetch("/api/v1/rag/eval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: document.getElementById("rag-query-input").value })
+      });
+      document.getElementById("rag-query-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function runReAct() {
+      const resp = await fetch("/api/v1/agent/react", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: document.getElementById("agent-input").value })
+      });
+      document.getElementById("agent-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function runMultiAgent() {
+      const resp = await fetch("/api/v1/agent/multi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: document.getElementById("agent-input").value })
+      });
+      document.getElementById("agent-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function startWorkflow() {
+      const resp = await fetch("/api/v1/agent/workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicant: "张工",
+          item: document.getElementById("wf-item").value,
+          amount: Number(document.getElementById("wf-amount").value)
+        })
+      });
+      const data = await resp.json();
+      lastThreadId = data.thread_id;
+      document.getElementById("wf-out").textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function resumeWorkflow(approved) {
+      if (!lastThreadId) {
+        alert("请先发起一个高金额审批工作流！");
+        return;
+      }
+      const resp = await fetch(`/api/v1/agent/workflow/${lastThreadId}/resume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approved,
+          reviewer: "陈总监",
+          comment: approved ? "预算合理，同意立项" : "暂缓采购，请补充ROI测算"
+        })
+      });
+      document.getElementById("wf-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function runSQL() {
+      const resp = await fetch("/api/v1/agent/sql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: document.getElementById("sql-question").value })
+      });
+      const data = await resp.json();
+      document.getElementById("sql-meta").textContent =
+        resp.ok
+          ? `【SQL】\n${data.sql}\n\n【智能解读】\n${data.interpretation}`
+          : JSON.stringify(data, null, 2);
+      const wrap = document.getElementById("sql-table-wrap");
+      if (!resp.ok || !data.rows || !data.rows.length) {
+        wrap.innerHTML = "";
+        return;
+      }
+      const cols = data.columns;
+      let html = "<table><thead><tr>" + cols.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+      for (const row of data.rows) {
+        html += "<tr>" + cols.map(c => `<td>${row[c]}</td>`).join("") + "</tr>";
+      }
+      html += "</tbody></table>";
+      wrap.innerHTML = html;
+    }
+
+    async function loadMCPTools() {
+      const resp = await fetch("/api/v1/mcp/tools");
+      document.getElementById("mcp-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function callMCPDemo() {
+      const resp = await fetch("/api/v1/mcp/rpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 101,
+          method: "tools/call",
+          params: { name: "calculator", arguments: { expression: "2026 * 12 + 888" } }
+        })
+      });
+      document.getElementById("mcp-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function callMCPResources() {
+      const resp = await fetch("/api/v1/mcp/rpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 102, method: "resources/list", params: {} })
+      });
+      document.getElementById("mcp-out").textContent = JSON.stringify(await resp.json(), null, 2);
+    }
+
+    async function loadMetrics() {
+      const resp = await fetch("/api/v1/metrics");
+      const data = await resp.json();
+      document.getElementById("m-spans").textContent = data.total_spans;
+      document.getElementById("m-latency").textContent = `${data.latency_ms.p50} / ${data.latency_ms.p95}`;
+      document.getElementById("m-tokens").textContent = data.tokens.total_tokens;
+      document.getElementById("m-cost").textContent = "¥" + data.total_cost_cny.toFixed(5);
+      document.getElementById("metrics-out").textContent = JSON.stringify(data.recent_traces, null, 2);
+    }
+
+    refreshHealth();
+  </script>
+</body>
+</html>

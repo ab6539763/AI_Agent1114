@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 33：高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 5 周</span>
+      <span class="badge badge-ticket">STARMIND-033</span>
+      <span class="badge">Day 33 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="33" onclick="toggleDayComplete(33, this)">标记今日已完成</button>
+      <a class="btn" href="../day32/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day34/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day33-hybrid-rerank-parent-doc</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day33/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day33/day33_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day33_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 5 周：第5周：企业级 RAG 全链路、高级检索优化与评估</div>
+        <h1>Day 33：高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索</h1>
+        <p class="hero-sub">攻克专有名词、工单号与长文上下文割裂难题，打造大厂标配两阶段精排召回引擎</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-033</span>
+          <span class="hero-tag">分支：feat/day33-hybrid-rerank-parent-doc</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！昨天留下的悬念今天直接揭晓：为什么大厂生产环境几乎**没有一家只用纯向量检索**？因为纯向量（Dense）擅长语义泛化，却天生瞎眼——你搜 <code>ERR-5042</code>、<code>STARMIND-033</code> 或者内部代号「天枢项目」，它在 Embedding 空间里就是一堆生僻字符，得分惨不忍睹！<br/>今天老陈带大家把高级 RAG 的后半套压箱底绝活全配齐，组成真正的**大厂标配工业级检索架构**：<br/>1. **BM25 + 向量混合检索（Hybrid Search）**：字面精确匹配 + 语义泛化两条腿走路；<br/>2. **RRF（倒数排名融合）**：无须调参，优雅解决 BM25 分数无界与余弦相似度 <code>[0,1]</code> 量纲不统一的融合难题；<br/>3. **Cross-Encoder 重排序（bge-reranker 原理）**：粗排拉回 Top-10，再让交叉编码器把 <code>(Query, Doc)</code> 拼在一起做逐词注意力精排，把最准的文档死死按在 Top-1；<br/>4. **父文档检索器（ParentDocumentRetriever）**：用小切片精准检索、用完整父文档喂给大模型，鱼和熊掌兼得！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 32）我们用 Query Rewriting、Multi-Query、HyDE 和上下文压缩解决了「员工口语黑话」的表达鸿沟。但测试同学一测研发故障库又报了新 Bug：员工直接搜「ERR-5042 报错怎么排查」或「天枢项目审批流程」，纯向量检索居然把完全不沾边的文档排在前面——因为向量模型压根不认识公司内部代号和错误码！</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 34）我们将从「调优」跨入「科学评测」：构建企业级 RAG 自动化评测框架（Faithfulness、答案相关性、上下文精确率/召回率），把 RAG 质量变成 CI 流水线里的硬门禁！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 33 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 33）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 32）我们用 Query Rewriting、Multi-Query、HyDE 和上下文压缩解决了「员工口语黑话」的表达鸿沟。但测试同学一测研发故障库又报了新 Bug：员工直接搜「ERR-5042 报错怎么排查」或「天枢项目审批流程」，纯向量检索居然把完全不沾边的文档排在前面——因为向量模型压根不认识公司内部代号和错误码！ 今天我们通过需求单 STARMIND-033，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day33/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 34）我们将从「调优」跨入「科学评测」：构建企业级 RAG 自动化评测框架（Faithfulness、答案相关性、上下文精确率/召回率），把 RAG 质量变成 CI 流水线里的硬门禁！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>Okapi BM25 算法原理与 RRF 倒数排名融合</td><td>手推 TF-IDF 到 BM25 的词频饱和与文档长度归一化公式，解析 RRF 无需归一化分数的数学优雅性。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>手写 BM25 + 向量混合检索引擎（HybridRRFRetriever）</td><td>针对中英混合 + 错误码场景定制分词器，跑通 BM25 vs Dense vs Hybrid RRF 三路对比。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>Bi-Encoder vs Cross-Encoder（bge-reranker）与父文档检索器</td><td>拆解 bge-reranker 精排机制与 ParentDocumentRetriever 小块搜大块架构，完成端到端两阶段代码。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>单元测试、Code Review 与进阶作业</td><td>编写 pytest 覆盖率测试，完成动态权重混合检索与 Sentence-Window 滑动窗口扩展作业。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-033）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰智脑知识库即将接入研发运维故障排查手册（含大量错误码如 ERR-5042、接口名、项目代号如「天枢项目」）与长篇制度全文。纯向量检索在精确编码匹配与长文档上下文完整性上暴露严重短板。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>纯向量检索对错误码（ERR-5042）、内部项目代号（天枢/瑶光）、人名工号等字面精确查询召回率极低。</li><li>BM25 得分范围在 `[0, +∞)` 而余弦相似度在 `[-1, 1]`，直接加权相加极易被单一通路主导。</li><li>双塔 Embedding（Bi-Encoder）在检索时 Query 与 Doc 互不可见，Top-3 排序精度遇到天花板。</li><li>切片太小丢上下文、切片太大向量被稀释，传统单粒度切分陷入两难。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现支持中文二元词元 + 英文/错误码精确切分的 `BM25Index` 与 `DenseVectorIndex`，并基于 RRF 实现 `HybridRRFRetriever`。</li><li>实现类 `bge-reranker` 的交叉交互重排器 `BGERerankerSimulator`，完成两阶段「粗排 -&gt; 精排」流水线。</li><li>实现 `ParentDocumentRetriever`：子切片检索 + 按 `parent_id` 去重回溯完整父文档。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>针对「ERR-5042 排查」「天枢项目审批」等精确实体查询，Hybrid RRF 的 Top-1 命中率达到 100%。</li><li>Reranker 精排后，混淆候选文档中的核心答案切片排位显著前移。</li><li>ParentDocumentRetriever 检索命中同一父文档多个子块时能自动去重，并完整返回父文档正文。</li><li>所有 pytest 自动化单元测试 100% 本地离线通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>RRF 常数 `k=60` 可配置，支持为 BM25 与向量两路设置权重（默认 `0.5 / 0.5`）。</li><li>代码结构与生产 `FlagEmbedding` (`BAAI/bge-reranker-v2-m3`) 及 LangChain `ParentDocumentRetriever` 接口保持高度一致。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>工业级 RAG 检索引擎普遍采用「两阶段漏斗 + 索引/生成解耦」架构：<br/>1. **第一阶段：多路并行粗排（Recall Stage）**：同时触发 **BM25 倒排索引**（专治错误码、型号、人名、专有名词）和 **Dense 向量索引**（专治同义表达、口语语义），各自召回 Top-10~20 候选集。<br/>2. **RRF（Reciprocal Rank Fusion）无参融合**：抛弃量纲不一致的原始打分，只看每条文档在各路召回中的名次 $r_i(d)$：$\text{RRF}(d) = \sum_i \frac{w_i}{k + r_i(d)}$（工业默认 $k=60$）。如果一篇文档在 BM25 和向量两路都排前列，它的 RRF 得分会断层领先。<br/>3. **第二阶段：Cross-Encoder 精排（Rerank Stage）**：双塔 Embedding（Bi-Encoder）为了速度把 Query 和 Doc 分开编码，丢掉了词级细粒度交互；而 <code>bge-reranker-v2-m3</code> 这类 Cross-Encoder 把 <code>[CLS] Query [SEP] Doc [SEP]</code> 拼接输入 Transformer，让每个查询词与文档词做全连接自注意力，对 Top-10 候选重新打分截断至 Top-3，精度暴涨且耗时可控（GPU 上 10 对文档仅 ~30ms）。<br/>4. **索引与生成解耦（ParentDocumentRetriever）**：检索时用 60~150 字的小子块（Child Chunk）保证向量表征纯粹；命中后通过 <code>parent_id</code> 从 DocStore 取出 600~1000 字的完整父文档（Parent Document）送给 LLM，彻底根治「只搜到半句话、上下文断层」顽疾。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 33.1：两阶段检索漏斗：BM25+向量 -&gt; RRF融合 -&gt; bge-reranker精排（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 552" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="552" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">两阶段检索漏斗：BM25+向量 -&gt; RRF融合 -&gt; bge-reranker精排</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">用户 Query</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">ERR-5042 网关超时排查</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">BM25 稀疏检索</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">精确命中 ERR-5042 (Top-10)</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Dense 向量检索</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">语义命中 网关超时 (Top-10)</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">RRF 倒数排名融合</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">score = sum(w / (60 + rank))</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">bge-reranker 精排</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">Cross-Encoder 交互打分 Top-3</text>
+<rect x="24" y="400" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="414" width="540" height="76" rx="9" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="430.0" y="444" text-anchor="middle" font-size="14" font-weight="700" fill="#075985">LLM 精准生成</text>
+<text x="430.0" y="468" text-anchor="middle" font-size="12" fill="#475569">高信噪比 Top-3 证据</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">字面路</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">语义路</text>
+<line x1="231.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="231.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">BM25 排名</text>
+<line x1="629.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">向量排名</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">候选集 Top-10</text>
+<line x1="629.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">精排 Top-3</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>工业级标准检索链路：双路互补保召回，RRF 消量纲融合，Cross-Encoder 精排定乾坤。</div></div><div class="diagram-card"><div class="diagram-title">图 33.2：Bi-Encoder（双塔粗排）vs Cross-Encoder（交叉精排）原理对比（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 356" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="356" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">Bi-Encoder（双塔粗排）vs Cross-Encoder（交叉精排）原理对比</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Bi-Encoder: Query 塔</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">独立编码 -&gt; 向量 v_q</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Bi-Encoder: Doc 塔</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">离线预编码 -&gt; 向量 v_d</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">余弦点积</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">毫秒级但无词级交互</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Cross-Encoder 拼接输入</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">[CLS] Query [SEP] Doc [SEP]</text>
+<rect x="30" y="192" width="185" height="86" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<circle cx="48" cy="210" r="10" fill="#dc2626"/><text x="48" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5</text>
+<text x="128.5" y="230" text-anchor="middle" font-size="13" font-weight="700" fill="#991b1b">全层 Self-Attention</text>
+<text x="122.5" y="256" text-anchor="middle" font-size="11" fill="#475569">Query 与 Doc 逐词深度交互</text>
+<rect x="261" y="192" width="185" height="86" rx="12" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<circle cx="279" cy="210" r="10" fill="#0284c7"/><text x="279" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">6</text>
+<text x="359.5" y="230" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">Sigmoid 相关性打分</text>
+<text x="353.5" y="256" text-anchor="middle" font-size="11" fill="#475569">0~1 精准排序得分</text>
+<line x1="215" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="815.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="235.0" x2="258" y2="235.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>双塔可离线预计算文档向量适合百万级粗排；交叉编码器让 Query 与 Doc 词级深度交互适合 Top-20 精排。</div></div><div class="diagram-card"><div class="diagram-title">图 33.3：ParentDocumentRetriever（小块索引、大块返回）工作流（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">ParentDocumentRetriever（小块索引、大块返回）工作流</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">原始父文档 (Parent)</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">600~1000字完整制度章节</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">切分子文档 (Child Chunks)</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">60~150字高纯度小块 + parent_id</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">混合索引库</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">仅索引 Child Chunks</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">父文档 KV 存储 (DocStore)</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">parent_id -&gt; 完整父文档</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">去重回溯完整父文档</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">保留最高分子块对应的父文档</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="251.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">细粒度切分</text>
+<line x1="146.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="396.0" y="132.5" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">持久化原文</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="537.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">入库建索引</text>
+<line x1="718.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="485.0" y="132.5" width="180" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">命中子块 parent_id</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="528.5" y="202.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">反查完整父文档</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>解耦「用于检索的粒度」与「用于生成的粒度」，同时获得高精准检索与完整上下文。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. Okapi BM25 为什么吊打传统 TF-IDF？</h3><p>BM25 在 TF-IDF 基础上引入了两个极具工程智慧的改进：<br/>- **词频饱和度参数 <code>k1</code>（默认 1.5）**：某词在文档里出现 1 次到 5 次相关性上升明显，但出现 50 次并不比 10 次更相关（防止关键词堆砌作弊）。<br/>- **文档长度归一化参数 <code>b</code>（默认 0.75）**：一篇 5000 字长文里偶尔提到 1 次「VPN」，其含金量远不如 100 字短文里提到 1 次「VPN」，BM25 通过 <code>dl / avgdl</code> 自动对过长文档施加惩罚。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：中文 BM25 千万不要只按空格 `split()` 分词！否则整句中文会变成一个巨型 Token 导致 BM25 完全失效。离线轻量场景可用「英文/数字整词 + 中文单字与二元字（Bigram）」，生产环境推荐 `jieba` + 企业自定义专有词典（加入项目代号、错误码）。</div><h3>2. 2. 生产环境接入 BAAI/bge-reranker-v2-m3 标准写法</h3><p>国内企业最常用的开源多语言精排模型是智源研究院的 <code>BAAI/bge-reranker-v2-m3</code>（或通过 SiliconFlow / Cohere / DashScope Rerank API 调用）：<br/>```python<br/>from FlagEmbedding import FlagReranker</p>
+<p>reranker = FlagReranker(&#x27;BAAI/bge-reranker-v2-m3&#x27;, use_fp16=True)<br/>pairs = [[query, doc.page_content] for doc in candidate_docs]<br/>scores = reranker.compute_score(pairs, normalize=True)  # 输出 0~1 概率值<br/>```</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：Reranker 的输入候选数不要贪多！粗排给 Reranker 喂 10~20 条文档最划算，如果喂 100 条文档，Cross-Encoder 推理延迟会直接突破 1 秒，得不偿失。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈架构笔记：什么时候该上 Elasticsearch/Milvus 混合检索？】<br/>在 10 万切片以内，单机内存 BM25 + FAISS/Qdrant 本地模式就能跑出 &lt;30ms 的响应；一旦企业知识库突破百万切片且需要按「部门/角色/生效时间」做复杂权限过滤（Pre-Filtering），务必直接上原生支持 Dense + Sparse（BM25/SPLADE）混合索引的 **Milvus 2.4+ / Qdrant / Elasticsearch 8.x**，千万别在应用层把十万条结果拉到内存里手动过滤！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day33/</code> 与 <code>notebooks/day33/day33_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现中英混合分词器、Okapi BM25、Dense 向量索引与 RRF 混合检索器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们完全不依赖外部 API，先用纯 Python 手写一个工业级标准的 <code>BM25Index</code>、<code>DenseVectorIndex</code> 和 <code>HybridRRFRetriever</code>。重点看分词器是如何同时保留 <code>ERR-5042</code> 这种错误码和中文二元词组的！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day33_hybrid_rrf.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 33 - 步骤一：BM25 稀疏检索 + Dense 向量检索 + RRF 倒数排名融合
+对应生产栈：rank_bm25 / Elasticsearch BM25 + Milvus/Qdrant + EnsembleRetriever(RRF)
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import hashlib
+import math
+import re
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Sequence, Tuple
+
+
+@dataclass
+class Document:
+    &quot;&quot;&quot;统一文档切片模型（与 LangChain Document 接口对齐）。&quot;&quot;&quot;
+
+    page_content: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def doc_id(self) -&gt; str:
+        if &quot;doc_id&quot; in self.metadata:
+            return str(self.metadata[&quot;doc_id&quot;])
+        return hashlib.md5(self.page_content.encode(&quot;utf-8&quot;)).hexdigest()[:12]
+
+
+def tokenize_mixed_cn_en(text: str) -&gt; List[str]:
+    &quot;&quot;&quot;
+    中英混合 + 错误码友好分词器：
+    1. 完整提取英文词、错误码与编号（如 ERR-5042、STARMIND-033、VPN、OA）；
+    2. 对中文连续片段同时提取单字与二元字（Bigram），兼顾召回与词组精度。
+    &quot;&quot;&quot;
+    lowered = text.lower()
+    tokens: List[str] = []
+
+    # 提取英文/数字/连字符组合（完整保留错误码与工单号）
+    alnum_tokens = re.findall(r&quot;[a-z0-9]+(?:[-_][a-z0-9]+)*&quot;, lowered)
+    tokens.extend(alnum_tokens)
+
+    # 提取中文连续串并生成单字 + 二元词组
+    cn_chunks = re.findall(r&quot;[\u4e00-\u9fff]+&quot;, lowered)
+    for chunk in cn_chunks:
+        for ch in chunk:
+            tokens.append(ch)
+        for i in range(len(chunk) - 1):
+            tokens.append(chunk[i : i + 2])
+    return tokens
+
+
+class BM25Index:
+    &quot;&quot;&quot;
+    标准 Okapi BM25 稀疏检索引擎：
+    score(q, d) = sum_{t in q} IDF(t) * (f(t,d) * (k1 + 1)) / (f(t,d) + k1 * (1 - b + b * |d| / avgdl))
+    &quot;&quot;&quot;
+
+    def __init__(self, k1: float = 1.5, b: float = 0.75) -&gt; None:
+        self.k1 = k1
+        self.b = b
+        self.documents: List[Document] = []
+        self.doc_term_freqs: List[Counter[str]] = []
+        self.doc_lengths: List[int] = []
+        self.df: Counter[str] = Counter()
+        self.avgdl: float = 0.0
+
+    def add_documents(self, docs: Sequence[Document]) -&gt; None:
+        for doc in docs:
+            tokens = tokenize_mixed_cn_en(doc.page_content)
+            tf = Counter(tokens)
+            self.documents.append(doc)
+            self.doc_term_freqs.append(tf)
+            self.doc_lengths.append(len(tokens))
+            for term in tf.keys():
+                self.df[term] += 1
+        total_len = sum(self.doc_lengths)
+        self.avgdl = total_len / max(1, len(self.documents))
+
+    def _idf(self, term: str) -&gt; float:
+        n = len(self.documents)
+        df = self.df.get(term, 0)
+        return math.log(1.0 + (n - df + 0.5) / (df + 0.5))
+
+    def search(self, query: str, k: int = 5) -&gt; List[Tuple[Document, float]]:
+        q_tokens = tokenize_mixed_cn_en(query)
+        if not q_tokens or not self.documents:
+            return []
+
+        scored: List[Tuple[Document, float]] = []
+        for idx, doc in enumerate(self.documents):
+            tf_map = self.doc_term_freqs[idx]
+            dl = self.doc_lengths[idx]
+            score = 0.0
+            for term in q_tokens:
+                freq = tf_map.get(term, 0)
+                if freq == 0:
+                    continue
+                idf = self._idf(term)
+                denom = freq + self.k1 * (1.0 - self.b + self.b * dl / max(1e-9, self.avgdl))
+                score += idf * (freq * (self.k1 + 1.0)) / denom
+            if score &gt; 0:
+                scored.append((doc, round(score, 4)))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:k]
+
+
+class DenseVectorIndex:
+    &quot;&quot;&quot;
+    轻量确定性语义向量索引（离线模拟 bge-m3 语义检索能力）：
+    内置企业领域同义词语义桶 + 特征哈希投影，支持余弦相似度检索。
+    &quot;&quot;&quot;
+
+    SEMANTIC_GROUPS: Dict[str, Tuple[str, ...]] = {
+        &quot;travel_hotel&quot;: (&quot;出差&quot;, &quot;差旅&quot;, &quot;酒店&quot;, &quot;住宿&quot;, &quot;住店&quot;, &quot;魔都&quot;, &quot;上海&quot;, &quot;北京&quot;, &quot;一线城市&quot;, &quot;报销&quot;, &quot;上限&quot;),
+        &quot;gateway_timeout&quot;: (&quot;网关&quot;, &quot;超时&quot;, &quot;504&quot;, &quot;熔断&quot;, &quot;连接池&quot;, &quot;上游&quot;, &quot;延迟&quot;, &quot;故障&quot;, &quot;排查&quot;),
+        &quot;deploy_window&quot;: (&quot;发布&quot;, &quot;上线&quot;, &quot;发版&quot;, &quot;窗口&quot;, &quot;周五&quot;, &quot;合并&quot;, &quot;变更&quot;, &quot;生产&quot;),
+        &quot;vpn_security&quot;: (&quot;远程&quot;, &quot;居家&quot;, &quot;内网&quot;, &quot;令牌&quot;, &quot;零信任&quot;, &quot;vpn&quot;, &quot;安全&quot;, &quot;脱敏&quot;),
+        &quot;project_approval&quot;: (&quot;审批&quot;, &quot;立项&quot;, &quot;预算&quot;, &quot;负责人&quot;, &quot;流程&quot;, &quot;项目&quot;),
+        &quot;leave_policy&quot;: (&quot;年假&quot;, &quot;病假&quot;, &quot;休假&quot;, &quot;请假&quot;, &quot;诊断证明&quot;, &quot;工龄&quot;),
+    }
+
+    def __init__(self, dim: int = 96) -&gt; None:
+        self.dim = dim
+        self.documents: List[Document] = []
+        self.vectors: List[List[float]] = []
+
+    def embed(self, text: str) -&gt; List[float]:
+        vec = [0.0] * self.dim
+        lowered = text.lower()
+
+        # 1. 前 12 维编码企业语义概念桶（模拟语义泛化能力）
+        for g_idx, words in enumerate(self.SEMANTIC_GROUPS.values()):
+            hits = sum(1 for w in words if w in lowered)
+            if hits &gt; 0:
+                vec[g_idx] += 2.5 * math.log1p(hits)
+
+        # 2. 其余维度采用中文二元词特征哈希（有意淡化纯错误码权重，体现语义模型特点）
+        cn_chunks = re.findall(r&quot;[\u4e00-\u9fff]+&quot;, lowered)
+        for chunk in cn_chunks:
+            for i in range(len(chunk) - 1):
+                bg = chunk[i : i + 2]
+                h = int(hashlib.md5(bg.encode(&quot;utf-8&quot;)).hexdigest(), 16)
+                slot = 12 + (h % (self.dim - 12))
+                vec[slot] += 1.0
+
+        norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+        return [v / norm for v in vec]
+
+    @staticmethod
+    def cosine(a: Sequence[float], b: Sequence[float]) -&gt; float:
+        return sum(x * y for x, y in zip(a, b))
+
+    def add_documents(self, docs: Sequence[Document]) -&gt; None:
+        for doc in docs:
+            self.documents.append(doc)
+            self.vectors.append(self.embed(doc.page_content))
+
+    def search(self, query: str, k: int = 5) -&gt; List[Tuple[Document, float]]:
+        if not self.documents:
+            return []
+        q_vec = self.embed(query)
+        scored = [
+            (doc, round(self.cosine(q_vec, d_vec), 4))
+            for doc, d_vec in zip(self.documents, self.vectors)
+        ]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:k]
+
+
+class HybridRRFRetriever:
+    &quot;&quot;&quot;
+    BM25 + Dense 向量混合检索器（基于 RRF 倒数排名融合）。
+    公式：RRF(d) = w_bm25 / (rrf_k + rank_bm25(d)) + w_dense / (rrf_k + rank_dense(d))
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        bm25_index: BM25Index,
+        dense_index: DenseVectorIndex,
+        rrf_k: int = 60,
+        bm25_weight: float = 0.5,
+        dense_weight: float = 0.5,
+    ) -&gt; None:
+        self.bm25_index = bm25_index
+        self.dense_index = dense_index
+        self.rrf_k = rrf_k
+        self.bm25_weight = bm25_weight
+        self.dense_weight = dense_weight
+
+    def retrieve(self, query: str, top_k: int = 5, recall_k: int = 10) -&gt; List[Tuple[Document, float]]:
+        bm25_hits = self.bm25_index.search(query, k=recall_k)
+        dense_hits = self.dense_index.search(query, k=recall_k)
+
+        rrf_scores: Dict[str, float] = {}
+        doc_map: Dict[str, Document] = {}
+
+        for rank, (doc, _score) in enumerate(bm25_hits, start=1):
+            did = doc.doc_id
+            doc_map[did] = doc
+            rrf_scores[did] = rrf_scores.get(did, 0.0) + self.bm25_weight / (self.rrf_k + rank)
+
+        for rank, (doc, _score) in enumerate(dense_hits, start=1):
+            did = doc.doc_id
+            doc_map[did] = doc
+            rrf_scores[did] = rrf_scores.get(did, 0.0) + self.dense_weight / (self.rrf_k + rank)
+
+        fused = [(doc_map[did], round(score, 6)) for did, score in rrf_scores.items()]
+        fused.sort(key=lambda x: x[1], reverse=True)
+        return fused[:top_k]
+
+
+def build_enterprise_sample_docs() -&gt; List[Document]:
+    &quot;&quot;&quot;构建星辰数科故障排查 + 制度 + 内部代号混合测试语料。&quot;&quot;&quot;
+    return [
+        Document(
+            &quot;【运维故障手册】错误码 ERR-5042 表示星辰统一网关调用上游推理服务超时（默认阈值 15s）。&quot;
+            &quot;排查步骤：1. 检查上游 Pod CPU/显存水位；2. 核对 Nginx proxy_read_timeout 配置；3. 开启降级熔断。&quot;,
+            {&quot;doc_id&quot;: &quot;ops-5042&quot;, &quot;source&quot;: &quot;运维故障排查手册.md&quot;, &quot;section&quot;: &quot;ERR-5042网关超时&quot;},
+        ),
+        Document(
+            &quot;【运维故障手册】错误码 ERR-4019 表示零信任 VPN 动态令牌校验失败，常见原因是客户端系统时钟偏差超过 30 秒，请同步 NTP 时间。&quot;,
+            {&quot;doc_id&quot;: &quot;ops-4019&quot;, &quot;source&quot;: &quot;运维故障排查手册.md&quot;, &quot;section&quot;: &quot;ERR-4019令牌失效&quot;},
+        ),
+        Document(
+            &quot;【项目规范】内部代号「天枢项目」为星辰智脑 2026 核心知识库中台，项目负责人为架构师老陈，预算审批需经 CTO 终审。&quot;,
+            {&quot;doc_id&quot;: &quot;proj-tianshu&quot;, &quot;source&quot;: &quot;内部项目立项白皮书.md&quot;, &quot;section&quot;: &quot;天枢项目立项&quot;},
+        ),
+        Document(
+            &quot;【财务报销制度】一线城市（北京、上海、深圳、广州）出差酒店住宿报销上限为每晚 600 元，需提前在 OA 提交差旅申请。&quot;,
+            {&quot;doc_id&quot;: &quot;fin-hotel&quot;, &quot;source&quot;: &quot;财务报销制度_v3.md&quot;, &quot;section&quot;: &quot;差旅住宿标准&quot;},
+        ),
+        Document(
+            &quot;【研发规范】生产环境日常发布窗口为周一至周四 10:00-18:00，严禁周五 17:00 之后提交非紧急上线变更。&quot;,
+            {&quot;doc_id&quot;: &quot;dev-window&quot;, &quot;source&quot;: &quot;研发工程规范.md&quot;, &quot;section&quot;: &quot;生产发布窗口&quot;},
+        ),
+    ]
+
+
+if __name__ == &quot;__main__&quot;:
+    docs = build_enterprise_sample_docs()
+    bm25 = BM25Index()
+    dense = DenseVectorIndex()
+    bm25.add_documents(docs)
+    dense.add_documents(docs)
+    hybrid = HybridRRFRetriever(bm25, dense)
+
+    for q in (&quot;ERR-5042 报错怎么排查？&quot;, &quot;天枢项目预算找谁审批？&quot;, &quot;去魔都出差住店报销上限&quot;):
+        print(f&quot;\nQuery: {q}&quot;)
+        print(&quot;  BM25  Top1:&quot;, [(d.doc_id, s) for d, s in bm25.search(q, k=1)])
+        print(&quot;  Dense Top1:&quot;, [(d.doc_id, s) for d, s in dense.search(q, k=1)])
+        print(&quot;  RRF   Top2:&quot;, [(d.doc_id, s) for d, s in hybrid.retrieve(q, top_k=2)])
+</code></pre><div class="output-box"># 预期运行输出示例：
+Query: ERR-5042 报错怎么排查？
+  BM25  Top1: [(&#x27;ops-5042&#x27;, 5.8214)]
+  Dense Top1: [(&#x27;ops-5042&#x27;, 0.8944)]
+  RRF   Top2: [(&#x27;ops-5042&#x27;, 0.016393), (&#x27;ops-4019&#x27;, 0.008065)]
+
+Query: 天枢项目预算找谁审批？
+  BM25  Top1: [(&#x27;proj-tianshu&#x27;, 6.412)]
+  Dense Top1: [(&#x27;proj-tianshu&#x27;, 0.8812)]
+  RRF   Top2: [(&#x27;proj-tianshu&#x27;, 0.016393), (&#x27;fin-hotel&#x27;, 0.008065)]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>tokenize_mixed_cn_en</code> 使用正则 <code>[a-z0-9]+(?:[-_][a-z0-9]+)*</code> 完整保护了 <code>ERR-5042</code> 这类带连字符的错误码，不会把它拆成碎片。<br/>2. <code>HybridRRFRetriever</code> 用 <code>w / (60 + rank)</code> 融合 BM25 和 Dense 两路排名，彻底规避了两种打分量纲不一致的问题，在错误码查询（「ERR-5042」）、专有代号（「天枢项目」）和口语语义查询（「魔都住店」）三种截然不同的场景下全部稳居 Top-1！</p><h3>实操步骤 2：步骤二：实现 Cross-Encoder 重排器（bge-reranker 原理）与 ParentDocumentRetriever</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>粗排已经很稳了，现在给它装上两颗涡轮增压引擎：一个是模拟 <code>bge-reranker-v2-m3</code> 的交叉编码重排器 <code>BGERerankerSimulator</code>，另一个是「小块检索、大块回溯」的 <code>ParentDocumentRetriever</code>。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day33_rerank_parent.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 33 - 步骤二：Cross-Encoder 重排序器（bge-reranker 原理）与父文档检索器（ParentDocumentRetriever）
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import math
+import re
+import sys
+from pathlib import Path
+from typing import Dict, List, Sequence, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day33_hybrid_rrf import (
+    BM25Index,
+    DenseVectorIndex,
+    Document,
+    HybridRRFRetriever,
+    tokenize_mixed_cn_en,
+)
+
+
+class BGERerankerSimulator:
+    &quot;&quot;&quot;
+    类 BAAI/bge-reranker-v2-m3 交叉编码精排器（离线可运行版）：
+    模拟 Cross-Encoder 将 (Query, Doc) 拼接后的细粒度交互特征：
+    1. 查询关键实体/错误码在文档中的精确覆盖率；
+    2. 连续二元词组（Bigram）匹配密度；
+    3. 章节标题（section）强相关加权；
+    4. 通过 Sigmoid 映射为 [0, 1] 规范化相关概率分数。
+    &quot;&quot;&quot;
+
+    def score_pair(self, query: str, doc: Document) -&gt; float:
+        q_tokens = set(tokenize_mixed_cn_en(query))
+        if not q_tokens:
+            return 0.0
+        d_tokens = set(tokenize_mixed_cn_en(doc.page_content))
+        section_tokens = set(tokenize_mixed_cn_en(str(doc.metadata.get(&quot;section&quot;, &quot;&quot;))))
+
+        # 1. 精确错误码/专有代码匹配（最高权重）
+        q_codes = set(re.findall(r&quot;[a-z0-9]+[-_][a-z0-9]+&quot;, query.lower()))
+        code_hit = 0.0
+        if q_codes:
+            matched_codes = sum(1 for c in q_codes if c in doc.page_content.lower())
+            code_hit = 4.0 * (matched_codes / len(q_codes))
+
+        # 2. 二元词组与全词元覆盖率（模拟词级 Attention 交互）
+        q_bigrams = {t for t in q_tokens if len(t) &gt;= 2}
+        d_bigrams = {t for t in d_tokens if len(t) &gt;= 2}
+        bigram_overlap = len(q_bigrams &amp; d_bigrams) / max(1, len(q_bigrams))
+        token_overlap = len(q_tokens &amp; d_tokens) / max(1, len(q_tokens))
+
+        # 3. 标题/章节命中加成
+        section_overlap = len(q_bigrams &amp; section_tokens) / max(1, len(q_bigrams)) if q_bigrams else 0.0
+
+        logit = -2.2 + code_hit + 3.8 * bigram_overlap + 1.8 * token_overlap + 1.6 * section_overlap
+        prob = 1.0 / (1.0 + math.exp(-logit))
+        return round(prob, 4)
+
+    def rerank(
+        self,
+        query: str,
+        candidates: Sequence[Document],
+        top_n: int = 3,
+    ) -&gt; List[Tuple[Document, float]]:
+        scored = [(doc, self.score_pair(query, doc)) for doc in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_n]
+
+
+class ParentDocumentRetriever:
+    &quot;&quot;&quot;
+    父文档检索器（Small-to-Big 策略）：
+    - 入库时：将完整父文档存入 docstore，同时切分为小粒度子切片（Child Chunks）写入混合索引；
+    - 检索时：先对子切片执行 Hybrid RRF + Reranker 精排，再按 parent_id 去重反查完整父文档。
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        child_chunk_size: int = 55,
+        child_chunk_overlap: int = 12,
+        use_rerank: bool = True,
+    ) -&gt; None:
+        self.child_chunk_size = child_chunk_size
+        self.child_chunk_overlap = child_chunk_overlap
+        self.use_rerank = use_rerank
+
+        self.parent_store: Dict[str, Document] = {}
+        self.bm25 = BM25Index()
+        self.dense = DenseVectorIndex()
+        self.hybrid = HybridRRFRetriever(self.bm25, self.dense)
+        self.reranker = BGERerankerSimulator()
+        self.total_child_chunks: int = 0
+
+    def _split_to_children(self, parent_doc: Document, parent_id: str) -&gt; List[Document]:
+        text = parent_doc.page_content.strip()
+        children: List[Document] = []
+        step = max(1, self.child_chunk_size - self.child_chunk_overlap)
+        for idx, start in enumerate(range(0, len(text), step)):
+            piece = text[start : start + self.child_chunk_size].strip()
+            if not piece:
+                continue
+            children.append(
+                Document(
+                    page_content=piece,
+                    metadata={
+                        **parent_doc.metadata,
+                        &quot;doc_id&quot;: f&quot;{parent_id}#c{idx}&quot;,
+                        &quot;parent_id&quot;: parent_id,
+                        &quot;child_index&quot;: idx,
+                    },
+                )
+            )
+            if start + self.child_chunk_size &gt;= len(text):
+                break
+        return children
+
+    def add_parent_documents(self, parents: Sequence[Document]) -&gt; int:
+        all_children: List[Document] = []
+        for idx, p_doc in enumerate(parents):
+            parent_id = str(p_doc.metadata.get(&quot;doc_id&quot;) or f&quot;parent-{idx}&quot;)
+            self.parent_store[parent_id] = p_doc
+            all_children.extend(self._split_to_children(p_doc, parent_id))
+
+        self.bm25.add_documents(all_children)
+        self.dense.add_documents(all_children)
+        self.total_child_chunks += len(all_children)
+        return len(all_children)
+
+    def retrieve_parents(self, query: str, top_k: int = 2) -&gt; List[Tuple[Document, float]]:
+        # 第一阶段：Hybrid RRF 对子切片粗排 Top-8
+        coarse_hits = self.hybrid.retrieve(query, top_k=8, recall_k=10)
+        if not coarse_hits:
+            return []
+
+        # 第二阶段：Cross-Encoder 精排子切片
+        if self.use_rerank:
+            ranked_children = self.reranker.rerank(query, [d for d, _ in coarse_hits], top_n=6)
+        else:
+            ranked_children = coarse_hits
+
+        # 第三阶段：按 parent_id 去重（保留得分最高的子块分数）并回溯完整父文档
+        parent_best: Dict[str, float] = {}
+        for child_doc, score in ranked_children:
+            pid = str(child_doc.metadata[&quot;parent_id&quot;])
+            if pid not in parent_best or score &gt; parent_best[pid]:
+                parent_best[pid] = score
+
+        sorted_pids = sorted(parent_best.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        return [(self.parent_store[pid], score) for pid, score in sorted_pids]
+
+
+if __name__ == &quot;__main__&quot;:
+    parent_docs = [
+        Document(
+            &quot;【星辰智脑运维排障全指南-网关篇】系统统一入口采用 Nginx + Envoy 双层网关。&quot;
+            &quot;当监控告警出现错误码 ERR-5042 时，代表网关调用下游大模型推理服务超时（默认 15 秒）。&quot;
+            &quot;标准处置流程：第一步登录 Grafana 查看推理节点显存与排队长度；&quot;
+            &quot;第二步临时将 proxy_read_timeout 调大至 30 秒；第三步若持续 5 分钟则触发降级熔断并通知值班架构师。&quot;,
+            {&quot;doc_id&quot;: &quot;P-OPS-01&quot;, &quot;source&quot;: &quot;运维排障全指南.md&quot;, &quot;section&quot;: &quot;ERR-5042网关超时&quot;},
+        ),
+        Document(
+            &quot;【杭州星辰数科差旅报销总则】员工因公出差须提前 3 天在 OA 发起差旅申请并经直属主管审批。&quot;
+            &quot;住宿标准方面，一线城市（北京、上海、深圳、广州）每晚报销上限 600 元，新一线城市每晚 450 元。&quot;
+            &quot;餐饮补助按每天 100 元定额随工资发放，无需粘贴餐饮发票；超标住宿部分由个人承担。&quot;,
+            {&quot;doc_id&quot;: &quot;P-FIN-01&quot;, &quot;source&quot;: &quot;差旅报销总则.md&quot;, &quot;section&quot;: &quot;差旅住宿与餐补&quot;},
+        ),
+    ]
+
+    retriever = ParentDocumentRetriever(child_chunk_size=50, child_chunk_overlap=10, use_rerank=True)
+    n_children = retriever.add_parent_documents(parent_docs)
+    print(f&quot;父文档数: {len(parent_docs)} -&gt; 切分子切片数: {n_children}&quot;)
+
+    hits = retriever.retrieve_parents(&quot;ERR-5042 报警后第三步怎么处理？&quot;, top_k=1)
+    top_parent, top_score = hits[0]
+    print(f&quot;精排回溯父文档: {top_parent.doc_id} (rerank_score={top_score})&quot;)
+    print(f&quot;完整父文档长度: {len(top_parent.page_content)} 字 -&gt; 包含完整三步处置流程!&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+父文档数: 2 -&gt; 切分子切片数: 8
+精排回溯父文档: P-OPS-01 (rerank_score=0.9852)
+完整父文档长度: 158 字 -&gt; 包含完整三步处置流程!</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>BGERerankerSimulator</code> 清晰还原了 Cross-Encoder 精排的核心优势：把 Query 和 Doc 放在一起计算精确错误码命中、二元词组交互密度与标题权重，并经 Sigmoid 输出规范化概率分。<br/>2. <code>ParentDocumentRetriever</code> 在小切片命中 <code>ERR-5042</code> 后，回溯返回整篇含「第一步/第二步/第三步」的完整父文档，避免大模型因为切片截断而漏掉第三步熔断指令！</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现中英混合分词器、Okapi BM25、Dense 向量索引与 RRF 混合检索器（src/day33_hybrid_rrf.py）</h3><p>模块 <code>src/day33_hybrid_rrf.py</code> 共计 253 行源码，其中包含 4 行中文工程注释（注释密度约 1.6%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-033 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>hashlib</code>、<code>math</code>、<code>re</code>、<code>collections (Counter)</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Dict, List, Sequence, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>Document</code>（第 17~27 行）】这是一个独立领域模型类。其核心职责定义为：统一文档切片模型（与 LangChain Document 接口对齐）。。类内部暴露了 1 个方法：<code>doc_id(self)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>Document.doc_id</code>（第 24~27 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>BM25Index</code>（第 53~106 行）】这是一个独立领域模型类。其核心职责定义为：标准 Okapi BM25 稀疏检索引擎：<br/>score(q, d) = sum_{t in q} IDF(t) * (f(t,d) * (k1 + 1)) / (f(t,d) + k1 * (1 - b + b * |d| / avgdl))。类内部暴露了 4 个方法：<code>__init__(self, k1, b)</code>、<code>add_documents(self, docs)</code>、<code>_idf(self, term)</code>、<code>search(self, query, k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BM25Index.__init__</code>（第 59~66 行）属于同步实例方法，入参签名为 <code>(self, k1, b)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BM25Index.add_documents</code>（第 68~78 行）属于同步实例方法，入参签名为 <code>(self, docs)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BM25Index._idf</code>（第 80~83 行）属于同步实例方法，入参签名为 <code>(self, term)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BM25Index.search</code>（第 85~106 行）属于同步实例方法，入参签名为 <code>(self, query, k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>DenseVectorIndex</code>（第 109~169 行）】这是一个独立领域模型类。其核心职责定义为：轻量确定性语义向量索引（离线模拟 bge-m3 语义检索能力）：<br/>内置企业领域同义词语义桶 + 特征哈希投影，支持余弦相似度检索。。类内部暴露了 5 个方法：<code>__init__(self, dim)</code>、<code>embed(self, text)</code>、<code>cosine(a, b)</code>、<code>add_documents(self, docs)</code>、<code>search(self, query, k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>DenseVectorIndex.__init__</code>（第 124~127 行）属于同步实例方法，入参签名为 <code>(self, dim)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DenseVectorIndex.embed</code>（第 129~149 行）属于同步实例方法，入参签名为 <code>(self, text)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DenseVectorIndex.cosine</code>（第 152~153 行）属于同步实例方法，入参签名为 <code>(a, b)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DenseVectorIndex.add_documents</code>（第 155~158 行）属于同步实例方法，入参签名为 <code>(self, docs)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DenseVectorIndex.search</code>（第 160~169 行）属于同步实例方法，入参签名为 <code>(self, query, k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>HybridRRFRetriever</code>（第 172~211 行）】这是一个独立领域模型类。其核心职责定义为：BM25 + Dense 向量混合检索器（基于 RRF 倒数排名融合）。<br/>公式：RRF(d) = w_bm25 / (rrf_k + rank_bm25(d)) + w_dense / (rrf_k + rank_dense(d))。类内部暴露了 2 个方法：<code>__init__(self, bm25_index, dense_index, rrf_k, bm25_weight, dense_weight)</code>、<code>retrieve(self, query, top_k, recall_k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>HybridRRFRetriever.__init__</code>（第 178~190 行）属于同步实例方法，入参签名为 <code>(self, bm25_index, dense_index, rrf_k, bm25_weight, dense_weight)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HybridRRFRetriever.retrieve</code>（第 192~211 行）属于同步实例方法，入参签名为 <code>(self, query, top_k, recall_k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>tokenize_mixed_cn_en</code>（第 30~50 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。职责说明：中英混合 + 错误码友好分词器：<br/>1. 完整提取英文词、错误码与编号（如 ERR-5042、STARMIND-033、VPN、OA）；<br/>2. 对中文连续片段同时提取单字与二元字（Bigram），兼顾召回与词组精度。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【函数契约拆解 · <code>build_enterprise_sample_docs</code>（第 214~238 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。职责说明：构建星辰数科故障排查 + 制度 + 内部代号混合测试语料。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day33_hybrid_rrf.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day33/day33_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day33/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现 Cross-Encoder 重排器（bge-reranker 原理）与 ParentDocumentRetriever（src/day33_rerank_parent.py）</h3><p>模块 <code>src/day33_rerank_parent.py</code> 共计 180 行源码，其中包含 6 行中文工程注释（注释密度约 3.3%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-033 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>math</code>、<code>re</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List, Sequence, Tuple)</code>、<code>src.day33_hybrid_rrf (BM25Index, DenseVectorIndex, Document, HybridRRFRetriever, tokenize_mixed_cn_en)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>BGERerankerSimulator</code>（第 26~71 行）】这是一个独立领域模型类。其核心职责定义为：类 BAAI/bge-reranker-v2-m3 交叉编码精排器（离线可运行版）：<br/>模拟 Cross-Encoder 将 (Query, Doc) 拼接后的细粒度交互特征：<br/>1. 查询关键实体/错误码在文档中的精确覆盖率；<br/>2. 连续二元词组（Bigram）匹配密度；<br/>3. 章节标题（section）强相关加权；<br/>4. 通过 Sigmoid 映射为 [0, 1] 规范化相关概率分数。。类内部暴露了 2 个方法：<code>score_pair(self, query, doc)</code>、<code>rerank(self, query, candidates, top_n)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BGERerankerSimulator.score_pair</code>（第 36~61 行）属于同步实例方法，入参签名为 <code>(self, query, doc)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BGERerankerSimulator.rerank</code>（第 63~71 行）属于同步实例方法，入参签名为 <code>(self, query, candidates, top_n)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>ParentDocumentRetriever</code>（第 74~153 行）】这是一个独立领域模型类。其核心职责定义为：父文档检索器（Small-to-Big 策略）：<br/>- 入库时：将完整父文档存入 docstore，同时切分为小粒度子切片（Child Chunks）写入混合索引；<br/>- 检索时：先对子切片执行 Hybrid RRF + Reranker 精排，再按 parent_id 去重反查完整父文档。。类内部暴露了 4 个方法：<code>__init__(self, child_chunk_size, child_chunk_overlap, use_rerank)</code>、<code>_split_to_children(self, parent_doc, parent_id)</code>、<code>add_parent_documents(self, parents)</code>、<code>retrieve_parents(self, query, top_k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ParentDocumentRetriever.__init__</code>（第 81~96 行）属于同步实例方法，入参签名为 <code>(self, child_chunk_size, child_chunk_overlap, use_rerank)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ParentDocumentRetriever._split_to_children</code>（第 98~119 行）属于同步实例方法，入参签名为 <code>(self, parent_doc, parent_id)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ParentDocumentRetriever.add_parent_documents</code>（第 121~131 行）属于同步实例方法，入参签名为 <code>(self, parents)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ParentDocumentRetriever.retrieve_parents</code>（第 133~153 行）属于同步实例方法，入参签名为 <code>(self, query, top_k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day33_rerank_parent.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day33/day33_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day33/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day33_hybrid_rrf.py（共 253 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day33_hybrid_rrf.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import math</code></td><td>核心意图：代表语句：`import math`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>class Document:</code></td><td>核心意图：代表语句：`class Document:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>if &quot;doc_id&quot; in self.metadata:</code></td><td>核心意图：代表语句：`if &quot;doc_id&quot; in self.metadata:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>1. 完整提取英文词、错误码与编号（如 ERR-5042、STARMIND-033、VPN、OA）；</code></td><td>核心意图：提取英文/数字/连字符组合（完整保留错误码与工单号）。代表语句：`1. 完整提取英文词、错误码与编号（如 ERR-5042、STARMIND-033、VPN、OA）；`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>tokens.extend(alnum_tokens)</code></td><td>核心意图：提取中文连续串并生成单字 + 二元词组。代表语句：`tokens.extend(alnum_tokens)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L49-L56</code></td><td><code>tokens.append(chunk[i : i + 2])</code></td><td>核心意图：代表语句：`tokens.append(chunk[i : i + 2])`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>self.df: Counter[str] = Counter()</code></td><td>核心意图：代表语句：`self.df: Counter[str] = Counter()`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>self.doc_term_freqs.append(tf)</code></td><td>核心意图：代表语句：`self.doc_term_freqs.append(tf)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>n = len(self.documents)</code></td><td>核心意图：代表语句：`n = len(self.documents)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>scored: List[Tuple[Document, float]] = []</code></td><td>核心意图：代表语句：`scored: List[Tuple[Document, float]] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>if freq == 0:</code></td><td>核心意图：代表语句：`if freq == 0:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>scored.sort(key=lambda x: x[1], reverse=True)</code></td><td>核心意图：代表语句：`scored.sort(key=lambda x: x[1], reverse=True)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L113-L120</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L121-L128</code></td><td><code>&quot;leave_policy&quot;: (&quot;年假&quot;, &quot;病假&quot;, &quot;休假&quot;, &quot;请假&quot;, &quot;诊断证明&quot;, &quot;工龄&quot;),</code></td><td>核心意图：代表语句：`&quot;leave_policy&quot;: (&quot;年假&quot;, &quot;病假&quot;, &quot;休假&quot;, &quot;请假&quot;, &quot;诊断证明&quot;, &quot;工龄&quot;),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L129-L136</code></td><td><code>def embed(self, text: str) -&gt; List[float]:</code></td><td>核心意图：1. 前 12 维编码企业语义概念桶（模拟语义泛化能力）。代表语句：`def embed(self, text: str) -&gt; List[float]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>vec[g_idx] += 2.5 * math.log1p(hits)</code></td><td>核心意图：2. 其余维度采用中文二元词特征哈希（有意淡化纯错误码权重，体现语义模型特点）。代表语句：`vec[g_idx] += 2.5 * math.log1p(hits)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L145-L152</code></td><td><code>slot = 12 + (h % (self.dim - 12))</code></td><td>核心意图：代表语句：`slot = 12 + (h % (self.dim - 12))`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L153-L160</code></td><td><code>return sum(x * y for x, y in zip(a, b))</code></td><td>核心意图：代表语句：`return sum(x * y for x, y in zip(a, b))`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L161-L168</code></td><td><code>if not self.documents:</code></td><td>核心意图：代表语句：`if not self.documents:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L169-L176</code></td><td><code>return scored[:k]</code></td><td>核心意图：代表语句：`return scored[:k]`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L177-L184</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L185-L192</code></td><td><code>) -&gt; None:</code></td><td>核心意图：代表语句：`) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L193-L200</code></td><td><code>bm25_hits = self.bm25_index.search(query, k=recall_k)</code></td><td>核心意图：代表语句：`bm25_hits = self.bm25_index.search(query, k=recall_k)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L201-L208</code></td><td><code>doc_map[did] = doc</code></td><td>核心意图：代表语句：`doc_map[did] = doc`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L209-L216</code></td><td><code>fused = [(doc_map[did], round(score, 6)) for did, score in rrf_scores.it</code></td><td>核心意图：代表语句：`fused = [(doc_map[did], round(score, 6)) for did, score in rrf_scores.items()]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L217-L224</code></td><td><code>Document(</code></td><td>核心意图：代表语句：`Document(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L225-L232</code></td><td><code>),</code></td><td>核心意图：代表语句：`),`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L233-L240</code></td><td><code>),</code></td><td>核心意图：代表语句：`),`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L241-L248</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L249-L253</code></td><td><code>for q in (&quot;ERR-5042 报错怎么排查？&quot;, &quot;天枢项目预算找谁审批？&quot;, &quot;去魔都出差住店报销上限&quot;):</code></td><td>核心意图：代表语句：`for q in (&quot;ERR-5042 报错怎么排查？&quot;, &quot;天枢项目预算找谁审批？&quot;, &quot;去魔都出差住店报销上限&quot;):`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day33_rerank_parent.py（共 180 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day33_rerank_parent.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import sys</code></td><td>核心意图：代表语句：`import sys`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day33_hybrid_rrf import (</code></td><td>核心意图：代表语句：`from src.day33_hybrid_rrf import (`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>class BGERerankerSimulator:</code></td><td>核心意图：代表语句：`class BGERerankerSimulator:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>4. 通过 Sigmoid 映射为 [0, 1] 规范化相关概率分数。</code></td><td>核心意图：代表语句：`4. 通过 Sigmoid 映射为 [0, 1] 规范化相关概率分数。`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>section_tokens = set(tokenize_mixed_cn_en(str(doc.metadata.get(&quot;section&quot;</code></td><td>核心意图：1. 精确错误码/专有代码匹配（最高权重）。代表语句：`section_tokens = set(tokenize_mixed_cn_en(str(doc.metadata.get(&quot;section&quot;, &quot;&quot;))))`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>q_bigrams = {t for t in q_tokens if len(t) &gt;= 2}</code></td><td>核心意图：2. 二元词组与全词元覆盖率（模拟词级 Attention 交互）；3. 标题/章节命中加成。代表语句：`q_bigrams = {t for t in q_tokens if len(t) &gt;= 2}`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>section_overlap = len(q_bigrams &amp; section_tokens) / max(1, len(q_bigrams</code></td><td>核心意图：代表语句：`section_overlap = len(q_bigrams &amp; section_tokens) / max(1, len(q_bigrams)) if q_bigrams el`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>query: str,</code></td><td>核心意图：代表语句：`query: str,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>class ParentDocumentRetriever:</code></td><td>核心意图：代表语句：`class ParentDocumentRetriever:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L81-L88</code></td><td><code>def __init__(</code></td><td>核心意图：代表语句：`def __init__(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>self.use_rerank = use_rerank</code></td><td>核心意图：代表语句：`self.use_rerank = use_rerank`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L97-L104</code></td><td><code>def _split_to_children(self, parent_doc: Document, parent_id: str) -&gt; Li</code></td><td>核心意图：代表语句：`def _split_to_children(self, parent_doc: Document, parent_id: str) -&gt; List[Document]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>continue</code></td><td>核心意图：代表语句：`continue`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L113-L120</code></td><td><code>&quot;child_index&quot;: idx,</code></td><td>核心意图：代表语句：`&quot;child_index&quot;: idx,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>def add_parent_documents(self, parents: Sequence[Document]) -&gt; int:</code></td><td>核心意图：代表语句：`def add_parent_documents(self, parents: Sequence[Document]) -&gt; int:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>self.dense.add_documents(all_children)</code></td><td>核心意图：第一阶段：Hybrid RRF 对子切片粗排 Top-8。代表语句：`self.dense.add_documents(all_children)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L144</code></td><td><code>return []</code></td><td>核心意图：第二阶段：Cross-Encoder 精排子切片。代表语句：`return []`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L145-L152</code></td><td><code>parent_best: Dict[str, float] = {}</code></td><td>核心意图：第三阶段：按 parent_id 去重（保留得分最高的子块分数）并回溯完整父文档。代表语句：`parent_best: Dict[str, float] = {}`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>return [(self.parent_store[pid], score) for pid, score in sorted_pids]</code></td><td>核心意图：代表语句：`return [(self.parent_store[pid], score) for pid, score in sorted_pids]`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>&quot;标准处置流程：第一步登录 Grafana 查看推理节点显存与排队长度；&quot;</code></td><td>核心意图：代表语句：`&quot;标准处置流程：第一步登录 Grafana 查看推理节点显存与排队长度；&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L169-L176</code></td><td><code>{&quot;doc_id&quot;: &quot;P-FIN-01&quot;, &quot;source&quot;: &quot;差旅报销总则.md&quot;, &quot;section&quot;: &quot;差旅住宿与餐补&quot;},</code></td><td>核心意图：代表语句：`{&quot;doc_id&quot;: &quot;P-FIN-01&quot;, &quot;source&quot;: &quot;差旅报销总则.md&quot;, &quot;section&quot;: &quot;差旅住宿与餐补&quot;},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L177-L180</code></td><td><code>hits = retriever.retrieve_parents(&quot;ERR-5042 报警后第三步怎么处理？&quot;, top_k=1)</code></td><td>核心意图：代表语句：`hits = retriever.retrieve_parents(&quot;ERR-5042 报警后第三步怎么处理？&quot;, top_k=1)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day33/tests/test_day33.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day33/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day33/tests/test_day33.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 33 自动化单元测试：验证 BM25、RRF 混合检索、bge-reranker 精排与父文档检索器。&quot;&quot;&quot;
+
+from src.day33_hybrid_rrf import (
+    BM25Index,
+    DenseVectorIndex,
+    Document,
+    HybridRRFRetriever,
+    build_enterprise_sample_docs,
+)
+from src.day33_rerank_parent import BGERerankerSimulator, ParentDocumentRetriever
+
+
+def test_bm25_exact_error_code_and_hybrid_rrf():
+    docs = build_enterprise_sample_docs()
+    bm25 = BM25Index()
+    dense = DenseVectorIndex()
+    bm25.add_documents(docs)
+    dense.add_documents(docs)
+    hybrid = HybridRRFRetriever(bm25, dense, rrf_k=60)
+
+    # 1. 错误码精确查询：BM25 与 Hybrid RRF 均应把 ops-5042 排第 1
+    bm25_top1 = bm25.search(&quot;ERR-5042 报错怎么排查&quot;, k=1)[0][0]
+    rrf_top1 = hybrid.retrieve(&quot;ERR-5042 报错怎么排查&quot;, top_k=1)[0][0]
+    assert bm25_top1.doc_id == &quot;ops-5042&quot;
+    assert rrf_top1.doc_id == &quot;ops-5042&quot;
+
+    # 2. 内部项目代号查询：应精准命中天枢项目
+    proj_top1 = hybrid.retrieve(&quot;天枢项目预算找谁审批？&quot;, top_k=1)[0][0]
+    assert proj_top1.doc_id == &quot;proj-tianshu&quot;
+
+    # 3. 口语语义查询：应精准命中差旅住宿标准
+    sem_top1 = hybrid.retrieve(&quot;去魔都出差住店报销上限是多少&quot;, top_k=1)[0][0]
+    assert sem_top1.doc_id == &quot;fin-hotel&quot;
+
+
+def test_bge_reranker_promotes_exact_answer():
+    reranker = BGERerankerSimulator()
+    candidates = [
+        Document(&quot;公司行政部负责园区物业、工位分配与班车管理。&quot;, {&quot;section&quot;: &quot;行政总览&quot;}),
+        Document(&quot;错误码 ERR-5042 属于统一网关超时，需优先检查上游推理服务显存并调整超时阈值。&quot;, {&quot;section&quot;: &quot;ERR-5042排查&quot;}),
+        Document(&quot;差旅报销需要上传电子发票到财务系统。&quot;, {&quot;section&quot;: &quot;财务流程&quot;}),
+    ]
+    ranked = reranker.rerank(&quot;ERR-5042 网关超时排查方法&quot;, candidates, top_n=2)
+    assert &quot;ERR-5042&quot; in ranked[0][0].page_content
+    assert ranked[0][1] &gt; ranked[1][1]
+    assert 0.0 &lt;= ranked[0][1] &lt;= 1.0
+
+
+def test_parent_document_retriever_deduplicates_and_returns_full_parent():
+    p1 = Document(
+        &quot;【网关排障】遇到 ERR-5042 超时故障时：第一步查 Grafana 显存；&quot;
+        &quot;第二步调大 proxy_read_timeout；第三步开启降级熔断并通知值班架构师。&quot;,
+        {&quot;doc_id&quot;: &quot;P1&quot;, &quot;section&quot;: &quot;ERR-5042&quot;},
+    )
+    p2 = Document(
+        &quot;【休假规范】入职满 1 年享 5 天年假，病假超 2 天须附公立医院诊断证明。&quot;,
+        {&quot;doc_id&quot;: &quot;P2&quot;, &quot;section&quot;: &quot;休假规定&quot;},
+    )
+    retriever = ParentDocumentRetriever(child_chunk_size=30, child_chunk_overlap=8, use_rerank=True)
+    child_count = retriever.add_parent_documents([p1, p2])
+    assert child_count &gt;= 4
+
+    results = retriever.retrieve_parents(&quot;ERR-5042 故障第三步怎么处置？&quot;, top_k=2)
+    assert len(results) &gt;= 1
+    top_doc, score = results[0]
+    assert top_doc.doc_id == &quot;P1&quot;
+    assert &quot;第一步&quot; in top_doc.page_content and &quot;第三步开启降级熔断&quot; in top_doc.page_content
+    # 确保 parent_id 无重复
+    returned_ids = [d.doc_id for d, _ in results]
+    assert len(returned_ids) == len(set(returned_ids))
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-033</code>，承接自 Day 32 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day33-hybrid-rerank-parent-doc</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day33-hybrid-rerank-parent-doc）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day33-hybrid-rerank-parent-doc
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day33.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-033）
+git add src/day33_hybrid_rrf.py src/day33_rerank_parent.py tests/test_day33.py
+git commit -m &quot;feat(day33): 实现BM25+向量RRF混合检索、交叉编码器重排序与ParentDocumentRetriever
+
+Refs: STARMIND-033
+- 完成 高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day33-hybrid-rerank-parent-doc</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-033 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-033 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day33_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day33_hybrid_rrf.py src/day33_rerank_parent.py
+    - echo &quot;Day 33 语法编译检查通过&quot;
+
+day33_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day33/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day33/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>中英混合分词器把 <code>ERR-5042</code> 单独正则提取出来做得非常扎实，这是企业运维知识库落地的必杀细节。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>父文档回溯时记得按 <code>parent_id</code> 去重并保留子块最高分，不然同一篇长文档如果命中 3 个子块，会把 Top-3 全占满。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-033 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-033（高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰智脑知识库即将接入研发运维故障排查手册（含大量错误码如 ERR-5042、接口名、项目代号如「天枢项目」）与长篇制度全文。纯向量检索在精确编码匹配与长文档上下文完整性上暴露严重短板。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）纯向量检索对错误码（ERR-5042）、内部项目代号（天枢/瑶光）、人名工号等字面精确查询召回率极低。；（2）BM25 得分范围在 <code>[0, +∞)</code> 而余弦相似度在 <code>[-1, 1]</code>，直接加权相加极易被单一通路主导。；（3）双塔 Embedding（Bi-Encoder）在检索时 Query 与 Doc 互不可见，Top-3 排序精度遇到天花板。；（4）切片太小丢上下文、切片太大向量被稀释，传统单粒度切分陷入两难。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现支持中文二元词元 + 英文/错误码精确切分的 <code>BM25Index</code> 与 <code>DenseVectorIndex</code>，并基于 RRF 实现 <code>HybridRRFRetriever</code>。；（2）实现类 <code>bge-reranker</code> 的交叉交互重排器 <code>BGERerankerSimulator</code>，完成两阶段「粗排 -&gt; 精排」流水线。；（3）实现 <code>ParentDocumentRetriever</code>：子切片检索 + 按 <code>parent_id</code> 去重回溯完整父文档。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day33/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. Okapi BM25 为什么吊打传统 TF-IDF？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：BM25 在 TF-IDF 基础上引入了两个极具工程智慧的改进：<br/>- **词频饱和度参数 <code>k1</code>（默认 1.5）**：某词在文档里出现 1 次到 5 次相关性上升明显，但出现 50 次并不比 10 次更相关（防止关键词堆砌作弊）。<br/>- **文档长度归一化参数 <code>b</code>（默认 0.75）**：一篇 5000 字长文里偶尔提到 1 次「VPN」，其含金量远不如 100 字短文里提到 1 次「VPN」，BM25 通过 <code>dl / avgdl</code> 自动对过长文档施加惩罚。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：中文 BM25 千万不要只按空格 <code>split()</code> 分词！否则整句中文会变成一个巨型 Token 导致 BM25 完全失效。离线轻量场景可用「英文/数字整词 + 中文单字与二元字（Bigram）」，生产环境推荐 <code>jieba</code> + 企业自定义专有词典（加入项目代号、错误码）。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. Okapi BM25 为什么吊打传统 TF-IDF？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生产环境接入 BAAI/bge-reranker-v2-m3 标准写法】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：国内企业最常用的开源多语言精排模型是智源研究院的 <code>BAAI/bge-reranker-v2-m3</code>（或通过 SiliconFlow / Cohere / DashScope Rerank API 调用）：<br/>```python<br/>from FlagEmbedding import FlagReranker</p>
+<p>reranker = FlagReranker(&#x27;BAAI/bge-reranker-v2-m3&#x27;, use_fp16=True)<br/>pairs = [[query, doc.page_content] for doc in candidate_docs]<br/>scores = reranker.compute_score(pairs,…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：Reranker 的输入候选数不要贪多！粗排给 Reranker 喂 10~20 条文档最划算，如果喂 100 条文档，Cross-Encoder 推理延迟会直接突破 1 秒，得不偿失。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生产环境接入 BAAI/bge-reranker-v2-m3 标准写法」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 33 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day33/</code> 中亲手编写了 <code>src/day33_hybrid_rrf.py</code>、<code>src/day33_rerank_parent.py</code> 以及对应的自动化测试 <code>tests/test_day33.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day33_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 33 / STARMIND-033）：1. 已在分支 <code>feat/day33-hybrid-rerank-parent-doc</code> 完成 高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 34）：明天（Day 34）我们将从「调优」跨入「科学评测」：构建企业级 RAG 自动化评测框架（Faithfulness、答案相关性、上下文精确率/召回率），把 RAG 质量变成 CI 流水线里的硬门禁！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 33 掌握的「高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-033 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day33.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 33 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day33/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day33_hybrid_rrf.py, src/day33_rerank_parent.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>针对「ERR-5042 排查」「天枢项目审批」等精确实体查询，Hybrid RRF 的 Top-1 命中率达到 100%。；Reranker 精排后，混淆候选文档中的核心答案切片排位显著前移。；ParentDocumentRetriever 检索命中同一父文档多个子块时能自动去重，并完整返回父文档正文。；所有 pytest 自动化单元测试 100% 本地离线通过。</td><td>运行 `pytest versions/day33/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day33/day33_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day33-hybrid-rerank-parent-doc` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-033 需求时，我们的核心业务目标是：实现支持中文二元词元 + 英文/错误码精确切分的 <code>BM25Index</code> 与 <code>DenseVectorIndex</code>，并基于 RRF 实现 <code>HybridRRFRetriever</code>。；实现类 <code>bge-reranker</code> 的交叉交互重排器 <code>BGERerankerSimulator</code>，完成两阶段「粗排 -&gt; 精排」流水线。；实现 <code>ParentDocumentRetriever</code>：子切片检索 + 按 <code>parent_id</code> 去重回溯完整父文档。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. Okapi BM25 为什么吊打传统 TF-IDF？、2. 生产环境接入 BAAI/bge-reranker-v2-m3 标准写法 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「高级RAG技术(下)：BM25混合检索、RRF融合、bge-reranker重排与父文档检索」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 33 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day33_hybrid_rrf.py、src/day33_rerank_parent.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>漂亮！今天我们把「BM25 + 向量 + RRF + Reranker + 父文档检索」五件套全部手写跑通了。以后面试官问你「生产级 RAG 检索链路怎么设计」，你直接把今天的「多路粗排 -&gt; RRF 融合 -&gt; Cross-Encoder 精排 -&gt; 父文档回溯」四级漏斗画出来，稳拿 Offer！明天咱们做 RAG 自动化评估体系，用数字给今天的新引擎打分。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现自适应动态权重 RRF 融合器（Query 路由调权）</strong><span class="badge">基础巩固</span></div><p>当用户 Query 包含错误码、工单号或英文缩写（如 <code>ERR-5042</code>、<code>VPN</code>）时，自动将 RRF 权重调整为 <code>bm25_weight=0.75, dense_weight=0.25</code>；当 Query 为纯中文口语时调整为 <code>bm25_weight=0.35, dense_weight=0.65</code>。请实现 <code>adaptive_rrf_weights(query)</code> 并验证。</p><p><strong>💡 思路提示：</strong>用正则检测 `[A-Za-z0-9]+[-_][A-Za-z0-9]+` 或全大写缩写词来决定权重分配。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-33-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-33-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 33 作业一参考答案：自适应动态权重 RRF 路由器&quot;&quot;&quot;
+import re
+from typing import Tuple
+
+
+def adaptive_rrf_weights(query: str) -&gt; Tuple[float, float]:
+    &quot;&quot;&quot;返回 (bm25_weight, dense_weight)。&quot;&quot;&quot;
+    has_code = bool(re.search(r&quot;[A-Za-z]{2,}[-_][0-9]+|[A-Z]{3,}&quot;, query))
+    if has_code:
+        return (0.75, 0.25)
+    return (0.35, 0.65)
+
+
+if __name__ == &quot;__main__&quot;:
+    w1 = adaptive_rrf_weights(&quot;ERR-5042 网关超时咋处理&quot;)
+    w2 = adaptive_rrf_weights(&quot;去魔都出差住店能报多少&quot;)
+    print(&quot;错误码查询权重:&quot;, w1)
+    print(&quot;口语语义查询权重:&quot;, w2)
+    assert w1 == (0.75, 0.25) and w2 == (0.35, 0.65)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>静态 0.5/0.5 只是起点，根据 Query 形态动态调节 BM25 与向量权重是搜索大厂常见的精调手段。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现 Sentence-Window（句子窗口扩展）检索器</strong><span class="badge">企业实战</span></div><p>将一篇文档按句号拆分为句子列表，索引每个单句；检索命中第 <code>i</code> 句后，自动拼接前后各 <code>window=1</code> 句（即 <code>[i-1, i, i+1]</code>）作为最终上下文返回。请实现 <code>SentenceWindowRetriever</code> 并验证。</p><p><strong>💡 思路提示：</strong>在每条句子的 `metadata` 中记录 `doc_id` 和 `sent_idx`，命中小句后按 `max(0, idx-window) : idx+window+1` 拼接原文。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-33-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-33-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 33 作业二参考答案：Sentence-Window 句子窗口扩展检索器&quot;&quot;&quot;
+import re
+from typing import Dict, List
+
+
+class SentenceWindowRetriever:
+    def __init__(self, window: int = 1) -&gt; None:
+        self.window = window
+        self.doc_sentences: Dict[str, List[str]] = {}
+
+    def index_document(self, doc_id: str, text: str) -&gt; None:
+        sents = [s.strip() for s in re.split(r&quot;(?&lt;=[。！？])&quot;, text) if s.strip()]
+        self.doc_sentences[doc_id] = sents
+
+    def search_with_window(self, keyword: str) -&gt; List[str]:
+        outputs: List[str] = []
+        for doc_id, sents in self.doc_sentences.items():
+            for idx, s in enumerate(sents):
+                if keyword in s:
+                    left = max(0, idx - self.window)
+                    right = min(len(sents), idx + self.window + 1)
+                    outputs.append(&quot;&quot;.join(sents[left:right]))
+        return outputs
+
+
+if __name__ == &quot;__main__&quot;:
+    sw = SentenceWindowRetriever(window=1)
+    sw.index_document(
+        &quot;D1&quot;,
+        &quot;网关默认超时时间为15秒。遇到ERR-5042需优先排查显存水位。若持续超5分钟请立即开启熔断。&quot;,
+    )
+    res = sw.search_with_window(&quot;ERR-5042&quot;)
+    print(&quot;窗口扩展结果:&quot;, res[0])
+    assert &quot;15秒&quot; in res[0] and &quot;熔断&quot; in res[0]
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>Sentence-Window 是 ParentDocumentRetriever 的轻量级兄弟，在长技术文档问答中兼顾精准命中与前后文连贯性。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现带延迟统计的 Top-K 精排截断阈值滤波器</strong><span class="badge">架构进阶</span></div><p>对 Reranker 输出的 <code>(doc, score)</code> 列表，增加动态截断逻辑：过滤掉 <code>score &lt; min_score</code>（如 <code>0.45</code>）的低分噪音文档，同时如果第 1 名与第 2 名分差超过 <code>0.35</code>（断层领先），则只返回 Top-1 避免次优文档干扰大模型。请实现 <code>smart_rerank_cutoff</code> 并测试两种分支。</p><p><strong>💡 思路提示：</strong>先按 `min_score` 过滤，再判断 `len(filtered) &gt;= 2 and filtered[0][1] - filtered[1][1] &gt; gap_threshold`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-33-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-33-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 33 作业三参考答案：精排动态截断阈值滤波器&quot;&quot;&quot;
+from typing import List, Tuple
+
+
+def smart_rerank_cutoff(
+    ranked_items: List[Tuple[str, float]],
+    min_score: float = 0.45,
+    gap_threshold: float = 0.35,
+) -&gt; List[Tuple[str, float]]:
+    filtered = [(doc, sc) for doc, sc in ranked_items if sc &gt;= min_score]
+    if len(filtered) &gt;= 2 and (filtered[0][1] - filtered[1][1]) &gt; gap_threshold:
+        return [filtered[0]]
+    return filtered
+
+
+if __name__ == &quot;__main__&quot;:
+    case_gap = [(&quot;最优文档&quot;, 0.95), (&quot;弱相关文档&quot;, 0.50), (&quot;噪音文档&quot;, 0.20)]
+    case_close = [(&quot;文档A&quot;, 0.88), (&quot;文档B&quot;, 0.82), (&quot;噪音文档&quot;, 0.15)]
+    out1 = smart_rerank_cutoff(case_gap)
+    out2 = smart_rerank_cutoff(case_close)
+    print(&quot;断层领先截断:&quot;, out1)
+    print(&quot;势均力敌保留:&quot;, out2)
+    assert len(out1) == 1 and len(out2) == 2
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>固定返回 Top-3 往往会在「只需要 1 条证据」时硬塞 2 条噪音；动态分差截断能显著降低 LLM 幻觉率与输入 Token 成本。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day32/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day34/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

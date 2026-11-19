@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 36：阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 6 周</span>
+      <span class="badge badge-ticket">STARMIND-036</span>
+      <span class="badge">Day 36 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="36" onclick="toggleDayComplete(36, this)">标记今日已完成</button>
+      <a class="btn" href="../day35/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day37/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day36-project2-kb-backend-api</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day36/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day36/day36_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day36_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 6 周：第6周：阶段项目二——企业级知识库问答系统实战与答辩</div>
+        <h1>Day 36：阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务</h1>
+        <p class="hero-sub">从零搭建 StarMind-KB v2.0 生产级后端：文档解析入库 + BM25/向量混合检索 + Rerank + REST API</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-036</span>
+          <span class="hero-tag">分支：feat/day36-project2-kb-backend-api</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>各位同学，激动人心的时刻到了！今天正式启动第三阶段收官大战——**阶段项目二：星辰智脑企业级知识库问答系统（StarMind-KB v2.0）**！<br/>产品经理林姐已经把正式 PRD 签发下来了，明天下午就要跟前端联调，后天（Day 38）就要上台做技术答辩与代码评审！<br/>咱们按正规大厂两日冲刺节奏拆解：<br/>- **今天（项目二·上）**：打牢后端地基！完成**多格式文档解析入库（Markdown / TXT / JSON / CSV）**、**部门级权限过滤（ACL Pre-Filter）**、**BM25 + 向量 RRF 混合检索 + Cross-Encoder 精排引擎**，并用 **FastAPI** 暴露出带 Pydantic 严格校验的标准 RESTful API（文档入库、文档列表、文档删除、问答查询、健康检查），再用 <code>TestClient</code> 跑通全接口自动化集成测试！<br/>别再写脚本级玩具了，今天写的每一行代码都要按「直接能部署到测试环境」的工业标准来！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>前两周（Day 25~35）我们把 LangChain、文档加载切分、向量检索、高级 RAG 混合检索+Rerank、Ragas 评估和 LlamaIndex 核心原理全部打通了。现在，是时候把所有零散积木拼装成一座真正可上线的企业级系统了！</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 37）我们将完成**阶段项目二（下）**：为 StarMind-KB v2.0 补齐多会话记忆、多轮指代消解改写、引用溯源 <code>&lt;mark&gt;</code> 高亮展示、SSE 打字机流式输出接口与全链路 TestClient 联调！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 36 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 36）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：前两周（Day 25~35）我们把 LangChain、文档加载切分、向量检索、高级 RAG 混合检索+Rerank、Ragas 评估和 LlamaIndex 核心原理全部打通了。现在，是时候把所有零散积木拼装成一座真正可上线的企业级系统了！ 今天我们通过需求单 STARMIND-036，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day36/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 37）我们将完成**阶段项目二（下）**：为 StarMind-KB v2.0 补齐多会话记忆、多轮指代消解改写、引用溯源 <code>&lt;mark&gt;</code> 高亮展示、SSE 打字机流式输出接口与全链路 TestClient 联调！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>项目二 PRD 评审与分层架构设计</td><td>确定 API 契约、多格式文档入库规范、部门 ACL 权限模型与幂等 Upsert 索引重建策略。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>实现企业级知识库核心引擎（day36_kb_engine.py）</td><td>编码多格式解析器、文档注册中心、ACL 过滤、Hybrid RRF + Rerank 与引用溯源生成器。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>实现 FastAPI 后端服务与路由契约（day36_kb_api.py）</td><td>定义 Pydantic Schema、依赖注入工厂、异常处理与 5 个核心 REST API 端点。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>TestClient 全接口集成测试与 Code Review</td><td>覆盖入库/更新/删除/ACL越权防护/拒答边界测试，完成老陈与阿杰代码评审。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-036）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>杭州星辰数科全员 800+ 员工急需统一的内部企业知识库问答平台（StarMind-KB v2.0），覆盖 HR 制度、财务报销、研发规范与运维排障四类多格式文档，并要求严格的部门数据权限隔离与可溯源回答。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>公司制度文档散落在 Markdown 手册、CSV 费用标准表、JSON 故障码字典和 TXT 通知中，格式五花八门。</li><li>高管/财务敏感文档不能被普通研发人员搜到，缺少部门级元数据权限过滤（ACL）。</li><li>制度修订后，旧版本切片残留在索引里导致回答新旧打架，缺乏按 `doc_id` 幂等覆盖更新与删除能力。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>构建 `MultiFormatParser`：统一解析 `md`、`txt`、`json`、`csv` 四种企业常见文档格式并切分保留 `section / department / chunk_index` 元数据。</li><li>构建 `EnterpriseKBEngine`：支持文档幂等 Upsert、按 `doc_id` 软/硬删除、部门 ACL 权限过滤、`BM25 + Dense RRF + Cross-Encoder Rerank` 精排与低分防幻觉拒答。</li><li>基于 FastAPI 构建生产级 REST API：`GET /health`、`POST /api/v1/documents/ingest`、`GET /api/v1/documents`、`DELETE /api/v1/documents/{doc_id}`、`POST /api/v1/qa/query`。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>成功通过 HTTP API 分别入库 Markdown、JSON、CSV 文档，并支持相同 `doc_id` 重复入库时自动覆盖旧切片（不产生脏数据）。</li><li>当 `department=&#x27;rd&#x27;` 发起查询时，绝不返回 `department=&#x27;finance&#x27;` 的机密文档切片（ACL 隔离 100% 生效）。</li><li>针对库外无关提问（如「火星大气成分」）自动触发防幻觉拒答（`refused=True`）。</li><li>使用 `fastapi.testclient.TestClient` 完成全接口集成测试，100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>所有接口输入输出均采用 Pydantic v2 BaseModel 强类型校验，返回字段包含 `latency_ms` 便于监控大盘采集。</li><li>服务层（`EnterpriseKBEngine`）与 Web 路由层（`FastAPI`）严格解耦，便于单元测试与后续横向扩展。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>StarMind-KB v2.0 后端严格遵循经典**三层整洁架构（API 路由层 -&gt; 领域服务层 -&gt; 索引存储层）**：<br/>1. **多格式解析层（MultiFormatParser）**：<br/>   - <code>md</code>：按二级标题 <code>## </code> 自动识别章节 <code>section</code> 再滑动切分；<br/>   - <code>json</code>：解析对象或列表，将结构化 KV（如故障码字典）转化为高可读自然语言条款；<br/>   - <code>csv</code>：按表头+行记录逐行语义化拼接，避免表格切分丢表头；<br/>   - <code>txt</code>：按段落边界切分。<br/>2. **文档生命周期与幂等 Upsert**：每篇文档拥有唯一 <code>doc_id</code>。当业务更新文档重新上传时，引擎先清理该 <code>doc_id</code> 对应的全部旧切片再写入新切片，彻底杜绝「2025 旧报销标准和 2026 新标准同时被搜出来」的经典线上 Bug。<br/>3. **安全优先的 ACL 过滤**：在检索打分前先按 <code>department in (user_dept, &#x27;public&#x27;)</code> 过滤候选集（Pre-Filtering），从根源阻断越权信息泄露。<br/>4. **FastAPI 应用工厂模式（<code>create_app(engine=None)</code>）**：避免全局单例污染测试环境，方便 <code>pytest</code> 每次注入全新隔离实例并行测试。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 36.1：StarMind-KB v2.0 后端三层架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">StarMind-KB v2.0 后端三层架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">FastAPI REST API 层</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">Pydantic校验 / 路由 / 延迟埋点</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">MultiFormatParser</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">MD / TXT / JSON / CSV 统一解析</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Document Registry</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">doc_id 幂等Upsert与删除</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">Hybrid RRF + Rerank</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">ACL预过滤 -&gt; BM25+向量 -&gt; 精排</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">Grounded Answer + Citations</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">阈值拒答 + 结构化引用溯源</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">POST /documents/ingest</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入规范化切片</text>
+<line x1="430.0" y1="130" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">POST /qa/query (带department)</text>
+<line x1="629.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">提供授权切片</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">Top-K 证据切片</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>路由层与引擎层彻底解耦，统一支持多格式文档摄取、权限过滤与两阶段精排问答。</div></div><div class="diagram-card"><div class="diagram-title">图 36.2：多格式文档幂等入库（Upsert）与权限标记流程（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">多格式文档幂等入库（Upsert）与权限标记流程</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">上传文档</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">doc_id + format + department</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">清理旧切片</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">若 doc_id 已存在则先移除</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">格式专属解析切分</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">MD按标题 / CSV带表头 / JSON转陈述</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">刷新双路索引</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">更新 BM25 词频与 Dense 向量</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">幂等检查</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="543.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">解析切片</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">原子生效</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>任何格式文档入库前先按 doc_id 清理旧版本，再切分绑定部门 ACL 标签写入双索引。</div></div><div class="diagram-card"><div class="diagram-title">图 36.3：POST /api/v1/qa/query 问答请求时序图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 366" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="800" height="366" rx="12" fill="#fafafc"/>
+<text x="400.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">POST /api/v1/qa/query 问答请求时序图</text>
+<rect x="58.0" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="130.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">前端 / TestClient</text>
+<line x1="130.0" y1="88" x2="130.0" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="238.0" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="310.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">FastAPI Router</text>
+<line x1="310.0" y1="88" x2="310.0" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="418.0" y="44" width="144" height="44" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="490.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">EnterpriseKBEngine</text>
+<line x1="490.0" y1="88" x2="490.0" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="598.0" y="44" width="144" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="670.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95">拒答闸门与回答组装</text>
+<line x1="670.0" y1="88" x2="670.0" y2="344" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="130.0" y1="122" x2="310.0" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="220.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. 1. HTTP POST</text>
+<line x1="310.0" y1="174" x2="490.0" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. 2. query(question, dept)</text>
+<line x1="490.0" y1="226" x2="670.0" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="580.0" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. 3. 精排证据与分数</text>
+<line x1="670.0" y1="278" x2="130.0" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="400.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. 4. JSON(answer, citations, latency_ms)</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示客户端请求经过 ACL 过滤、混合粗排、Rerank 精排与阈值拒答的完整执行路径。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么企业知识库必须做「ACL 预过滤（Pre-Filtering）」？</h3><p>如果先不带权限全库检索 Top-3，再把其中 2 条机密文档删掉，最终只剩 1 条甚至 0 条结果——这叫 **Post-Filtering 召回坍缩**！正确做法是在计算 BM25 / 向量相似度之前，先按 <code>department in (user_dept, &#x27;public&#x27;)</code> 锁定合法候选文档池，既 100% 杜绝越权泄露，又保证合法结果永远填满 Top-K。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：用户所属部门绝对不能由前端随手传一个未鉴权的字段说了算！本节课为演示清晰直接在请求体传 `department`，真实生产环境必须从服务端验签后的 JWT Token / SSO Session 里解析用户真实角色与部门。</div><h3>2. 2. CSV 表格类文档切分防失真秘籍</h3><p>千万不要把 CSV 直接当纯文本按字符数硬切！一旦把表头切在第 1 块、第 20 行数据切在第 4 块，第 4 块只剩 <code>杭州,450,100</code>，大模型根本不知道 450 是住宿费还是餐补！像本节课 <code>MultiFormatParser</code> 那样，**把每一行数据与表头动态拼成 <code>城市: 杭州；住宿上限: 450；餐补: 100</code>**，检索精度瞬间起飞。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：超大 Excel/CSV（上万行）不应全部塞进向量库，应转为 SQLite/PostgreSQL 数据库，走第四阶段的 Text-to-SQL Agent 工具查询！</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈生产架构经验：知识库入库一定要走「异步任务队列」！】<br/>今天演示的 <code>/api/v1/documents/ingest</code> 是同步解析入库，对于几 KB 的 Markdown 只需几毫秒。但一旦业务同学上传一份 50MB、300 页的扫描 PDF（需要 OCR + 版面分析 + 批量 Embedding），同步 HTTP 请求必然触发 60 秒网关超时！生产环境标准方案是：上传接口只负责落盘对象存储（OSS/MinIO）并往 Celery / Redis Streams 投递任务，立即返回 <code>202 Accepted + task_id</code>，前端轮询或 WebSocket 监听入库进度条。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day36/</code> 与 <code>notebooks/day36/day36_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现多格式文档解析、ACL 权限过滤与混合精排引擎（EnterpriseKBEngine）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们先把项目二的核心领域引擎写扎实：<code>MultiFormatParser</code> 处理 MD/TXT/JSON/CSV 四种企业文档，<code>EnterpriseKBEngine</code> 负责幂等 Upsert、文档删除、部门 ACL 隔离、BM25+向量 RRF 混合检索、Cross-Encoder 精排与低分防幻觉拒答。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day36_kb_engine.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 36 - 步骤一：阶段项目二(上) 企业级知识库核心引擎
+支持：多格式文档解析(MD/TXT/JSON/CSV)、doc_id 幂等 Upsert/删除、部门 ACL 过滤、
+     BM25 + Dense 向量 RRF 混合检索 + Cross-Encoder 精排 + 阈值拒答
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import math
+import re
+import time
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+
+@dataclass
+class KBChunk:
+    chunk_id: str
+    doc_id: str
+    source: str
+    section: str
+    department: str
+    content: str
+    chunk_index: int
+
+
+@dataclass
+class CitationItem:
+    doc_id: str
+    source: str
+    section: str
+    snippet: str
+    score: float
+
+
+@dataclass
+class QAResult:
+    question: str
+    answer: str
+    citations: List[CitationItem]
+    refused: bool
+    latency_ms: float
+    used_rerank: bool
+
+
+def tokenize_text(text: str) -&gt; List[str]:
+    lowered = text.lower()
+    tokens = re.findall(r&quot;[a-z0-9]+(?:[-_][a-z0-9]+)*&quot;, lowered)
+    for chunk in re.findall(r&quot;[\u4e00-\u9fff]+&quot;, lowered):
+        for ch in chunk:
+            tokens.append(ch)
+        for i in range(len(chunk) - 1):
+            tokens.append(chunk[i : i + 2])
+    return tokens
+
+
+class MultiFormatParser:
+    &quot;&quot;&quot;企业多格式文档统一解析与语义切分器（支持 md / txt / json / csv）。&quot;&quot;&quot;
+
+    @staticmethod
+    def parse(
+        doc_id: str,
+        source: str,
+        fmt: str,
+        content: str,
+        department: str = &quot;public&quot;,
+        chunk_size: int = 180,
+    ) -&gt; List[KBChunk]:
+        fmt_lower = fmt.lower().strip(&quot;.&quot;)
+        chunks: List[KBChunk] = []
+
+        if fmt_lower == &quot;md&quot;:
+            # 按 Markdown 二级标题分段保留章节名
+            sections = re.split(r&quot;(?m)^##\s+&quot;, content.strip())
+            idx = 0
+            for raw_sec in sections:
+                raw_sec = raw_sec.strip()
+                if not raw_sec:
+                    continue
+                lines = raw_sec.splitlines()
+                sec_title = lines[0].strip(&quot;# &quot;) if len(lines) &gt; 1 else &quot;正文&quot;
+                body = &quot;\n&quot;.join(lines[1:]).strip() if len(lines) &gt; 1 else raw_sec
+                for start in range(0, max(1, len(body)), chunk_size):
+                    piece = body[start : start + chunk_size].strip()
+                    if not piece:
+                        continue
+                    chunks.append(
+                        KBChunk(
+                            chunk_id=f&quot;{doc_id}#c{idx}&quot;,
+                            doc_id=doc_id,
+                            source=source,
+                            section=sec_title,
+                            department=department,
+                            content=piece,
+                            chunk_index=idx,
+                        )
+                    )
+                    idx += 1
+            return chunks
+
+        if fmt_lower == &quot;csv&quot;:
+            reader = csv.DictReader(io.StringIO(content.strip()))
+            for idx, row in enumerate(reader):
+                kv_text = &quot;；&quot;.join(f&quot;{k.strip()}: {str(v).strip()}&quot; for k, v in row.items() if k)
+                if kv_text:
+                    chunks.append(
+                        KBChunk(
+                            chunk_id=f&quot;{doc_id}#c{idx}&quot;,
+                            doc_id=doc_id,
+                            source=source,
+                            section=f&quot;表格第{idx + 1}行&quot;,
+                            department=department,
+                            content=kv_text,
+                            chunk_index=idx,
+                        )
+                    )
+            return chunks
+
+        if fmt_lower == &quot;json&quot;:
+            data = json.loads(content)
+            items = data if isinstance(data, list) else [data]
+            for idx, item in enumerate(items):
+                if isinstance(item, dict):
+                    sec = str(item.get(&quot;code&quot;) or item.get(&quot;title&quot;) or f&quot;条目{idx + 1}&quot;)
+                    text = &quot;；&quot;.join(f&quot;{k}: {v}&quot; for k, v in item.items())
+                else:
+                    sec = f&quot;条目{idx + 1}&quot;
+                    text = str(item)
+                chunks.append(
+                    KBChunk(
+                        chunk_id=f&quot;{doc_id}#c{idx}&quot;,
+                        doc_id=doc_id,
+                        source=source,
+                        section=sec,
+                        department=department,
+                        content=text,
+                        chunk_index=idx,
+                    )
+                )
+            return chunks
+
+        # 默认按 txt 段落切分
+        paras = [p.strip() for p in re.split(r&quot;\n{2,}&quot;, content.strip()) if p.strip()]
+        for idx, p in enumerate(paras):
+            chunks.append(
+                KBChunk(
+                    chunk_id=f&quot;{doc_id}#c{idx}&quot;,
+                    doc_id=doc_id,
+                    source=source,
+                    section=f&quot;段落{idx + 1}&quot;,
+                    department=department,
+                    content=p,
+                    chunk_index=idx,
+                )
+            )
+        return chunks
+
+
+class EnterpriseKBEngine:
+    &quot;&quot;&quot;StarMind-KB v2.0 核心引擎：多格式入库、ACL过滤、混合RRF检索与Cross-Encoder精排。&quot;&quot;&quot;
+
+    def __init__(self, refuse_threshold: float = 0.25, dim: int = 96) -&gt; None:
+        self.refuse_threshold = refuse_threshold
+        self.dim = dim
+        self.doc_registry: Dict[str, Dict[str, Any]] = {}
+        self.chunks: List[KBChunk] = []
+        self._chunk_tfs: Dict[str, Counter[str]] = {}
+        self._chunk_vecs: Dict[str, List[float]] = {}
+
+    def _embed(self, text: str) -&gt; List[float]:
+        vec = [0.0] * self.dim
+        for tok in tokenize_text(text):
+            h = int(hashlib.md5(tok.encode(&quot;utf-8&quot;)).hexdigest(), 16)
+            vec[h % self.dim] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+        return [v / norm for v in vec]
+
+    def ingest_document(
+        self,
+        doc_id: str,
+        source: str,
+        fmt: str,
+        content: str,
+        department: str = &quot;public&quot;,
+    ) -&gt; int:
+        &quot;&quot;&quot;幂等入库：若 doc_id 已存在则先清除旧切片再写入新版本。&quot;&quot;&quot;
+        self.delete_document(doc_id)
+        new_chunks = MultiFormatParser.parse(
+            doc_id=doc_id, source=source, fmt=fmt, content=content, department=department
+        )
+        for ch in new_chunks:
+            self.chunks.append(ch)
+            self._chunk_tfs[ch.chunk_id] = Counter(tokenize_text(ch.content + &quot; &quot; + ch.section))
+            self._chunk_vecs[ch.chunk_id] = self._embed(ch.content + &quot; &quot; + ch.section)
+
+        self.doc_registry[doc_id] = {
+            &quot;doc_id&quot;: doc_id,
+            &quot;source&quot;: source,
+            &quot;format&quot;: fmt,
+            &quot;department&quot;: department,
+            &quot;chunk_count&quot;: len(new_chunks),
+        }
+        return len(new_chunks)
+
+    def delete_document(self, doc_id: str) -&gt; bool:
+        if doc_id not in self.doc_registry:
+            return False
+        kept: List[KBChunk] = []
+        for ch in self.chunks:
+            if ch.doc_id == doc_id:
+                self._chunk_tfs.pop(ch.chunk_id, None)
+                self._chunk_vecs.pop(ch.chunk_id, None)
+            else:
+                kept.append(ch)
+        self.chunks = kept
+        self.doc_registry.pop(doc_id, None)
+        return True
+
+    def list_documents(self) -&gt; List[Dict[str, Any]]:
+        return list(self.doc_registry.values())
+
+    def _rerank_score(self, query: str, chunk: KBChunk) -&gt; float:
+        q_tokens = set(tokenize_text(query))
+        if not q_tokens:
+            return 0.0
+        c_tokens = set(self._chunk_tfs[chunk.chunk_id].keys())
+        q_bigrams = {t for t in q_tokens if len(t) &gt;= 2}
+        c_bigrams = {t for t in c_tokens if len(t) &gt;= 2}
+        overlap_bi = len(q_bigrams &amp; c_bigrams) / max(1, len(q_bigrams)) if q_bigrams else 0.0
+        overlap_all = len(q_tokens &amp; c_tokens) / max(1, len(q_tokens))
+        q_codes = set(re.findall(r&quot;[a-z0-9]+[-_][a-z0-9]+&quot;, query.lower()))
+        code_bonus = 0.35 if (q_codes and any(c in chunk.content.lower() for c in q_codes)) else 0.0
+        return round(min(1.0, 0.55 * overlap_bi + 0.35 * overlap_all + code_bonus), 4)
+
+    def search(
+        self,
+        question: str,
+        top_k: int = 3,
+        department: str = &quot;public&quot;,
+        use_rerank: bool = True,
+    ) -&gt; List[Tuple[KBChunk, float]]:
+        # 1. ACL 权限预过滤（Pre-Filtering）
+        allowed_depts = {&quot;public&quot;, department}
+        pool = [ch for ch in self.chunks if ch.department in allowed_depts]
+        if not pool:
+            return []
+
+        q_tokens = tokenize_text(question)
+        q_vec = self._embed(question)
+
+        # 2. BM25 稀疏打分
+        n_docs = len(pool)
+        df: Counter[str] = Counter()
+        lengths: Dict[str, int] = {}
+        for ch in pool:
+            tf = self._chunk_tfs[ch.chunk_id]
+            lengths[ch.chunk_id] = sum(tf.values())
+            for t in tf.keys():
+                df[t] += 1
+        avgdl = sum(lengths.values()) / max(1, n_docs)
+
+        bm25_ranked: List[Tuple[KBChunk, float]] = []
+        for ch in pool:
+            tf = self._chunk_tfs[ch.chunk_id]
+            dl = lengths[ch.chunk_id]
+            s = 0.0
+            for t in q_tokens:
+                freq = tf.get(t, 0)
+                if freq == 0:
+                    continue
+                idf = math.log(1.0 + (n_docs - df[t] + 0.5) / (df[t] + 0.5))
+                s += idf * (freq * 2.5) / (freq + 1.5 * (0.25 + 0.75 * dl / max(1e-9, avgdl)))
+            if s &gt; 0:
+                bm25_ranked.append((ch, s))
+        bm25_ranked.sort(key=lambda x: x[1], reverse=True)
+
+        # 3. Dense 向量余弦打分
+        dense_ranked: List[Tuple[KBChunk, float]] = []
+        for ch in pool:
+            c_vec = self._chunk_vecs[ch.chunk_id]
+            sim = sum(x * y for x, y in zip(q_vec, c_vec))
+            if sim &gt; 0:
+                dense_ranked.append((ch, sim))
+        dense_ranked.sort(key=lambda x: x[1], reverse=True)
+
+        # 4. RRF 倒数排名融合
+        rrf_scores: Dict[str, float] = {}
+        chunk_map: Dict[str, KBChunk] = {}
+        for rank, (ch, _) in enumerate(bm25_ranked[:10], start=1):
+            chunk_map[ch.chunk_id] = ch
+            rrf_scores[ch.chunk_id] = rrf_scores.get(ch.chunk_id, 0.0) + 0.5 / (60 + rank)
+        for rank, (ch, _) in enumerate(dense_ranked[:10], start=1):
+            chunk_map[ch.chunk_id] = ch
+            rrf_scores[ch.chunk_id] = rrf_scores.get(ch.chunk_id, 0.0) + 0.5 / (60 + rank)
+
+        candidates = [
+            chunk_map[cid]
+            for cid, _ in sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:8]
+        ]
+        if not candidates:
+            return []
+
+        # 5. Cross-Encoder 精排（或直接返回归一化特征分）
+        scored = [(ch, self._rerank_score(question, ch)) for ch in candidates]
+        if use_rerank:
+            scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
+
+    def query(
+        self,
+        question: str,
+        top_k: int = 3,
+        department: str = &quot;public&quot;,
+        use_rerank: bool = True,
+    ) -&gt; QAResult:
+        t0 = time.perf_counter()
+        hits = self.search(question, top_k=top_k, department=department, use_rerank=use_rerank)
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+
+        if not hits or hits[0][1] &lt; self.refuse_threshold:
+            return QAResult(
+                question=question,
+                answer=&quot;抱歉，星辰知识库当前授权范围内未检索到足够可靠的依据，无法回答该问题。&quot;,
+                citations=[],
+                refused=True,
+                latency_ms=latency_ms,
+                used_rerank=use_rerank,
+            )
+
+        citations = [
+            CitationItem(
+                doc_id=ch.doc_id,
+                source=ch.source,
+                section=ch.section,
+                snippet=ch.content[:140],
+                score=sc,
+            )
+            for ch, sc in hits
+            if sc &gt;= self.refuse_threshold
+        ]
+        evidence_lines = [
+            f&quot;[{i}] {c.snippet}（来源：{c.source} · {c.section}）&quot;
+            for i, c in enumerate(citations, start=1)
+        ]
+        answer = f&quot;根据星辰数科知识库检索结果，针对「{question}」解答如下：\n&quot; + &quot;\n&quot;.join(evidence_lines)
+        return QAResult(
+            question=question,
+            answer=answer,
+            citations=citations,
+            refused=False,
+            latency_ms=latency_ms,
+            used_rerank=use_rerank,
+        )
+
+
+def build_seeded_kb_engine() -&gt; EnterpriseKBEngine:
+    &quot;&quot;&quot;预置星辰数科多格式演示知识库（MD + CSV + JSON）。&quot;&quot;&quot;
+    engine = EnterpriseKBEngine()
+    engine.ingest_document(
+        doc_id=&quot;hr-handbook-2026&quot;,
+        source=&quot;员工休假与差旅手册.md&quot;,
+        fmt=&quot;md&quot;,
+        department=&quot;public&quot;,
+        content=(
+            &quot;## 年假与病假规定\n&quot;
+            &quot;入职满1年员工享有5天带薪年假，年假需提前3个工作日提交OA审批；病假超过2天须提供公立医院诊断证明。\n\n&quot;
+            &quot;## 生产发布窗口\n&quot;
+            &quot;业务代码日常发布窗口为周一至周四10:00-18:00，严禁周五17:00后提交非紧急上线变更。&quot;
+        ),
+    )
+    engine.ingest_document(
+        doc_id=&quot;fin-travel-table&quot;,
+        source=&quot;差旅住宿标准表.csv&quot;,
+        fmt=&quot;csv&quot;,
+        department=&quot;public&quot;,
+        content=&quot;城市等级,代表城市,住宿上限,餐饮补助\n一线城市,北京/上海/深圳/广州,每晚600元,每天100元\n新一线城市,杭州/成都/武汉,每晚450元,每天100元\n&quot;,
+    )
+    engine.ingest_document(
+        doc_id=&quot;ops-err-dict&quot;,
+        source=&quot;网关错误码字典.json&quot;,
+        fmt=&quot;json&quot;,
+        department=&quot;rd&quot;,
+        content=json.dumps(
+            [
+                {&quot;code&quot;: &quot;ERR-5042&quot;, &quot;meaning&quot;: &quot;统一网关调用上游推理服务超时&quot;, &quot;action&quot;: &quot;检查上游Pod显存并调大proxy_read_timeout&quot;},
+                {&quot;code&quot;: &quot;ERR-4019&quot;, &quot;meaning&quot;: &quot;零信任VPN动态令牌校验失败&quot;, &quot;action&quot;: &quot;同步客户端NTP时钟&quot;},
+            ],
+            ensure_ascii=False,
+        ),
+    )
+    engine.ingest_document(
+        doc_id=&quot;fin-salary-secret&quot;,
+        source=&quot;2026高管薪酬方案.txt&quot;,
+        fmt=&quot;txt&quot;,
+        department=&quot;finance&quot;,
+        content=&quot;2026年高管年终奖金池基数为税前净利润的8%，仅限财务总监与CEO查阅。&quot;,
+    )
+    return engine
+
+
+if __name__ == &quot;__main__&quot;:
+    kb = build_seeded_kb_engine()
+    print(&quot;已入库文档:&quot;, [(d[&quot;doc_id&quot;], d[&quot;department&quot;], d[&quot;chunk_count&quot;]) for d in kb.list_documents()])
+    r1 = kb.query(&quot;ERR-5042 怎么处理？&quot;, department=&quot;rd&quot;)
+    print(&quot;\n研发查错误码:&quot;, r1.answer)
+    r2 = kb.query(&quot;高管年终奖金池基数是多少？&quot;, department=&quot;rd&quot;)
+    print(&quot;\n研发越权查高管薪酬 refused=&quot;, r2.refused)
+</code></pre><div class="output-box"># 预期运行输出示例：
+已入库文档: [(&#x27;hr-handbook-2026&#x27;, &#x27;public&#x27;, 2), (&#x27;fin-travel-table&#x27;, &#x27;public&#x27;, 2), (&#x27;ops-err-dict&#x27;, &#x27;rd&#x27;, 2), (&#x27;fin-salary-secret&#x27;, &#x27;finance&#x27;, 1)]
+
+研发查错误码: 根据星辰数科知识库检索结果...
+
+研发越权查高管薪酬 refused= True</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>MultiFormatParser</code> 把 CSV 的每一行与表头拼成语义陈述句，把 JSON 错误码字典转为带 <code>code</code> 章节名的独立切片，完美适配企业异构数据源。<br/>2. <code>EnterpriseKBEngine.search</code> 在最前面执行 <code>pool = [ch for ch in self.chunks if ch.department in {&#x27;public&#x27;, department}]</code>，确保研发人员搜「高管年终奖金池」直接触发 <code>refused=True</code>，滴水不漏！</p><h3>实操步骤 2：步骤二：构建 StarMind-KB v2.0 FastAPI 后端服务与 Pydantic 强类型契约</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>引擎就位，现在用 FastAPI 把它包装成标准微服务！注意我们用 <code>create_app(engine=None)</code> 应用工厂模式，加上完整的 Pydantic 请求/响应校验和清晰的 HTTP 状态码。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day36_kb_api.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 36 - 步骤二：阶段项目二(上) StarMind-KB v2.0 FastAPI 后端服务
+提供：健康检查、多格式文档入库(Upsert)、文档列表/删除、混合检索+Rerank 问答 API
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day36_kb_engine import EnterpriseKBEngine, build_seeded_kb_engine
+
+
+class IngestRequest(BaseModel):
+    doc_id: str = Field(..., min_length=2, max_length=64, description=&quot;文档唯一ID（同ID重复入库自动覆盖）&quot;)
+    source: str = Field(..., min_length=1, description=&quot;文档文件名&quot;)
+    format: str = Field(..., pattern=&quot;^(md|txt|json|csv)$&quot;, description=&quot;文档格式：md/txt/json/csv&quot;)
+    content: str = Field(..., min_length=1, description=&quot;文档原始内容&quot;)
+    department: str = Field(default=&quot;public&quot;, description=&quot;可见部门：public/rd/finance/hr&quot;)
+
+
+class IngestResponse(BaseModel):
+    doc_id: str
+    chunks_created: int
+    status: str = &quot;ingested&quot;
+
+
+class QueryRequest(BaseModel):
+    question: str = Field(..., min_length=2, max_length=500)
+    top_k: int = Field(default=3, ge=1, le=10)
+    department: str = Field(default=&quot;public&quot;)
+    use_rerank: bool = Field(default=True)
+
+
+class CitationDTO(BaseModel):
+    doc_id: str
+    source: str
+    section: str
+    snippet: str
+    score: float
+
+
+class QueryResponse(BaseModel):
+    question: str
+    answer: str
+    citations: List[CitationDTO]
+    refused: bool
+    latency_ms: float
+    used_rerank: bool
+
+
+def create_app(engine: Optional[EnterpriseKBEngine] = None) -&gt; FastAPI:
+    &quot;&quot;&quot;FastAPI 应用工厂：支持生产默认预置知识库，也支持测试注入独立隔离引擎。&quot;&quot;&quot;
+    kb = engine if engine is not None else build_seeded_kb_engine()
+    app = FastAPI(
+        title=&quot;StarMind-KB v2.0 企业级知识库问答系统&quot;,
+        version=&quot;2.0.0&quot;,
+        description=&quot;杭州星辰数科企业知识库：多格式入库 + ACL权限过滤 + BM25/向量混合检索 + Rerank&quot;,
+    )
+
+    @app.get(&quot;/health&quot;)
+    def health() -&gt; Dict[str, Any]:
+        return {
+            &quot;status&quot;: &quot;ok&quot;,
+            &quot;doc_count&quot;: len(kb.doc_registry),
+            &quot;chunk_count&quot;: len(kb.chunks),
+        }
+
+    @app.post(&quot;/api/v1/documents/ingest&quot;, response_model=IngestResponse)
+    def ingest_document(req: IngestRequest) -&gt; IngestResponse:
+        try:
+            count = kb.ingest_document(
+                doc_id=req.doc_id,
+                source=req.source,
+                fmt=req.format,
+                content=req.content,
+                department=req.department,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f&quot;文档解析失败: {exc}&quot;) from exc
+        return IngestResponse(doc_id=req.doc_id, chunks_created=count)
+
+    @app.get(&quot;/api/v1/documents&quot;)
+    def list_documents() -&gt; Dict[str, Any]:
+        docs = kb.list_documents()
+        return {&quot;total&quot;: len(docs), &quot;items&quot;: docs}
+
+    @app.delete(&quot;/api/v1/documents/{doc_id}&quot;)
+    def delete_document(doc_id: str) -&gt; Dict[str, Any]:
+        deleted = kb.delete_document(doc_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f&quot;文档 {doc_id} 不存在&quot;)
+        return {&quot;deleted&quot;: True, &quot;doc_id&quot;: doc_id}
+
+    @app.post(&quot;/api/v1/qa/query&quot;, response_model=QueryResponse)
+    def qa_query(req: QueryRequest) -&gt; QueryResponse:
+        res = kb.query(
+            question=req.question,
+            top_k=req.top_k,
+            department=req.department,
+            use_rerank=req.use_rerank,
+        )
+        return QueryResponse(
+            question=res.question,
+            answer=res.answer,
+            citations=[
+                CitationDTO(
+                    doc_id=c.doc_id,
+                    source=c.source,
+                    section=c.section,
+                    snippet=c.snippet,
+                    score=c.score,
+                )
+                for c in res.citations
+            ],
+            refused=res.refused,
+            latency_ms=res.latency_ms,
+            used_rerank=res.used_rerank,
+        )
+
+    return app
+
+
+app = create_app()
+
+if __name__ == &quot;__main__&quot;:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_app())
+    print(&quot;GET /health -&gt;&quot;, client.get(&quot;/health&quot;).json())
+    resp = client.post(&quot;/api/v1/qa/query&quot;, json={&quot;question&quot;: &quot;北京出差住宿上限是多少？&quot;, &quot;department&quot;: &quot;public&quot;})
+    print(&quot;POST /api/v1/qa/query -&gt;&quot;, resp.json()[&quot;answer&quot;])
+</code></pre><div class="output-box"># 预期运行输出示例：
+GET /health -&gt; {&#x27;status&#x27;: &#x27;ok&#x27;, &#x27;doc_count&#x27;: 4, &#x27;chunk_count&#x27;: 7}
+POST /api/v1/qa/query -&gt; 根据星辰数科知识库检索结果，针对「北京出差住宿上限是多少？」解答如下：
+[1] 城市等级: 一线城市；代表城市: 北京/上海/深圳/广州；住宿上限: 每晚600元；餐饮补助: 每天100元（来源：差旅住宿标准表.csv · 表格第1行）</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>IngestRequest</code> 使用 <code>pattern=&#x27;^(md|txt|json|csv)$&#x27;</code> 在接口入口直接拦截不支持的文件类型，无需污染核心引擎。<br/>2. <code>create_app()</code> 返回独立 FastAPI 实例，既可以用 <code>uvicorn src.day36_kb_api:app --reload</code> 启动真实服务，也能被 <code>TestClient</code> 毫秒级跑通全链路测试！</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现多格式文档解析、ACL 权限过滤与混合精排引擎（EnterpriseKBEngine）（src/day36_kb_engine.py）</h3><p>模块 <code>src/day36_kb_engine.py</code> 共计 412 行源码，其中包含 7 行中文工程注释（注释密度约 1.7%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-036 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>csv</code>、<code>hashlib</code>、<code>io</code>、<code>json</code>、<code>math</code>、<code>re</code>、<code>time</code>、<code>collections (Counter)</code>、<code>dataclasses (dataclass, field)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>KBChunk</code>（第 22~29 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>CitationItem</code>（第 33~38 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>QAResult</code>（第 42~48 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>MultiFormatParser</code>（第 62~161 行）】这是一个独立领域模型类。其核心职责定义为：企业多格式文档统一解析与语义切分器（支持 md / txt / json / csv）。。类内部暴露了 1 个方法：<code>parse(doc_id, source, fmt, content, department, chunk_size)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>MultiFormatParser.parse</code>（第 66~161 行）属于同步实例方法，入参签名为 <code>(doc_id, source, fmt, content, department, chunk_size)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>EnterpriseKBEngine</code>（第 164~358 行）】这是一个独立领域模型类。其核心职责定义为：StarMind-KB v2.0 核心引擎：多格式入库、ACL过滤、混合RRF检索与Cross-Encoder精排。。类内部暴露了 8 个方法：<code>__init__(self, refuse_threshold, dim)</code>、<code>_embed(self, text)</code>、<code>ingest_document(self, doc_id, source, fmt, content, department)</code>、<code>delete_document(self, doc_id)</code>、<code>list_documents(self)</code>、<code>_rerank_score(self, query, chunk)</code>、<code>search(self, question, top_k, department, use_rerank)</code>、<code>query(self, question, top_k, department, use_rerank)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>EnterpriseKBEngine.__init__</code>（第 167~173 行）属于同步实例方法，入参签名为 <code>(self, refuse_threshold, dim)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseKBEngine._embed</code>（第 175~181 行）属于同步实例方法，入参签名为 <code>(self, text)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseKBEngine.ingest_document</code>（第 183~208 行）属于同步实例方法，入参签名为 <code>(self, doc_id, source, fmt, content, department)</code>。文档说明：幂等入库：若 doc_id 已存在则先清除旧切片再写入新版本。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseKBEngine.delete_document</code>（第 210~222 行）属于同步实例方法，入参签名为 <code>(self, doc_id)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseKBEngine.list_documents</code>（第 224~225 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>EnterpriseKBEngine._rerank_score</code>（第 227~238 行）属于同步实例方法，入参签名为 <code>(self, query, chunk)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>tokenize_text</code>（第 51~59 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(text)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【函数契约拆解 · <code>build_seeded_kb_engine</code>（第 361~403 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。职责说明：预置星辰数科多格式演示知识库（MD + CSV + JSON）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day36_kb_engine.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day36/day36_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day36/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：构建 StarMind-KB v2.0 FastAPI 后端服务与 Pydantic 强类型契约（src/day36_kb_api.py）</h3><p>模块 <code>src/day36_kb_api.py</code> 共计 140 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-036 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Any, Dict, List, Optional)</code>、<code>fastapi (FastAPI, HTTPException)</code>、<code>pydantic (BaseModel, Field)</code>、<code>src.day36_kb_engine (EnterpriseKBEngine, build_seeded_kb_engine)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>IngestRequest</code>（第 22~27 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>IngestResponse</code>（第 30~33 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>QueryRequest</code>（第 36~40 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>CitationDTO</code>（第 43~48 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>QueryResponse</code>（第 51~57 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>create_app</code>（第 60~129 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(engine)</code>。职责说明：FastAPI 应用工厂：支持生产默认预置知识库，也支持测试注入独立隔离引擎。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day36_kb_api.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day36/day36_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day36/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day36_kb_engine.py（共 412 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day36_kb_engine.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import csv</code></td><td>核心意图：代表语句：`import csv`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>from dataclasses import dataclass, field</code></td><td>核心意图：代表语句：`from dataclasses import dataclass, field`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>source: str</code></td><td>核心意图：代表语句：`source: str`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>class CitationItem:</code></td><td>核心意图：代表语句：`class CitationItem:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L41-L48</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L49-L56</code></td><td><code>def tokenize_text(text: str) -&gt; List[str]:</code></td><td>核心意图：代表语句：`def tokenize_text(text: str) -&gt; List[str]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>for i in range(len(chunk) - 1):</code></td><td>核心意图：代表语句：`for i in range(len(chunk) - 1):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>@staticmethod</code></td><td>核心意图：代表语句：`@staticmethod`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L73-L80</code></td><td><code>) -&gt; List[KBChunk]:</code></td><td>核心意图：按 Markdown 二级标题分段保留章节名。代表语句：`) -&gt; List[KBChunk]:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>for raw_sec in sections:</code></td><td>核心意图：代表语句：`for raw_sec in sections:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>piece = body[start : start + chunk_size].strip()</code></td><td>核心意图：代表语句：`piece = body[start : start + chunk_size].strip()`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>section=sec_title,</code></td><td>核心意图：代表语句：`section=sec_title,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>if fmt_lower == &quot;csv&quot;:</code></td><td>核心意图：代表语句：`if fmt_lower == &quot;csv&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>chunk_id=f&quot;{doc_id}#c{idx}&quot;,</code></td><td>核心意图：代表语句：`chunk_id=f&quot;{doc_id}#c{idx}&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L121-L128</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>sec = str(item.get(&quot;code&quot;) or item.get(&quot;title&quot;) or f&quot;条目{idx + 1}&quot;)</code></td><td>核心意图：代表语句：`sec = str(item.get(&quot;code&quot;) or item.get(&quot;title&quot;) or f&quot;条目{idx + 1}&quot;)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L137-L144</code></td><td><code>doc_id=doc_id,</code></td><td>核心意图：代表语句：`doc_id=doc_id,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L145-L152</code></td><td><code>return chunks</code></td><td>核心意图：默认按 txt 段落切分。代表语句：`return chunks`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>doc_id=doc_id,</code></td><td>核心意图：代表语句：`doc_id=doc_id,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L161-L168</code></td><td><code>return chunks</code></td><td>核心意图：代表语句：`return chunks`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L169-L176</code></td><td><code>self.dim = dim</code></td><td>核心意图：代表语句：`self.dim = dim`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L177-L184</code></td><td><code>for tok in tokenize_text(text):</code></td><td>核心意图：代表语句：`for tok in tokenize_text(text):`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L185-L192</code></td><td><code>doc_id: str,</code></td><td>核心意图：代表语句：`doc_id: str,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L193-L200</code></td><td><code>new_chunks = MultiFormatParser.parse(</code></td><td>核心意图：代表语句：`new_chunks = MultiFormatParser.parse(`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L201-L208</code></td><td><code>self.doc_registry[doc_id] = {</code></td><td>核心意图：代表语句：`self.doc_registry[doc_id] = {`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L209-L216</code></td><td><code>def delete_document(self, doc_id: str) -&gt; bool:</code></td><td>核心意图：代表语句：`def delete_document(self, doc_id: str) -&gt; bool:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L217-L224</code></td><td><code>self._chunk_vecs.pop(ch.chunk_id, None)</code></td><td>核心意图：代表语句：`self._chunk_vecs.pop(ch.chunk_id, None)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L225-L232</code></td><td><code>return list(self.doc_registry.values())</code></td><td>核心意图：代表语句：`return list(self.doc_registry.values())`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L233-L240</code></td><td><code>c_bigrams = {t for t in c_tokens if len(t) &gt;= 2}</code></td><td>核心意图：代表语句：`c_bigrams = {t for t in c_tokens if len(t) &gt;= 2}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L241-L248</code></td><td><code>self,</code></td><td>核心意图：1. ACL 权限预过滤（Pre-Filtering）。代表语句：`self,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L249-L256</code></td><td><code>pool = [ch for ch in self.chunks if ch.department in allowed_depts]</code></td><td>核心意图：2. BM25 稀疏打分。代表语句：`pool = [ch for ch in self.chunks if ch.department in allowed_depts]`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L257-L264</code></td><td><code>n_docs = len(pool)</code></td><td>核心意图：代表语句：`n_docs = len(pool)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L265-L272</code></td><td><code>avgdl = sum(lengths.values()) / max(1, n_docs)</code></td><td>核心意图：代表语句：`avgdl = sum(lengths.values()) / max(1, n_docs)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L273-L280</code></td><td><code>freq = tf.get(t, 0)</code></td><td>核心意图：代表语句：`freq = tf.get(t, 0)`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L281-L288</code></td><td><code>dense_ranked: List[Tuple[KBChunk, float]] = []</code></td><td>核心意图：3. Dense 向量余弦打分。代表语句：`dense_ranked: List[Tuple[KBChunk, float]] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L289-L296</code></td><td><code>dense_ranked.sort(key=lambda x: x[1], reverse=True)</code></td><td>核心意图：4. RRF 倒数排名融合。代表语句：`dense_ranked.sort(key=lambda x: x[1], reverse=True)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L297-L304</code></td><td><code>for rank, (ch, _) in enumerate(dense_ranked[:10], start=1):</code></td><td>核心意图：代表语句：`for rank, (ch, _) in enumerate(dense_ranked[:10], start=1):`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L305-L312</code></td><td><code>if not candidates:</code></td><td>核心意图：5. Cross-Encoder 精排（或直接返回归一化特征分）。代表语句：`if not candidates:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L313-L320</code></td><td><code>def query(</code></td><td>核心意图：代表语句：`def query(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L321-L328</code></td><td><code>t0 = time.perf_counter()</code></td><td>核心意图：代表语句：`t0 = time.perf_counter()`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L329-L336</code></td><td><code>citations=[],</code></td><td>核心意图：代表语句：`citations=[],`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L337-L344</code></td><td><code>doc_id=ch.doc_id,</code></td><td>核心意图：代表语句：`doc_id=ch.doc_id,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L345-L352</code></td><td><code>]</code></td><td>核心意图：代表语句：`]`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L353-L360</code></td><td><code>answer=answer,</code></td><td>核心意图：代表语句：`answer=answer,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L361-L368</code></td><td><code>def build_seeded_kb_engine() -&gt; EnterpriseKBEngine:</code></td><td>核心意图：代表语句：`def build_seeded_kb_engine() -&gt; EnterpriseKBEngine:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L369-L376</code></td><td><code>content=(</code></td><td>核心意图：代表语句：`content=(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L377-L384</code></td><td><code>doc_id=&quot;fin-travel-table&quot;,</code></td><td>核心意图：代表语句：`doc_id=&quot;fin-travel-table&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L385-L392</code></td><td><code>source=&quot;网关错误码字典.json&quot;,</code></td><td>核心意图：代表语句：`source=&quot;网关错误码字典.json&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L393-L400</code></td><td><code>ensure_ascii=False,</code></td><td>核心意图：代表语句：`ensure_ascii=False,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L401-L408</code></td><td><code>content=&quot;2026年高管年终奖金池基数为税前净利润的8%，仅限财务总监与CEO查阅。&quot;,</code></td><td>核心意图：代表语句：`content=&quot;2026年高管年终奖金池基数为税前净利润的8%，仅限财务总监与CEO查阅。&quot;,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L409-L412</code></td><td><code>r1 = kb.query(&quot;ERR-5042 怎么处理？&quot;, department=&quot;rd&quot;)</code></td><td>核心意图：代表语句：`r1 = kb.query(&quot;ERR-5042 怎么处理？&quot;, department=&quot;rd&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day36_kb_api.py（共 140 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day36_kb_api.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from pathlib import Path</code></td><td>核心意图：代表语句：`from pathlib import Path`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>sys.path.insert(0, str(ROOT))</code></td><td>核心意图：代表语句：`sys.path.insert(0, str(ROOT))`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>format: str = Field(..., pattern=&quot;^(md|txt|json|csv)$&quot;, description=&quot;文档格</code></td><td>核心意图：代表语句：`format: str = Field(..., pattern=&quot;^(md|txt|json|csv)$&quot;, description=&quot;文档格式：md/txt/json/csv&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>status: str = &quot;ingested&quot;</code></td><td>核心意图：代表语句：`status: str = &quot;ingested&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L41-L48</code></td><td><code>class CitationDTO(BaseModel):</code></td><td>核心意图：代表语句：`class CitationDTO(BaseModel):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L49-L56</code></td><td><code>class QueryResponse(BaseModel):</code></td><td>核心意图：代表语句：`class QueryResponse(BaseModel):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L57-L64</code></td><td><code>used_rerank: bool</code></td><td>核心意图：代表语句：`used_rerank: bool`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>version=&quot;2.0.0&quot;,</code></td><td>核心意图：代表语句：`version=&quot;2.0.0&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;doc_count&quot;: len(kb.doc_registry),</code></td><td>核心意图：代表语句：`&quot;doc_count&quot;: len(kb.doc_registry),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L81-L88</code></td><td><code>doc_id=req.doc_id,</code></td><td>核心意图：代表语句：`doc_id=req.doc_id,`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L89-L96</code></td><td><code>return IngestResponse(doc_id=req.doc_id, chunks_created=count)</code></td><td>核心意图：代表语句：`return IngestResponse(doc_id=req.doc_id, chunks_created=count)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L97-L104</code></td><td><code>def delete_document(doc_id: str) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`def delete_document(doc_id: str) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>res = kb.query(</code></td><td>核心意图：代表语句：`res = kb.query(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L113-L120</code></td><td><code>answer=res.answer,</code></td><td>核心意图：代表语句：`answer=res.answer,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L121-L128</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L129-L136</code></td><td><code>return app</code></td><td>核心意图：代表语句：`return app`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L140</code></td><td><code>client = TestClient(create_app())</code></td><td>核心意图：代表语句：`client = TestClient(create_app())`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day36/tests/test_day36.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day36/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day36/tests/test_day36.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 36 自动化集成测试：使用 FastAPI TestClient 验证多格式入库、ACL权限隔离、问答与删除。&quot;&quot;&quot;
+
+from fastapi.testclient import TestClient
+
+from src.day36_kb_api import create_app
+
+
+def test_health_and_seeded_qa_with_acl():
+    client = TestClient(create_app())
+
+    h = client.get(&quot;/health&quot;)
+    assert h.status_code == 200
+    assert h.json()[&quot;status&quot;] == &quot;ok&quot;
+    assert h.json()[&quot;doc_count&quot;] == 4
+
+    # 1. 公共 CSV 表格问答
+    r_pub = client.post(
+        &quot;/api/v1/qa/query&quot;,
+        json={&quot;question&quot;: &quot;一线城市北京出差住宿上限是多少？&quot;, &quot;department&quot;: &quot;public&quot;},
+    )
+    assert r_pub.status_code == 200
+    body = r_pub.json()
+    assert body[&quot;refused&quot;] is False
+    assert &quot;600元&quot; in body[&quot;answer&quot;]
+    assert len(body[&quot;citations&quot;]) &gt;= 1
+
+    # 2. 部门 ACL 隔离：研发人员不可查财务机密，财务人员可查
+    r_rd_denied = client.post(
+        &quot;/api/v1/qa/query&quot;,
+        json={&quot;question&quot;: &quot;2026年高管年终奖金池基数是多少？&quot;, &quot;department&quot;: &quot;rd&quot;},
+    )
+    assert r_rd_denied.json()[&quot;refused&quot;] is True
+
+    r_fin_ok = client.post(
+        &quot;/api/v1/qa/query&quot;,
+        json={&quot;question&quot;: &quot;2026年高管年终奖金池基数是多少？&quot;, &quot;department&quot;: &quot;finance&quot;},
+    )
+    assert r_fin_ok.json()[&quot;refused&quot;] is False
+    assert &quot;8%&quot; in r_fin_ok.json()[&quot;answer&quot;]
+
+
+def test_ingest_upsert_and_delete_lifecycle():
+    client = TestClient(create_app())
+
+    # 入库一篇新 Markdown 文档
+    r1 = client.post(
+        &quot;/api/v1/documents/ingest&quot;,
+        json={
+            &quot;doc_id&quot;: &quot;it-wifi-01&quot;,
+            &quot;source&quot;: &quot;办公网指南.md&quot;,
+            &quot;format&quot;: &quot;md&quot;,
+            &quot;department&quot;: &quot;public&quot;,
+            &quot;content&quot;: &quot;## 访客WiFi\n访客WiFi名称为 StarMind-Guest，每日密码需在行政钉钉群获取。&quot;,
+        },
+    )
+    assert r1.status_code == 200
+    assert r1.json()[&quot;chunks_created&quot;] == 1
+
+    # 同 doc_id 幂等更新覆盖旧内容
+    r2 = client.post(
+        &quot;/api/v1/documents/ingest&quot;,
+        json={
+            &quot;doc_id&quot;: &quot;it-wifi-01&quot;,
+            &quot;source&quot;: &quot;办公网指南_v2.md&quot;,
+            &quot;format&quot;: &quot;md&quot;,
+            &quot;department&quot;: &quot;public&quot;,
+            &quot;content&quot;: &quot;## 访客WiFi\n访客WiFi已升级为 StarMind-Guest-5G，支持扫码一键认证。&quot;,
+        },
+    )
+    assert r2.status_code == 200
+
+    q = client.post(&quot;/api/v1/qa/query&quot;, json={&quot;question&quot;: &quot;访客WiFi怎么连接？&quot;, &quot;department&quot;: &quot;public&quot;})
+    assert &quot;StarMind-Guest-5G&quot; in q.json()[&quot;answer&quot;]
+    assert &quot;钉钉群&quot; not in q.json()[&quot;answer&quot;]
+
+    # 删除文档后应无法再次删除（404）
+    d1 = client.delete(&quot;/api/v1/documents/it-wifi-01&quot;)
+    assert d1.status_code == 200
+    d2 = client.delete(&quot;/api/v1/documents/it-wifi-01&quot;)
+    assert d2.status_code == 404
+
+
+def test_out_of_domain_query_triggers_refusal():
+    client = TestClient(create_app())
+    r = client.post(
+        &quot;/api/v1/qa/query&quot;,
+        json={&quot;question&quot;: &quot;火星大气层主要成分是什么？&quot;, &quot;department&quot;: &quot;public&quot;},
+    )
+    assert r.status_code == 200
+    assert r.json()[&quot;refused&quot;] is True
+    assert r.json()[&quot;citations&quot;] == []
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-036</code>，承接自 Day 35 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day36-project2-kb-backend-api</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day36-project2-kb-backend-api）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day36-project2-kb-backend-api
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day36.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-036）
+git add src/day36_kb_engine.py src/day36_kb_api.py tests/test_day36.py
+git commit -m &quot;feat(day36): 完成项目二(上)多格式文档入库管线、混合检索+Rerank引擎与FastAPI核心接口
+
+Refs: STARMIND-036
+- 完成 阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day36-project2-kb-backend-api</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-036 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-036 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day36_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day36_kb_engine.py src/day36_kb_api.py
+    - echo &quot;Day 36 语法编译检查通过&quot;
+
+day36_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day36/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day36/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>幂等 Upsert 和部门 ACL Pre-Filtering 做得很漂亮！很多初级工程师只顾着写检索，上线一周就因为文档修订后旧切片没删被 HR 投诉。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>采用 <code>create_app()</code> 工厂函数让 TestClient 隔离性满分，后续对接 Docker/K8s 健康探针直接配 <code>/health</code> 即可。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-036 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-036（阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：杭州星辰数科全员 800+ 员工急需统一的内部企业知识库问答平台（StarMind-KB v2.0），覆盖 HR 制度、财务报销、研发规范与运维排障四类多格式文档，并要求严格的部门数据权限隔离与可溯源回答。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）公司制度文档散落在 Markdown 手册、CSV 费用标准表、JSON 故障码字典和 TXT 通知中，格式五花八门。；（2）高管/财务敏感文档不能被普通研发人员搜到，缺少部门级元数据权限过滤（ACL）。；（3）制度修订后，旧版本切片残留在索引里导致回答新旧打架，缺乏按 <code>doc_id</code> 幂等覆盖更新与删除能力。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）构建 <code>MultiFormatParser</code>：统一解析 <code>md</code>、<code>txt</code>、<code>json</code>、<code>csv</code> 四种企业常见文档格式并切分保留 <code>section / department / chunk_index</code> 元数据。；（2）构建 <code>EnterpriseKBEngine</code>：支持文档幂等 Upsert、按 <code>doc_id</code> 软/硬删除、部门 ACL 权限过滤、<code>BM25 + Dense RRF + Cross-Encoder Rerank</code> 精排与低分防幻觉拒答。；（3）基于 FastAPI 构建生产级 REST API：<code>GET /health</code>、<code>POST /api/v1/documents/ingest</code>、<code>GET /api/v1/documents</code>、<code>DELETE /api/v1/documents/{doc_id}</code>、<code>POST /api/v1/qa/query</code>。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day36/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么企业知识库必须做「ACL 预过滤（Pre-Filtering）」？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：如果先不带权限全库检索 Top-3，再把其中 2 条机密文档删掉，最终只剩 1 条甚至 0 条结果——这叫 **Post-Filtering 召回坍缩**！正确做法是在计算 BM25 / 向量相似度之前，先按 <code>department in (user_dept, &#x27;public&#x27;)</code> 锁定合法候选文档池，既 100% 杜绝越权泄露，又保证合法结果永远填满 Top-K。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：用户所属部门绝对不能由前端随手传一个未鉴权的字段说了算！本节课为演示清晰直接在请求体传 <code>department</code>，真实生产环境必须从服务端验签后的 JWT Token / SSO Session 里解析用户真实角色与部门。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么企业知识库必须做「ACL 预过滤（Pre-Filtering）」？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. CSV 表格类文档切分防失真秘籍】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：千万不要把 CSV 直接当纯文本按字符数硬切！一旦把表头切在第 1 块、第 20 行数据切在第 4 块，第 4 块只剩 <code>杭州,450,100</code>，大模型根本不知道 450 是住宿费还是餐补！像本节课 <code>MultiFormatParser</code> 那样，**把每一行数据与表头动态拼成 <code>城市: 杭州；住宿上限: 450；餐补: 100</code>**，检索精度瞬间起飞。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：超大 Excel/CSV（上万行）不应全部塞进向量库，应转为 SQLite/PostgreSQL 数据库，走第四阶段的 Text-to-SQL Agent 工具查询！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. CSV 表格类文档切分防失真秘籍」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 36 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day36/</code> 中亲手编写了 <code>src/day36_kb_engine.py</code>、<code>src/day36_kb_api.py</code> 以及对应的自动化测试 <code>tests/test_day36.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day36_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 36 / STARMIND-036）：1. 已在分支 <code>feat/day36-project2-kb-backend-api</code> 完成 阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 37）：明天（Day 37）我们将完成**阶段项目二（下）**：为 StarMind-KB v2.0 补齐多会话记忆、多轮指代消解改写、引用溯源 <code>&lt;mark&gt;</code> 高亮展示、SSE 打字机流式输出接口与全链路 TestClient 联调！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 36 掌握的「阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-036 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day36.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 36 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day36/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day36_kb_engine.py, src/day36_kb_api.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>成功通过 HTTP API 分别入库 Markdown、JSON、CSV 文档，并支持相同 `doc_id` 重复入库时自动覆盖旧切片（不产生脏数据）。；当 `department=&#x27;rd&#x27;` 发起查询时，绝不返回 `department=&#x27;finance&#x27;` 的机密文档切片（ACL 隔离 100% 生效）。；针对库外无关提问（如「火星大气成分」）自动触发防幻觉拒答（`refused=True`）。；使用 `fastapi.testclient.TestClient` 完成全接口集成测试，100% 通过。</td><td>运行 `pytest versions/day36/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day36/day36_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day36-project2-kb-backend-api` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-036 需求时，我们的核心业务目标是：构建 <code>MultiFormatParser</code>：统一解析 <code>md</code>、<code>txt</code>、<code>json</code>、<code>csv</code> 四种企业常见文档格式并切分保留 <code>section / department / chunk_index</code> 元数据。；构建 <code>EnterpriseKBEngine</code>：支持文档幂等 Upsert、按 <code>doc_id</code> 软/硬删除、部门 ACL 权限过滤、<code>BM25 + Dense RRF + Cross-Encoder Rerank</code> 精排与低分防幻觉拒答。；基于 FastAPI 构建生产级 REST API：<code>GET /health</code>、<code>POST /api/v1/documents/ingest</code>、<code>GET /api/v1/documents</code>、<code>DELETE /api/v1/documents/{doc_id}</code>、<code>POST /api/v1/qa/query</code>。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么企业知识库必须做「ACL 预过滤（Pre-Filtering）」？、2. CSV 表格类文档切分防失真秘籍 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「阶段项目二(上)：企业级知识库问答系统——架构、多格式入库、混合检索与FastAPI服务」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 36 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day36_kb_engine.py、src/day36_kb_api.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>非常稳！StarMind-KB v2.0 的后端大动脉今天已经彻底打通：多格式入库、增量更新、安全删除、部门 ACL 隔离、混合检索+Rerank 精排、防幻觉拒答、FastAPI 标准接口一气呵成！明天（Day 37）咱们给它装上「多轮对话大脑 + 引用高亮 + SSE 流式打字机」交互闭环！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：为多格式解析器增加「YAML 配置文件」格式支持</strong><span class="badge">基础巩固</span></div><p>编写 <code>parse_simple_yaml_kv(text)</code>，将简单的 <code>key: value</code> 行式 YAML 配置解析为自然语言陈述切片列表，并验证对运维服务配置文档的解析结果。</p><p><strong>💡 思路提示：</strong>跳过空行与 `#` 注释行，按首个 `:` 拆分键值并格式化为 `配置项 {k} 的值为 {v}`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-36-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-36-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 36 作业一参考答案：YAML 键值配置文档解析器&quot;&quot;&quot;
+from typing import List
+
+
+def parse_simple_yaml_kv(text: str) -&gt; List[str]:
+    chunks: List[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith(&quot;#&quot;) or &quot;:&quot; not in line:
+            continue
+        k, v = line.split(&quot;:&quot;, 1)
+        chunks.append(f&quot;配置项 {k.strip()} 的标准值为 {v.strip()}&quot;)
+    return chunks
+
+
+if __name__ == &quot;__main__&quot;:
+    yml = &quot;# 网关配置\nproxy_read_timeout: 30s\nmax_retries: 3\n&quot;
+    out = parse_simple_yaml_kv(yml)
+    print(out)
+    assert len(out) == 2 and &quot;30s&quot; in out[0]
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>研发运维知识库中大量存在 YAML/INI 配置说明，结构化转为自然语言陈述可显著提升检索命中率。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现基于文档内容 SHA-256 的重复上传短路跳过（Deduplication）</strong><span class="badge">企业实战</span></div><p>维护一个 <code>doc_hashes: Dict[str, str]</code>，实现 <code>should_skip_ingest(doc_hashes, doc_id, content)</code>：若同一 <code>doc_id</code> 再次上传且内容哈希完全一致，返回 <code>True</code>（跳过重复切分与向量化省算力）；若内容有变动则更新哈希并返回 <code>False</code>。</p><p><strong>💡 思路提示：</strong>使用 `hashlib.sha256(content.encode(&#x27;utf-8&#x27;)).hexdigest()` 计算内容指纹。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-36-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-36-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 36 作业二参考答案：SHA-256 文档入库幂等去重器&quot;&quot;&quot;
+import hashlib
+from typing import Dict
+
+
+def should_skip_ingest(doc_hashes: Dict[str, str], doc_id: str, content: str) -&gt; bool:
+    digest = hashlib.sha256(content.encode(&quot;utf-8&quot;)).hexdigest()
+    if doc_hashes.get(doc_id) == digest:
+        return True
+    doc_hashes[doc_id] = digest
+    return False
+
+
+if __name__ == &quot;__main__&quot;:
+    hashes: Dict[str, str] = {}
+    assert should_skip_ingest(hashes, &quot;d1&quot;, &quot;版本1内容&quot;) is False
+    assert should_skip_ingest(hashes, &quot;d1&quot;, &quot;版本1内容&quot;) is True   # 内容未变，短路跳过
+    assert should_skip_ingest(hashes, &quot;d1&quot;, &quot;版本2内容&quot;) is False  # 内容更新，触发重建
+    print(&quot;SHA-256 增量去重验证通过!&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>定时同步 Confluence/飞书知识库时，95% 的文档每天都没改动；加一层 SHA-256 指纹比对能直接省掉 95% 的 Embedding 算力费用。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现多部门联合角色权限校验（RBAC 多标签过滤）</strong><span class="badge">架构进阶</span></div><p>一名跨部门管理者可能同时拥有 <code>[&#x27;public&#x27;, &#x27;rd&#x27;, &#x27;finance&#x27;]</code> 多个权限标签，而一篇敏感文档可能要求 <code>required_roles=[&#x27;finance&#x27;, &#x27;exec&#x27;]</code>（满足任一即可见）。请实现 <code>filter_authorized_chunks(chunks, user_roles)</code> 并验证权限交集判断。</p><p><strong>💡 思路提示：</strong>使用 Python 集合交集 `bool(set(user_roles) &amp; set(chunk_roles))` 判断是否放行。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-36-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-36-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 36 作业三参考答案：RBAC 多角色权限交集过滤器&quot;&quot;&quot;
+from typing import Dict, List, Sequence, Set
+
+
+def filter_authorized_chunks(
+    chunks: Sequence[Dict],
+    user_roles: Sequence[str],
+) -&gt; List[Dict]:
+    u_set: Set[str] = set(user_roles) | {&quot;public&quot;}
+    return [ch for ch in chunks if u_set &amp; set(ch.get(&quot;allowed_roles&quot;, [&quot;public&quot;]))]
+
+
+if __name__ == &quot;__main__&quot;:
+    docs = [
+        {&quot;id&quot;: &quot;c1&quot;, &quot;allowed_roles&quot;: [&quot;public&quot;]},
+        {&quot;id&quot;: &quot;c2&quot;, &quot;allowed_roles&quot;: [&quot;rd&quot;, &quot;ops&quot;]},
+        {&quot;id&quot;: &quot;c3&quot;, &quot;allowed_roles&quot;: [&quot;finance&quot;, &quot;exec&quot;]},
+    ]
+    rd_only = filter_authorized_chunks(docs, [&quot;rd&quot;])
+    vp_roles = filter_authorized_chunks(docs, [&quot;rd&quot;, &quot;exec&quot;])
+    print(&quot;普通研发可见:&quot;, [d[&quot;id&quot;] for d in rd_only])
+    print(&quot;技术VP可见:&quot;, [d[&quot;id&quot;] for d in vp_roles])
+    assert [d[&quot;id&quot;] for d in rd_only] == [&quot;c1&quot;, &quot;c2&quot;]
+    assert [d[&quot;id&quot;] for d in vp_roles] == [&quot;c1&quot;, &quot;c2&quot;, &quot;c3&quot;]
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>真实大型企业的文档权限很少是单字符串部门，升级为集合交集的 RBAC 模型即可无缝对接企业微信/飞书/LDAP 组织架构。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day35/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day37/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

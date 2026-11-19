@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 07：第一周复习与周测 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 1 阶段 · 第 1 周</span>
+      <span class="badge badge-ticket">STARMIND-007</span>
+      <span class="badge">Day 07 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="7" onclick="toggleDayComplete(7, this)">标记今日已完成</button>
+      <a class="btn" href="../day06/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day08/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day07-week1-contacts-project</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day07/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day07/day07_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day07_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 1 阶段：第一阶段：Python 编程基础 · 第 1 周：第 1 周：Python 核心语法与数据结构基石</div>
+        <h1>Day 07：第一周复习与周测</h1>
+        <p class="hero-sub">串讲核心语法与数据结构，完成周测并交付「星辰企业通讯录管理系统 + JSON 持久化」</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-007</span>
+          <span class="hero-tag">分支：feat/day07-week1-contacts-project</span>
+          <span class="hero-tag">角色：初入星辰数科 AI 平台工程部的研发新人</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>眨眼第一周就到收官日了！今天不塞新语法，咱们干两件检验真功夫的事：上午先做第一周知识点串讲 + 自动化周测题库自检，查漏补缺，看看哪些坑还容易踩；下午直接进入第一个完整闭环小项目 STARMIND-007——「星辰数科企业通讯录管理系统（支持增删改查、模糊搜索、按部门统计、手机号脱敏以及 JSON 文件持久化）」。阿杰今天会亲自跑全套集成测试，通过了咱们第一周就圆满通关！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>前六天咱们从环境搭建一路打到变量、字符串、流程控制、list/tuple/set/dict、JSON 和函数管道，第一周地基已全部铺完。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>下周（Day 8）进入第二周，咱们正式开启面向对象编程（OOP），把零散的字典升级成带校验和行为的 <code>ChatMessage</code> 核心类！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 07 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 07）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【初入星辰数科 AI 平台工程部的研发新人】，依托的工程底座是【本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支】。回顾昨天留下的上下文：前六天咱们从环境搭建一路打到变量、字符串、流程控制、list/tuple/set/dict、JSON 和函数管道，第一周地基已全部铺完。 今天我们通过需求单 STARMIND-007，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day07/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：下周（Day 8）进入第二周，咱们正式开启面向对象编程（OOP），把零散的字典升级成带校验和行为的 <code>ChatMessage</code> 核心类！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-12:00</strong></td><td>第一周知识图谱串讲与周测挑战</td><td>串联 Day 1~6 核心高频考点与易错题，运行周测自评脚本定位薄弱项。</td></tr>
+<tr><td><strong>下午 14:00-17:30</strong></td><td>综合项目实战：企业通讯录管理系统 + JSON 持久化</td><td>完整实现 CRUD、模糊检索、部门分组统计与 JSON 落盘恢复。</td></tr>
+<tr><td><strong>晚间 19:00-20:30</strong></td><td>集成测试验收与性能检查</td><td>运行 pytest 全量验收测试，模拟重启加载、重复工号拦截与异常搜索。</td></tr>
+<tr><td><strong>复盘 20:30-21:00</strong></td><td>第一周学习总结与第二周预习</td><td>提交周报与 Git MR，完成 3 道巩固拓展作业。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-007）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>HR 与行政部门需要一个离线可用的内部通讯录 CLI 系统，支持快速录入、修改、删除员工联系方式，并持久化保存到本地 JSON 文件，便于星辰智脑后续接入查人技能。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>员工信息分散在多个 Excel 表格里，查询慢且容易重复录入同一工号。</li><li>命令行程序关闭后内存数据丢失，缺少本地 JSON 持久化机制。</li><li>第一周知识点零散，需要通过综合项目将数据结构、函数与 JSON 融会贯通。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>完成第一周核心知识（类型/切片/流程/容器/JSON/函数）综合自测与复盘。</li><li>独立实现通讯录完整 CRUD、关键字模糊搜索（姓名/部门/标签）、JSON 加载与保存。</li><li>确保所有业务操作与异常边界通过自动化集成测试。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>支持按工号防重添加、更新、删除、精确查询与关键词模糊搜索。</li><li>重启后能从 JSON 文件完整恢复所有联系人数据，中文无转义乱码。</li><li>内置第一周自测判分引擎可自动评估答题正确率。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>采用函数式模块化拆分：存储层（JSON I/O）与业务 CRUD 层分离。</li><li>所有测试在隔离临时目录运行，零残留文件。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>这是学员交付的第一个完整状态持久化应用，我们提前演练标准的「三层轻量架构」：<br/>1. **存储持久化层**（<code>load_contacts</code> / <code>save_contacts</code>）：负责 JSON 文件读写、首次运行文件不存在时返回空字典兜底。<br/>2. **领域业务层**（<code>upsert_contact</code> / <code>delete_contact</code> / <code>search_contacts</code> / <code>dept_summary</code>）：以工号 <code>emp_id</code> 作为 dict 主键实现 O(1) 定位，支持跨姓名/部门/手机号模糊搜索。<br/>3. **展示与周测评估层**（day07_week1_quiz.py）：把第一周易错考点写成可执行的自动化判分引擎，帮学员用代码验证自己的理解。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 7.1：企业通讯录管理系统业务流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">企业通讯录管理系统业务流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">启动加载 JSON</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">不存在则初始化空库</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">执行业务操作</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">新增/更新/删除/模糊搜</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">数据校验与脱敏</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">工号去重 + 手机掩码</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">保存至 JSON 文件</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">UTF-8 缩进持久化</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">下次启动无损恢复</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">跨会话数据不丢失</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="239.5" y="66.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">内存 dict</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="537.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">合法性检查</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">变更落盘</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="546.5" y="202.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">重启验证</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示通讯录启动加载 JSON、执行 CRUD/搜索并落盘持久化的完整生命周期。</div></div><div class="diagram-card"><div class="diagram-title">图 7.2：通讯录系统分层架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">通讯录系统分层架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">CLI / Pytest 入口</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">指令调用与自动化验收</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">ContactService 业务层</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">CRUD/模糊搜索/部门统计</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">JSON 持久化层</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">load_contacts / save_contacts</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">本地 contacts.json</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">UTF-8 结构化文件</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">函数调用</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">读写请求</text>
+<line x1="629.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">磁盘 I/O</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>清晰分离 JSON 持久层、内存索引业务层与终端展示/测试层，为后续接入数据库铺路。</div></div><div class="diagram-card"><div class="diagram-title">图 7.3：第一周 Python 核心知识网络图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 356" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="356" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">第一周 Python 核心知识网络图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">基础类型与字符串</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Day 1-2：脱敏与格式化</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">流程控制</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Day 3：校验分支与遍历</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">核心数据结构</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Day 4-5：dict主键+JSON</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">函数与模块化</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">Day 6：纯函数与排序</text>
+<rect x="30" y="192" width="185" height="86" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<circle cx="48" cy="210" r="10" fill="#dc2626"/><text x="48" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5</text>
+<text x="128.5" y="230" text-anchor="middle" font-size="13" font-weight="700" fill="#991b1b">通讯录持久化系统</text>
+<text x="122.5" y="256" text-anchor="middle" font-size="11" fill="#475569">Day 7：综合闭环交付</text>
+<line x1="122.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="353.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="584.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="815.5" y1="138" x2="122.5" y2="189" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>串联 Day 1~6 六大知识模块，展示它们如何共同支撑起 Day 7 的通讯录系统。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 第一周高频易错点清扫清单</h3><p>1）<code>bool(&#x27;False&#x27;)</code> 为 <code>True</code>；2）字符串不可变，方法调用必须重新赋值；3）遍历列表禁止原地 <code>remove</code>；4）空集合是 <code>set()</code> 不是 <code>{}</code>；5）<code>json.dumps</code> 必加 <code>ensure_ascii=False</code>；6）函数默认参数严禁写 <code>[]</code> 或 <code>{}</code>。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>每次写完代码养成跑一遍 `pytest` 的习惯，能提前拦截 80% 的低级拼写与边界错误。</div><h3>2. 2. 主键索引设计：为什么通讯录用 dict 而不是 list？</h3><p>用 <code>emp_id</code> 作键的字典 <code>{emp_id: {name, dept, phone, ...}}</code>，按工号查人、改人、删人全是 O(1) 瞬间完成，且天然保证工号唯一不重复。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>注意 JSON 的键只能是字符串！即使你在内存里用整数 `1001` 当字典 key，经过 `json.dump` 再 `json.load` 回来后 key 会变成字符串 `&#x27;1001&#x27;`，所以统一把 `emp_id` 定义为 `str`（如 `&#x27;XM-0001&#x27;`）是最省心的工程实践。</div><h3>3. 3. 持久化原子写入思路</h3><p>生产级本地 JSON 持久化通常遵循：读取时若文件不存在返回空库 <code>{}</code>；写入时先确保父目录存在（<code>mkdir(parents=True, exist_ok=True)</code>），再以 UTF-8 覆盖写出。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>如果文件内容被人为改坏导致 `JSONDecodeError`，应在加载层给出明确错误提示，避免静默覆盖把旧数据清空。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【第一周复盘：从「写脚本」到「做工程」的三个分水岭】<br/>第一周结束，你已经跨越了新手村。接下来第二周进入面向对象、模块包、HTTP API 和异步编程，难度会明显上一个台阶。记住三个让你进步最快的习惯：1）先想清楚数据结构再敲代码；2）核心逻辑永远写进可测试的函数/类里；3）报错先看最后一行异常类型和行号，学会读 Traceback。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day07/</code> 与 <code>notebooks/day07/day07_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现第一周知识点自动化周测判分引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先用 10 分钟跑一遍咱们第一周的 5 道核心陷阱周测题，全部答对拿 100 分再做大项目！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day07_week1_quiz.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-007 模块一：第一周 Python 核心语法自动化周测判分引擎。
+涵盖类型转换、切片、集合运算、JSON 参数与默认参数陷阱五大高频考点。
+&quot;&quot;&quot;
+
+from typing import Dict, List, Any
+
+# 周测标准题库（题号、题干、标准答案、解析）
+WEEK1_QUESTIONS: List[Dict[str, str]] = [
+    {
+        &quot;id&quot;: &quot;Q1&quot;,
+        &quot;topic&quot;: &quot;布尔类型转换&quot;,
+        &quot;question&quot;: &quot;表达式 bool(&#x27;False&#x27;) 的求值结果是 True 还是 False？&quot;,
+        &quot;answer&quot;: &quot;True&quot;,
+        &quot;explanation&quot;: &quot;非空字符串转 bool 永远为 True，只有空字符串 &#x27;&#x27; 为 False。&quot;,
+    },
+    {
+        &quot;id&quot;: &quot;Q2&quot;,
+        &quot;topic&quot;: &quot;空集合创建&quot;,
+        &quot;question&quot;: &quot;在 Python 中创建一个空集合应该写 set() 还是 {}？&quot;,
+        &quot;answer&quot;: &quot;set()&quot;,
+        &quot;explanation&quot;: &quot;{} 创建的是空字典 dict，空集合必须写 set()。&quot;,
+    },
+    {
+        &quot;id&quot;: &quot;Q3&quot;,
+        &quot;topic&quot;: &quot;字符串切片&quot;,
+        &quot;question&quot;: &quot;表达式 &#x27;StarMind&#x27;[0:4] 的结果是什么？&quot;,
+        &quot;answer&quot;: &quot;Star&quot;,
+        &quot;explanation&quot;: &quot;切片遵循左闭右开原则，取索引 0, 1, 2, 3 四个字符。&quot;,
+    },
+    {
+        &quot;id&quot;: &quot;Q4&quot;,
+        &quot;topic&quot;: &quot;JSON 中文输出&quot;,
+        &quot;question&quot;: &quot;json.dumps 中防止中文被转义为 \\uXXXX 的关键参数名是什么？&quot;,
+        &quot;answer&quot;: &quot;ensure_ascii&quot;,
+        &quot;explanation&quot;: &quot;设置 ensure_ascii=False 即可保留可读中文字符。&quot;,
+    },
+    {
+        &quot;id&quot;: &quot;Q5&quot;,
+        &quot;topic&quot;: &quot;函数默认参数&quot;,
+        &quot;question&quot;: &quot;需要列表型可选参数时，函数签名中默认值应写 None 还是 []？&quot;,
+        &quot;answer&quot;: &quot;None&quot;,
+        &quot;explanation&quot;: &quot;可变默认参数 [] 会在多次调用间共享导致数据串台，必须用 None 占位。&quot;,
+    },
+]
+
+
+def grade_quiz(submissions: Dict[str, str]) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;根据学员提交的答案字典自动判分并生成错题诊断报告。&quot;&quot;&quot;
+    total = len(WEEK1_QUESTIONS)
+    correct = 0
+    wrong_details: List[Dict[str, str]] = []
+
+    for q in WEEK1_QUESTIONS:
+        qid = q[&quot;id&quot;]
+        user_ans = str(submissions.get(qid, &quot;&quot;)).strip()
+        if user_ans == q[&quot;answer&quot;]:
+            correct += 1
+        else:
+            wrong_details.append(
+                {
+                    &quot;id&quot;: qid,
+                    &quot;topic&quot;: q[&quot;topic&quot;],
+                    &quot;your_answer&quot;: user_ans or &quot;(未作答)&quot;,
+                    &quot;expected&quot;: q[&quot;answer&quot;],
+                    &quot;explanation&quot;: q[&quot;explanation&quot;],
+                }
+            )
+
+    score = int(round((correct / total) * 100)) if total else 0
+    return {
+        &quot;total&quot;: total,
+        &quot;correct&quot;: correct,
+        &quot;score&quot;: score,
+        &quot;passed&quot;: score &gt;= 80,
+        &quot;wrong_details&quot;: wrong_details,
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    perfect_answers = {&quot;Q1&quot;: &quot;True&quot;, &quot;Q2&quot;: &quot;set()&quot;, &quot;Q3&quot;: &quot;Star&quot;, &quot;Q4&quot;: &quot;ensure_ascii&quot;, &quot;Q5&quot;: &quot;None&quot;}
+    report = grade_quiz(perfect_answers)
+    print(f&quot;第一周周测成绩: {report[&#x27;score&#x27;]} 分 | 是否通过: {report[&#x27;passed&#x27;]}&quot;)
+</code></pre><div class="output-box"># 预期运行输出示例：
+第一周周测成绩: 100 分 | 是否通过: True</div></div><h4>深度代码解析与工程要点</h4><p>通过把周测题库结构化为列表字典，既能直接运行判分，也能直观复盘第一周最容易踩的 5 个坑。</p><h3>实操步骤 2：步骤二：实现星辰企业通讯录管理系统（CRUD + 模糊搜索 + JSON 持久化）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>重头戏来了！把第一周学的所有技能揉在一起，交付完整的企业通讯录管理系统，支持持久化到 JSON 并按部门统计。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day07_contacts_app.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+STARMIND-007 模块二：星辰数科企业通讯录管理系统（含 JSON 持久化）。
+综合运用 dict 主键索引、字符串清洗脱敏、list/set 标签、函数封装与 JSON 文件持久化。
+&quot;&quot;&quot;
+
+import json
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+
+# 通讯录内存数据结构：{emp_id: {&quot;emp_id&quot;: ..., &quot;name&quot;: ..., &quot;dept&quot;: ..., &quot;phone&quot;: ..., &quot;skills&quot;: [...]}}
+ContactBook = Dict[str, Dict[str, Any]]
+
+
+def load_contacts(db_path: Path) -&gt; ContactBook:
+    &quot;&quot;&quot;从 JSON 文件加载通讯录；文件不存在时返回空字典。&quot;&quot;&quot;
+    if not db_path.exists():
+        return {}
+    with db_path.open(&quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+        data = json.load(f)
+    return data if isinstance(data, dict) else {}
+
+
+def save_contacts(db_path: Path, book: ContactBook) -&gt; Path:
+    &quot;&quot;&quot;将通讯录持久化写入 UTF-8 JSON 文件。&quot;&quot;&quot;
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with db_path.open(&quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(book, f, ensure_ascii=False, indent=2)
+    return db_path
+
+
+def mask_phone(phone: str) -&gt; str:
+    &quot;&quot;&quot;手机号中间四位脱敏，便于展示层安全输出。&quot;&quot;&quot;
+    p = phone.strip()
+    return f&quot;{p[:3]}****{p[-4:]}&quot; if len(p) == 11 and p.isdigit() else &quot;已隐藏&quot;
+
+
+def upsert_contact(
+    book: ContactBook,
+    emp_id: str,
+    name: str,
+    dept: str,
+    phone: str,
+    skills: Optional[List[str]] = None,
+) -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;新增或更新员工联系人记录，并自动对技能标签去重排序。&quot;&quot;&quot;
+    eid = emp_id.strip().upper()
+    if not eid or not name.strip():
+        raise ValueError(&quot;工号与姓名不能为空&quot;)
+
+    clean_skills = sorted({s.strip().lower() for s in (skills or []) if s.strip()})
+    record: Dict[str, Any] = {
+        &quot;emp_id&quot;: eid,
+        &quot;name&quot;: name.strip(),
+        &quot;dept&quot;: dept.strip(),
+        &quot;phone&quot;: phone.strip(),
+        &quot;masked_phone&quot;: mask_phone(phone),
+        &quot;skills&quot;: clean_skills,
+    }
+    book[eid] = record
+    return record
+
+
+def delete_contact(book: ContactBook, emp_id: str) -&gt; bool:
+    &quot;&quot;&quot;按工号删除联系人，存在并删除返回 True，否则返回 False。&quot;&quot;&quot;
+    eid = emp_id.strip().upper()
+    return book.pop(eid, None) is not None
+
+
+def search_contacts(book: ContactBook, keyword: str) -&gt; List[Dict[str, Any]]:
+    &quot;&quot;&quot;按姓名、部门、工号或技能标签执行大小写不敏感模糊搜索。&quot;&quot;&quot;
+    kw = keyword.strip().lower()
+    if not kw:
+        return sorted(book.values(), key=lambda c: c[&quot;emp_id&quot;])
+
+    matched: List[Dict[str, Any]] = []
+    for contact in book.values():
+        haystack = &quot; &quot;.join(
+            [
+                contact[&quot;emp_id&quot;],
+                contact[&quot;name&quot;],
+                contact[&quot;dept&quot;],
+                &quot; &quot;.join(contact.get(&quot;skills&quot;, [])),
+            ]
+        ).lower()
+        if kw in haystack:
+            matched.append(contact)
+    return sorted(matched, key=lambda c: c[&quot;emp_id&quot;])
+
+
+def summarize_by_dept(book: ContactBook) -&gt; Dict[str, int]:
+    &quot;&quot;&quot;按部门统计通讯录人数。&quot;&quot;&quot;
+    summary: Dict[str, int] = {}
+    for contact in book.values():
+        dept = contact[&quot;dept&quot;]
+        summary[dept] = summary.get(dept, 0) + 1
+    return summary
+
+
+if __name__ == &quot;__main__&quot;:
+    book: ContactBook = {}
+    upsert_contact(book, &quot;XM-0001&quot;, &quot;老陈&quot;, &quot;AI研发部&quot;, &quot;13800001111&quot;, [&quot;Python&quot;, &quot;架构&quot;, &quot;LLM&quot;])
+    upsert_contact(book, &quot;XM-0002&quot;, &quot;林产品&quot;, &quot;产品部&quot;, &quot;13900002222&quot;, [&quot;PRD&quot;, &quot;Prompt&quot;])
+    upsert_contact(book, &quot;XM-0003&quot;, &quot;阿杰&quot;, &quot;测试部&quot;, &quot;13700003333&quot;, [&quot;Pytest&quot;, &quot;Python&quot;])
+    print(&quot;搜索 &#x27;python&#x27; 命中:&quot;, [c[&quot;name&quot;] for c in search_contacts(book, &quot;python&quot;)])
+    print(&quot;部门人数统计:&quot;, summarize_by_dept(book))
+</code></pre><div class="output-box"># 预期运行输出示例：
+搜索 &#x27;python&#x27; 命中: [&#x27;老陈&#x27;, &#x27;阿杰&#x27;]
+部门人数统计: {&#x27;AI研发部&#x27;: 1, &#x27;产品部&#x27;: 1, &#x27;测试部&#x27;: 1}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>upsert_contact</code> 同时承担「新增」和「更新」（Update + Insert = Upsert），并通过 <code>eid = emp_id.strip().upper()</code> 统一主键大小写规范。<br/>2. <code>search_contacts</code> 将多个可搜索字段拼成 <code>haystack</code> 字符串统一小写匹配，简洁高效，还支持按技能查人！</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现第一周知识点自动化周测判分引擎（src/day07_week1_quiz.py）</h3><p>模块 <code>src/day07_week1_quiz.py</code> 共计 83 行源码，其中包含 1 行中文工程注释（注释密度约 1.2%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-007 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>typing (Dict, List, Any)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>grade_quiz</code>（第 48~77 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(submissions)</code>。职责说明：根据学员提交的答案字典自动判分并生成错题诊断报告。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day07_week1_quiz.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day07/day07_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day07/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现星辰企业通讯录管理系统（CRUD + 模糊搜索 + JSON 持久化）（src/day07_contacts_app.py）</h3><p>模块 <code>src/day07_contacts_app.py</code> 共计 105 行源码，其中包含 1 行中文工程注释（注释密度约 1.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-007 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>json</code>、<code>pathlib (Path)</code>、<code>typing (Dict, Any, List, Optional)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【函数契约拆解 · <code>load_contacts</code>（第 14~20 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(db_path)</code>。职责说明：从 JSON 文件加载通讯录；文件不存在时返回空字典。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>save_contacts</code>（第 23~28 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(db_path, book)</code>。职责说明：将通讯录持久化写入 UTF-8 JSON 文件。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>mask_phone</code>（第 31~34 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(phone)</code>。职责说明：手机号中间四位脱敏，便于展示层安全输出。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>upsert_contact</code>（第 37~60 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(book, emp_id, name, dept, phone, skills)</code>。职责说明：新增或更新员工联系人记录，并自动对技能标签去重排序。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>delete_contact</code>（第 63~66 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(book, emp_id)</code>。职责说明：按工号删除联系人，存在并删除返回 True，否则返回 False。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>search_contacts</code>（第 69~87 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(book, keyword)</code>。职责说明：按姓名、部门、工号或技能标签执行大小写不敏感模糊搜索。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【函数契约拆解 · <code>summarize_by_dept</code>（第 90~96 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(book)</code>。职责说明：按部门统计通讯录人数。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day07_contacts_app.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day07/day07_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day07/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day07_week1_quiz.py（共 83 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day07_week1_quiz.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：周测标准题库（题号、题干、标准答案、解析）。代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>WEEK1_QUESTIONS: List[Dict[str, str]] = [</code></td><td>核心意图：代表语句：`WEEK1_QUESTIONS: List[Dict[str, str]] = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>&quot;id&quot;: &quot;Q3&quot;,</code></td><td>核心意图：代表语句：`&quot;id&quot;: &quot;Q3&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>&quot;topic&quot;: &quot;JSON 中文输出&quot;,</code></td><td>核心意图：代表语句：`&quot;topic&quot;: &quot;JSON 中文输出&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>&quot;question&quot;: &quot;需要列表型可选参数时，函数签名中默认值应写 None 还是 []？&quot;,</code></td><td>核心意图：代表语句：`&quot;question&quot;: &quot;需要列表型可选参数时，函数签名中默认值应写 None 还是 []？&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>&quot;&quot;&quot;根据学员提交的答案字典自动判分并生成错题诊断报告。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;根据学员提交的答案字典自动判分并生成错题诊断报告。&quot;&quot;&quot;`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>if user_ans == q[&quot;answer&quot;]:</code></td><td>核心意图：代表语句：`if user_ans == q[&quot;answer&quot;]:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>&quot;expected&quot;: q[&quot;answer&quot;],</code></td><td>核心意图：代表语句：`&quot;expected&quot;: q[&quot;answer&quot;],`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;correct&quot;: correct,</code></td><td>核心意图：代表语句：`&quot;correct&quot;: correct,`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L83</code></td><td><code>perfect_answers = {&quot;Q1&quot;: &quot;True&quot;, &quot;Q2&quot;: &quot;set()&quot;, &quot;Q3&quot;: &quot;Star&quot;, &quot;Q4&quot;: &quot;ens</code></td><td>核心意图：代表语句：`perfect_answers = {&quot;Q1&quot;: &quot;True&quot;, &quot;Q2&quot;: &quot;set()&quot;, &quot;Q3&quot;: &quot;Star&quot;, &quot;Q4&quot;: &quot;ensure_ascii&quot;, &quot;Q5&quot;: `。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day07_contacts_app.py（共 105 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day07_contacts_app.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>ContactBook = Dict[str, Dict[str, Any]]</code></td><td>核心意图：通讯录内存数据结构：{emp_id: {&quot;emp_id&quot;: ..., &quot;name&quot;: ..., &quot;dept&quot;: ..., &quot;phone&quot;: ..., &quot;skills&quot;: [...]}}。代表语句：`ContactBook = Dict[str, Dict[str, Any]]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>return {}</code></td><td>核心意图：代表语句：`return {}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L25-L32</code></td><td><code>db_path.parent.mkdir(parents=True, exist_ok=True)</code></td><td>核心意图：代表语句：`db_path.parent.mkdir(parents=True, exist_ok=True)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L33-L40</code></td><td><code>p = phone.strip()</code></td><td>核心意图：代表语句：`p = phone.strip()`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>dept: str,</code></td><td>核心意图：代表语句：`dept: str,`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>clean_skills = sorted({s.strip().lower() for s in (skills or []) if s.st</code></td><td>核心意图：代表语句：`clean_skills = sorted({s.strip().lower() for s in (skills or []) if s.strip()})`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;skills&quot;: clean_skills,</code></td><td>核心意图：代表语句：`&quot;skills&quot;: clean_skills,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>eid = emp_id.strip().upper()</code></td><td>核心意图：代表语句：`eid = emp_id.strip().upper()`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>return sorted(book.values(), key=lambda c: c[&quot;emp_id&quot;])</code></td><td>核心意图：代表语句：`return sorted(book.values(), key=lambda c: c[&quot;emp_id&quot;])`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>contact[&quot;dept&quot;],</code></td><td>核心意图：代表语句：`contact[&quot;dept&quot;],`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>def summarize_by_dept(book: ContactBook) -&gt; Dict[str, int]:</code></td><td>核心意图：代表语句：`def summarize_by_dept(book: ContactBook) -&gt; Dict[str, int]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L105</code></td><td><code>print(&quot;部门人数统计:&quot;, summarize_by_dept(book))</code></td><td>核心意图：代表语句：`print(&quot;部门人数统计:&quot;, summarize_by_dept(book))`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day07/tests/test_day07.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day07/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day07/tests/test_day07.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;STARMIND-007 第一周综合验收测试。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+for p in (ROOT, ROOT / &quot;src&quot;):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from day07_week1_quiz import grade_quiz
+from day07_contacts_app import (
+    load_contacts,
+    save_contacts,
+    upsert_contact,
+    delete_contact,
+    search_contacts,
+    summarize_by_dept,
+)
+
+
+def test_week1_quiz_grading():
+    res = grade_quiz({&quot;Q1&quot;: &quot;True&quot;, &quot;Q2&quot;: &quot;set()&quot;, &quot;Q3&quot;: &quot;Star&quot;, &quot;Q4&quot;: &quot;ensure_ascii&quot;, &quot;Q5&quot;: &quot;None&quot;})
+    assert res[&quot;score&quot;] == 100
+    assert res[&quot;passed&quot;] is True
+
+    partial = grade_quiz({&quot;Q1&quot;: &quot;False&quot;})
+    assert partial[&quot;passed&quot;] is False
+    assert len(partial[&quot;wrong_details&quot;]) == 5
+
+
+def test_contacts_full_lifecycle_and_json_persistence(tmp_path: Path):
+    db_file = tmp_path / &quot;data&quot; / &quot;contacts.json&quot;
+    # 首次加载文件不存在应返回空字典
+    book = load_contacts(db_file)
+    assert book == {}
+
+    upsert_contact(book, &quot;xm-001&quot;, &quot;老陈&quot;, &quot;AI研发部&quot;, &quot;13857101111&quot;, [&quot;Python&quot;, &quot;python&quot;, &quot;LLM&quot;])
+    upsert_contact(book, &quot;xm-002&quot;, &quot;阿杰&quot;, &quot;测试部&quot;, &quot;13957102222&quot;, [&quot;Pytest&quot;])
+    assert book[&quot;XM-001&quot;][&quot;masked_phone&quot;] == &quot;138****1111&quot;
+    assert book[&quot;XM-001&quot;][&quot;skills&quot;] == [&quot;llm&quot;, &quot;python&quot;]
+
+    # 持久化并模拟重启重新加载
+    save_contacts(db_file, book)
+    reloaded = load_contacts(db_file)
+    assert len(reloaded) == 2
+    assert len(search_contacts(reloaded, &quot;研发&quot;)) == 1
+    assert summarize_by_dept(reloaded) == {&quot;AI研发部&quot;: 1, &quot;测试部&quot;: 1}
+
+    assert delete_contact(reloaded, &quot;XM-002&quot;) is True
+    assert delete_contact(reloaded, &quot;XM-999&quot;) is False
+
+    with pytest.raises(ValueError):
+        upsert_contact(reloaded, &quot;&quot;, &quot;无名&quot;, &quot;部门&quot;, &quot;13800000000&quot;)
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-007</code>，承接自 Day 06 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day07-week1-contacts-project</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day07-week1-contacts-project）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day07-week1-contacts-project
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day07.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-007）
+git add src/day07_week1_quiz.py src/day07_contacts_app.py tests/test_day07.py
+git commit -m &quot;feat(day07): 完成第一周综合周测与企业通讯录管理系统（含JSON持久化）
+
+Refs: STARMIND-007
+- 完成 第一周复习与周测 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day07-week1-contacts-project</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-007 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-007 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day07_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day07_week1_quiz.py src/day07_contacts_app.py
+    - echo &quot;Day 07 语法编译检查通过&quot;
+
+day07_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day07/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day07/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (架构师)</span><span>状态：Approved</span></div><p>第一周收官项目完成度非常高！主键统一大写、技能标签自动去重、存储与业务分离，已经具备初级工程师的代码味了。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (PM)</span><span>状态：Approved</span></div><p>支持按技能搜人这个功能超实用，以后找懂 Pytest 或 LLM 的同事一搜就出来。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-007 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-007（第一周复习与周测）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：HR 与行政部门需要一个离线可用的内部通讯录 CLI 系统，支持快速录入、修改、删除员工联系方式，并持久化保存到本地 JSON 文件，便于星辰智脑后续接入查人技能。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）员工信息分散在多个 Excel 表格里，查询慢且容易重复录入同一工号。；（2）命令行程序关闭后内存数据丢失，缺少本地 JSON 持久化机制。；（3）第一周知识点零散，需要通过综合项目将数据结构、函数与 JSON 融会贯通。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）完成第一周核心知识（类型/切片/流程/容器/JSON/函数）综合自测与复盘。；（2）独立实现通讯录完整 CRUD、关键字模糊搜索（姓名/部门/标签）、JSON 加载与保存。；（3）确保所有业务操作与异常边界通过自动化集成测试。，必须全部翻译成可量化的测试用例和监控指标（例如 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day07/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 第一周高频易错点清扫清单】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：1）<code>bool(&#x27;False&#x27;)</code> 为 <code>True</code>；2）字符串不可变，方法调用必须重新赋值；3）遍历列表禁止原地 <code>remove</code>；4）空集合是 <code>set()</code> 不是 <code>{}</code>；5）<code>json.dumps</code> 必加 <code>ensure_ascii=False</code>；6）函数默认参数严禁写 <code>[]</code> 或 <code>{}</code>。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：每次写完代码养成跑一遍 <code>pytest</code> 的习惯，能提前拦截 80% 的低级拼写与边界错误。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 第一周高频易错点清扫清单」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 主键索引设计：为什么通讯录用 dict 而不是 list？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：用 <code>emp_id</code> 作键的字典 <code>{emp_id: {name, dept, phone, ...}}</code>，按工号查人、改人、删人全是 O(1) 瞬间完成，且天然保证工号唯一不重复。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：注意 JSON 的键只能是字符串！即使你在内存里用整数 <code>1001</code> 当字典 key，经过 <code>json.dump</code> 再 <code>json.load</code> 回来后 key 会变成字符串 <code>&#x27;1001&#x27;</code>，所以统一把 <code>emp_id</code> 定义为 <code>str</code>（如 <code>&#x27;XM-0001&#x27;</code>）是最省心的工程实践。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 主键索引设计：为什么通讯录用 dict 而不是 list？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 持久化原子写入思路】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：生产级本地 JSON 持久化通常遵循：读取时若文件不存在返回空库 <code>{}</code>；写入时先确保父目录存在（<code>mkdir(parents=True, exist_ok=True)</code>），再以 UTF-8 覆盖写出。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：如果文件内容被人为改坏导致 <code>JSONDecodeError</code>，应在加载层给出明确错误提示，避免静默覆盖把旧数据清空。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 持久化原子写入思路」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 07 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day07/</code> 中亲手编写了 <code>src/day07_week1_quiz.py</code>、<code>src/day07_contacts_app.py</code> 以及对应的自动化测试 <code>tests/test_day07.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day07_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 07 / STARMIND-007）：1. 已在分支 <code>feat/day07-week1-contacts-project</code> 完成 第一周复习与周测 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 08）：下周（Day 8）进入第二周，咱们正式开启面向对象编程（OOP），把零散的字典升级成带校验和行为的 <code>ChatMessage</code> 核心类！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 07 掌握的「第一周复习与周测」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（本地 Python 3.11 + venv 虚拟环境 + 清华镜像源 + GitLab 个人开发分支），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「第一周复习与周测」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：第一周复习与周测 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-007 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day07.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 07 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day07/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day07_week1_quiz.py, src/day07_contacts_app.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>支持按工号防重添加、更新、删除、精确查询与关键词模糊搜索。；重启后能从 JSON 文件完整恢复所有联系人数据，中文无转义乱码。；内置第一周自测判分引擎可自动评估答题正确率。</td><td>运行 `pytest versions/day07/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day07/day07_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day07-week1-contacts-project` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「第一周复习与周测」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-007 需求时，我们的核心业务目标是：完成第一周核心知识（类型/切片/流程/容器/JSON/函数）综合自测与复盘。；独立实现通讯录完整 CRUD、关键字模糊搜索（姓名/部门/标签）、JSON 加载与保存。；确保所有业务操作与异常边界通过自动化集成测试。。最初我们也评估过极简脚本方案，但在 编码不规范导致的 UTF-8 乱码、字典 KeyError 崩溃、API Key 硬编码泄露、HTTP 超时未捕获 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 第一周高频易错点清扫清单、2. 主键索引设计：为什么通讯录用 dict 而不是 list？、3. 持久化原子写入思路 这几层解耦抽象，既满足了当前阶段的 单次 CLI 指令响应 &lt; 200ms，API 异常捕获率 100%，单元测试覆盖核心路径，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「第一周复习与周测」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 Python 工程地基、数据结构与类型安全、JSON 协议解析、面向对象抽象、异步与 HTTP 接口调用 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 07 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day07_week1_quiz.py、src/day07_contacts_app.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>恭喜你拿下第一周综合项目！从零基础到独立写出带 JSON 持久化、脱敏、模糊搜索和自动化单测的完整通讯录系统，只用了 7 天。周末好好歇半天，下周一咱们开启面向对象编程（OOP），给星辰智脑搭起真正的模型抽象层。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：基础巩固：通讯录导出 CSV 文本行</strong><span class="badge">基础巩固</span></div><p>编写 <code>export_contacts_csv_text(book: dict) -&gt; str</code>，将通讯录字典转换为带表头 <code>emp_id,name,dept,masked_phone</code> 的 CSV 格式字符串（按工号升序）。</p><p><strong>💡 思路提示：</strong>遍历排序后的联系人，把每行字段用 `&#x27;,&#x27;.join(...)` 拼接，再用 `&#x27;\n&#x27;.join(lines)` 合并。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-7-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-7-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 7 课后题 1：通讯录导出 CSV 文本。&quot;&quot;&quot;
+
+from typing import Dict, Any, List
+
+
+def export_contacts_csv_text(book: Dict[str, Dict[str, Any]]) -&gt; str:
+    &quot;&quot;&quot;将通讯录导出为标准 CSV 字符串（含表头）。&quot;&quot;&quot;
+    lines: List[str] = [&quot;emp_id,name,dept,masked_phone&quot;]
+    for eid in sorted(book.keys()):
+        c = book[eid]
+        lines.append(f&quot;{c[&#x27;emp_id&#x27;]},{c[&#x27;name&#x27;]},{c[&#x27;dept&#x27;]},{c[&#x27;masked_phone&#x27;]}&quot;)
+    return &quot;\n&quot;.join(lines)
+
+
+if __name__ == &quot;__main__&quot;:
+    sample = {
+        &quot;XM-001&quot;: {&quot;emp_id&quot;: &quot;XM-001&quot;, &quot;name&quot;: &quot;老陈&quot;, &quot;dept&quot;: &quot;AI研发部&quot;, &quot;masked_phone&quot;: &quot;138****1111&quot;}
+    }
+    print(export_contacts_csv_text(sample))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>考查字典排序遍历与格式化文本导出，为 Day 11 的标准库 <code>csv</code> 模块做铺垫。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：企业实战：批量导入通讯录冲突检测器</strong><span class="badge">企业实战</span></div><p>HR 批量导入一批新员工列表时，需要提前检测哪些工号已经存在于现有通讯录中。编写 <code>detect_import_conflicts(book: dict, incoming: list[dict]) -&gt; tuple[list[str], list[dict]]</code>，返回 <code>(冲突工号列表, 可安全新增列表)</code>。</p><p><strong>💡 思路提示：</strong>用 `eid in book` 做 O(1) 冲突判定，注意同一批导入数据内部也可能重复，用 `seen` 集合同步拦截。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-7-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-7-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 7 课后题 2：批量导入通讯录工号冲突检测。&quot;&quot;&quot;
+
+from typing import Dict, Any, List, Tuple
+
+
+def detect_import_conflicts(
+    book: Dict[str, Any], incoming: List[Dict[str, Any]]
+) -&gt; Tuple[List[str], List[Dict[str, Any]]]:
+    &quot;&quot;&quot;检测批量导入中的重复工号（含库内重复与批次内重复）。&quot;&quot;&quot;
+    conflicts: List[str] = []
+    safe_items: List[Dict[str, Any]] = []
+    batch_seen = set()
+
+    for item in incoming:
+        eid = str(item.get(&quot;emp_id&quot;, &quot;&quot;)).strip().upper()
+        if eid in book or eid in batch_seen:
+            conflicts.append(eid)
+        else:
+            batch_seen.add(eid)
+            safe_items.append(item)
+    return conflicts, safe_items
+
+
+if __name__ == &quot;__main__&quot;:
+    existing = {&quot;XM-001&quot;: {&quot;name&quot;: &quot;老陈&quot;}}
+    batch = [
+        {&quot;emp_id&quot;: &quot;XM-001&quot;, &quot;name&quot;: &quot;重复老陈&quot;},
+        {&quot;emp_id&quot;: &quot;XM-002&quot;, &quot;name&quot;: &quot;新人A&quot;},
+        {&quot;emp_id&quot;: &quot;XM-002&quot;, &quot;name&quot;: &quot;批次内重复新人A&quot;},
+    ]
+    print(detect_import_conflicts(existing, batch))
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>同时检测「与存量库冲突」和「导入批次内部自冲突」，这是企业数据导入功能最容易遗漏的边界条件。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：架构进阶：带备份快照的安全保存函数</strong><span class="badge">架构进阶</span></div><p>直接覆盖写 <code>contacts.json</code> 若中途断电可能损坏文件。编写 <code>safe_save_with_backup(db_path: Path, data: dict) -&gt; Path</code>，若目标文件已存在则先复制一份 <code>.bak</code> 备份文件，再写入新 JSON。</p><p><strong>💡 思路提示：</strong>使用 `shutil.copy2` 或 `read_text`/`write_text` 生成 `db_path.with_suffix(&#x27;.json.bak&#x27;)`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-7-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-7-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 7 课后题 3：带自动备份快照的 JSON 安全落盘。&quot;&quot;&quot;
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Dict, Any
+
+
+def safe_save_with_backup(db_path: Path, data: Dict[str, Any]) -&gt; Path:
+    &quot;&quot;&quot;若旧文件存在则先生成 .bak 备份，再写入最新 JSON 数据。&quot;&quot;&quot;
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists():
+        backup_path = db_path.with_suffix(db_path.suffix + &quot;.bak&quot;)
+        backup_path.write_text(db_path.read_text(encoding=&quot;utf-8&quot;), encoding=&quot;utf-8&quot;)
+    with db_path.open(&quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return db_path
+
+
+if __name__ == &quot;__main__&quot;:
+    with tempfile.TemporaryDirectory() as tmp:
+        p = Path(tmp) / &quot;contacts.json&quot;
+        safe_save_with_backup(p, {&quot;v&quot;: 1})
+        safe_save_with_backup(p, {&quot;v&quot;: 2})
+        print(&quot;主文件:&quot;, p.read_text(encoding=&quot;utf-8&quot;).strip())
+        print(&quot;备份文件存在:&quot;, p.with_suffix(&quot;.json.bak&quot;).exists())
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>利用 <code>tempfile.TemporaryDirectory()</code> 做无残留自测，并引入数据持久化防损坏的备份思维。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day06/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day08/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

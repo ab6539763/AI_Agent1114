@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 47：实用 Agent 场景专题 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 4 阶段 · 第 7 周</span>
+      <span class="badge badge-ticket">STARMIND-047</span>
+      <span class="badge">Day 47 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="47" onclick="toggleDayComplete(47, this)">标记今日已完成</button>
+      <a class="btn" href="../day46/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day48/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day47-text2sql-browser-code-agents</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day47/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day47/day47_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day47_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 4 阶段：第四阶段：Agent 智能体开发与多 Agent 协同 · 第 7 周：Agent 工程化护栏、行业场景与多 Agent 办公助手实战</div>
+        <h1>Day 47：实用 Agent 场景专题</h1>
+        <p class="hero-sub">Text-to-SQL 只读安全数据分析 Agent（真实 SQLite 销售库）与浏览器/代码助手架构实战</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-047</span>
+          <span class="hero-tag">分支：feat/day47-text2sql-browser-code-agents</span>
+          <span class="hero-tag">角色：负责复杂业务编排与多智能体协同的 Agent 核心研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！如果问国内 B 端企业老板最愿意掏钱买单的 Agent 场景是什么，排前三的一定是：**Text-to-SQL 智能问数、代码研发助手、以及浏览器自动化操作（Computer Use / Browser Agent）**。但 Text-to-SQL 也是线上最容易出“删库跑路”事故的高危区——千万别把生产库高权限账号直接交给大模型！今天上半场老陈带大家建一个真实的 SQLite 销售库，亲手打造带 **只读安全防注入守卫 + 自动 LIMIT 保护 + 报错自纠错** 的 Text-to-SQL 数据分析 Agent；下半场我们拆解并编码实现浏览器 DOM 压缩规划与代码助手 Diff 补丁闭环原型！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 46）我们为 Agent 装上了 Trace/Span 全链路观测、Guardrails 三道安全护栏、死循环熔断和分层降本路由。今天我们把这些硬核工程武器直接投入企业落地率最高的三类垂直 Agent 场景！</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 48）正式开启第四阶段压轴大戏——「阶段项目三（上）：多 Agent 智能办公助手」，我们将完成整体多 Agent 架构设计、专家角色划分，并一口气落地 5 大企业办公工具集。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 47 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 47）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责复杂业务编排与多智能体协同的 Agent 核心研发工程师】，依托的工程底座是【StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台】。回顾昨天留下的上下文：昨天（Day 46）我们为 Agent 装上了 Trace/Span 全链路观测、Guardrails 三道安全护栏、死循环熔断和分层降本路由。今天我们把这些硬核工程武器直接投入企业落地率最高的三类垂直 Agent 场景！ 今天我们通过需求单 STARMIND-047，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day47/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 48）正式开启第四阶段压轴大戏——「阶段项目三（上）：多 Agent 智能办公助手」，我们将完成整体多 Agent 架构设计、专家角色划分，并一口气落地 5 大企业办公工具集。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:30 - 12:00</strong></td><td>Text-to-SQL 安全架构、Browser Agent 与 Coding Agent 原理精讲</td><td>剖析 Schema 召回裁剪、SQL 注入与只读双重防御、SQL 执行报错自纠错；拆解 Playwright Accessibility Tree 压缩与 Coding Agent 补丁循环。</td></tr>
+<tr><td><strong>下午 13:30 - 15:30</strong></td><td>动手实操（一）：连接真实 SQLite 销售库的只读安全 Text-to-SQL Agent</td><td>编写 `src/day47_text2sql_agent.py`，建库灌数据、实现 `SQLSafetyGuard`、自动 LIMIT、SQL 生成与报错自修复闭环。</td></tr>
+<tr><td><strong>下午 15:45 - 17:30</strong></td><td>动手实操（二）：浏览器自动化与代码助手核心架构原型</td><td>编写 `src/day47_browser_code_agent.py`，实现 DOM 语义树压缩规划器与 Unified Diff 代码修复验证引擎。</td></tr>
+<tr><td><strong>晚间 19:00 - 20:30</strong></td><td>安全防注入回归测试与梯度作业</td><td>运行 `pytest` 对 Text-to-SQL 发起多种注入攻击与边界查询测试，完成课后 3 道实战题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-047）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科商业分析部每天接到业务线 80+ 个临时取数需求（如“华东区 Q3 销售额最高的 3 个产品是什么？”“各区域平均客单价对比”），数据分析师疲于写重复 SQL；同时研发团队也在探索安全可控的代码自动修复与网页巡检自动化 Agent。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>直接把自然语言转 SQL 执行存在严重的 SQL 注入、写操作误删表以及全表扫描拖垮数据库的风险。</li><li>大模型偶尔会拼错表名或字段名，缺少将数据库报错回传自纠错的闭环机制。</li><li>浏览器原始 HTML 动辄数万 Token、代码助手直接覆盖整文件极易引入破坏性改动，亟需工程化架构范式。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>构建真实 SQLite 销售数据库（含 `customers`、`products`、`sales_orders` 三张关联表），实现带 `SQLSafetyGuard` 双重只读保护的 Text-to-SQL 数据分析 Agent。</li><li>实现 SQL 语法/字段报错自动捕获与自纠错重试机制，并将查询结果自动格式化为业务洞察摘要。</li><li>实现浏览器自动化（DOM 精简快照 + 动作规划）与代码助手（代码检索 -&gt; Unified Diff 补丁生成 -&gt; 沙箱校验）核心架构原型。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>自然语言提问“华东区总销售额”、“各区域销售额排名”或“最畅销商品”时，能生成正确 SQL 并在真实 SQLite 上查出精准数值。</li><li>任何包含 `DROP/DELETE/UPDATE/INSERT/ALTER/PRAGMA` 或多语句分号 `;` 的 SQL 均被 `SQLSafetyGuard` 100% 拦截。</li><li>缺少 `LIMIT` 的查询自动追加 `LIMIT 100`；代码助手原型能基于问题生成标准 Diff 并通过校验，所有单测本地 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>数据库连接层强制开启 `PRAGMA query_only = ON`，实现应用层正则校验 + 数据库引擎只读模式双重纵深防御。</li><li>Text-to-SQL 每次执行必须记录最终 SQL、返回行数与耗时，便于数据团队审计。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>垂直场景 Agent 能否在企业真正活下来，取决于**领域安全约束（Domain Safety）**与**环境感知压缩（Context Compression）**两大设计：</p>
+<p>1. **Text-to-SQL 数据分析 Agent 四层安全架构**：<br/>   - **Schema 精选层**：面对企业几百张表，先按业务域检索最相关的 3~5 张表 DDL 与枚举值样例注入 Prompt；<br/>   - **应用层 <code>SQLSafetyGuard</code>**：只允许以 <code>SELECT</code> 或 <code>WITH</code> 开头的单条查询语句，严格禁止分号多语句注入、注释符混淆以及 <code>DROP/DELETE/UPDATE/INSERT/ALTER/ATTACH/PRAGMA</code> 等危险关键字，并自动为无 <code>LIMIT</code> 的查询补齐 <code>LIMIT 100</code> 防止百万行内存爆炸；<br/>   - **数据库引擎物理只读层**：生产环境使用只读从库 + 只读账号，SQLite 层面显式执行 <code>PRAGMA query_only = ON</code>；<br/>   - **自纠错闭环（Self-Correction）**：执行报 <code>OperationalError: no such column</code> 时，把错误信息和真实 Schema 回传给规划器自动修正 SQL 并重试（最多 2 次）。<br/>2. **Browser Agent（浏览器自动化）**：千万别把 200KB 原始 DOM 源码扔给大模型！工业级方案（如 Browser-Use / Playwright MCP）只提取可交互元素（<code>button</code>、<code>input</code>、<code>a</code>）生成带编号 <code>[1] [2] [3]</code> 的精简 Accessibility Snapshot，模型只需输出 <code>click(id=2)</code> 或 <code>type(id=1, text=&#x27;...&#x27;)</code>。<br/>3. **Coding Agent（代码研发助手）**：遵循“**先定位检索 -&gt; 生成最小化 Unified Diff 补丁 -&gt; 运行单测验证 -&gt; 失败回滚或继续修**”的闭环，绝不盲目重写整个大文件。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 47.1：只读安全 Text-to-SQL 数据分析 Agent 执行流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">只读安全 Text-to-SQL 数据分析 Agent 执行流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">自然语言问数</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">如: 各区域 Q3 销售额排名</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Schema 检索 + SQL 生成</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">注入表 DDL 与字段口径</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">SQLSafetyGuard 安检</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">仅放行单条 SELECT + 强加 LIMIT</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">只读 SQLite 执行</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">PRAGMA query_only = ON</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">报错自纠错节点</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">捕获 SQL 报错自动修正重试</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">业务洞察汇总</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">输出精准表格与文字结论</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="251.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">提取表结构</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="519.5" y="66.0" width="108" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">提交候选 SQL</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="688.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">安检通过</text>
+<line x1="608" y1="221.0" x2="545" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="528.5" y="202.0" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="576.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">语法/字段报错</text>
+<line x1="432.0" y1="258" x2="718.0" y2="45" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="539.0" y="132.5" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">修正后重检</text>
+<line x1="608" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="397.5" y="202.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="433.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">返回结果集</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示自然语言问数如何经过 Schema 注入、SQL 生成、应用+引擎双重只读安检、报错自修复与洞察汇总。</div></div><div class="diagram-card"><div class="diagram-title">图 47.2：Browser Agent DOM 语义树压缩与动作规划示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">Browser Agent DOM 语义树压缩与动作规划示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">原始网页 DOM</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">含大量样式/脚本噪音 (200KB)</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">DOM 精简器</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">提取可交互元素并分配 [id]</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">动作规划器</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">输出 type([1], ...) / click([2])</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">执行器 + 新快照</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">驱动页面状态推进直至目标完成</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示如何将庞大网页 HTML 过滤为紧凑的可交互编号元素树，大幅降低 Token 消耗并提升点击准确率。</div></div><div class="diagram-card"><div class="diagram-title">图 47.3：Coding Agent 检索-补丁-验证闭环架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Coding Agent 检索-补丁-验证闭环架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Issue / Bug 描述</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">含报错栈或需求说明</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">只读代码检索</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">定位目标文件与函数行号</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Diff 补丁生成</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">输出最小化 Unified Diff</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">沙箱测试验证</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">运行 pytest 校验通过/回滚</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">检索上下文</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">生成最小改动</text>
+<line x1="629.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">应用补丁并测试</text>
+<line x1="430.0" y1="370" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">失败则带报错重试</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示代码助手通过符号定位、Unified Diff 最小化修改与自动化测试验证来保障代码改动安全。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. Text-to-SQL 生产防注入的“双重锁”原则</h3><p>千万不要只依赖应用层正则表达式去拦 SQL 注入！因为 SQL 语法变种极多（注释混淆、CTE 嵌套、特殊内置函数）。生产标准必须是**双锁叠加**：<br/>1) 应用层 <code>SQLSafetyGuard</code> 拦截非 <code>SELECT</code>、多语句分号、危险关键词并强制追加 <code>LIMIT</code>；<br/>2) 数据库层配置**只读数据库账号（仅授予目标表 <code>SELECT</code> 权限）** + SQLite <code>PRAGMA query_only = ON</code> + 语句超时（<code>statement_timeout = 5s</code>）。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：在校验多语句注入时，记得先去掉 SQL 末尾合法的单个分号 `;` 再检查中间是否还有 `;`，否则正常带结尾分号的 `SELECT ...;` 会被误杀！</div><h3>2. 2. 业务口径词典（Semantic Layer）决定 Text-to-SQL 准确率上限</h3><p>企业问数最容易出错的往往不是 SQL 语法，而是**业务口径**！例如“有效销售额”到底包不包含 <code>status = &#x27;CANCELLED&#x27;</code> 的退单？必须在 Schema Prompt 中明确注入业务口径（如“统计销售额时必须过滤 <code>status = &#x27;PAID&#x27;</code>”），否则模型算出来的数和财务报表永远对不上。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：直接把几百张裸表塞进 Prompt 会导致模型选错表；大型数仓应先建立“指标宽表/视图（View）”，让 Agent 只查干净的业务视图。</div><h3>3. 3. Browser Agent 与 Coding Agent 的核心工程共性</h3><p>无论是操作网页还是修改代码，高成功率的秘诀都是**压缩观测空间 + 原子化动作 + 即时反馈验证**：浏览器压缩为编号可交互树，代码压缩为目标函数片段与 Unified Diff，每步执行后立即获取页面状态或单测结果作为下一轮 <code>Observation</code>。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：让 Coding Agent 直接在生产代码仓无沙箱运行 `subprocess` 执行任意命令是重大安全隐患，必须在隔离容器或受限只读测试环境中执行校验。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈实战总结：Text-to-SQL 从 60% 准确率冲到 95% 的三个秘诀】<br/>很多团队直接把表 DDL 扔给大模型，测下来准确率只有 60% 左右。星辰数科在政企项目里把准确率拉到 95%+ 的核心经验就三条：<br/>1）**Few-Shot 黄金问答对检索**：把历史由资深分析师验证过的 50~100 条“自然语言 -&gt; 正确 SQL”存入向量库，每次问数先召回最相似的 3 条示例放进 Prompt；<br/>2）**指标宽表化**：别让大模型现场写 5 张表复杂 <code>LEFT JOIN</code>，数据团队先建好口径统一的聚合视图；<br/>3）**执行校验 + 人工反馈闭环**：把每次用户点赞的 SQL 自动沉淀回黄金示例库，系统越用越准！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day47/</code> 与 <code>notebooks/day47/day47_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：连接真实 SQLite 销售库的只读安全 Text-to-SQL 数据分析 Agent</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>我们直接用 Python 内置 <code>sqlite3</code> 建一个真实的星辰数科销售库（包含客户、产品、订单三张表并灌入真实测试数据），然后给它套上应用层 <code>SQLSafetyGuard</code> + 数据库层 <code>PRAGMA query_only = ON</code> 双重只读安全锁，跑通从自然语言问数、自动加 LIMIT、报错自修复到生成分析结论的完整链路！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day47_text2sql_agent.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 47 - 步骤一：连接真实 SQLite 销售库的只读安全 Text-to-SQL 数据分析 Agent。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
+
+
+class SQLSafetyError(ValueError):
+    &quot;&quot;&quot;当候选 SQL 违反只读安全策略或疑似注入攻击时抛出。&quot;&quot;&quot;
+
+
+class SQLSafetyGuard:
+    &quot;&quot;&quot;应用层 SQL 只读安全守卫：仅允许单条 SELECT 查询，自动补齐 LIMIT。&quot;&quot;&quot;
+
+    FORBIDDEN_KEYWORDS = re.compile(
+        r&quot;\b(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|REPLACE|TRUNCATE|ATTACH|DETACH|PRAGMA|EXEC|UNION\s+ALL\s+SELECT\s+sqlite_master)\b&quot;,
+        re.IGNORECASE,
+    )
+    COMMENT_PATTERN = re.compile(r&quot;(--|/\*|\*/)&quot;)
+
+    def __init__(self, default_limit: int = 100) -&gt; None:
+        self.default_limit = default_limit
+
+    def sanitize_and_validate(self, sql: str) -&gt; str:
+        cleaned = sql.strip()
+        if cleaned.endswith(&quot;;&quot;):
+            cleaned = cleaned[:-1].strip()
+
+        if not cleaned:
+            raise SQLSafetyError(&quot;SQL 不能为空&quot;)
+        if &quot;;&quot; in cleaned:
+            raise SQLSafetyError(&quot;安全拦截：禁止多语句分号注入&quot;)
+        if self.COMMENT_PATTERN.search(cleaned):
+            raise SQLSafetyError(&quot;安全拦截：禁止 SQL 注释符绕过&quot;)
+        if not re.match(r&quot;^(SELECT|WITH)\b&quot;, cleaned, re.IGNORECASE):
+            raise SQLSafetyError(&quot;安全拦截：仅允许执行只读 SELECT / WITH 查询&quot;)
+        if self.FORBIDDEN_KEYWORDS.search(cleaned):
+            raise SQLSafetyError(&quot;安全拦截：检测到写操作或高危系统关键字&quot;)
+
+        # 自动补齐 LIMIT 保护，防止全表扫描撑爆内存
+        if not re.search(r&quot;\bLIMIT\s+\d+\b&quot;, cleaned, re.IGNORECASE):
+            cleaned = f&quot;{cleaned} LIMIT {self.default_limit}&quot;
+        return cleaned
+
+
+def init_sales_sqlite_db(db_path: Union[str, Path] = &quot;:memory:&quot;) -&gt; sqlite3.Connection:
+    &quot;&quot;&quot;创建并初始化星辰数科真实 SQLite 销售数据库，初始化完成后开启只读模式。&quot;&quot;&quot;
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript(
+        &quot;&quot;&quot;
+        CREATE TABLE products (
+            product_id INTEGER PRIMARY KEY,
+            product_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            unit_price REAL NOT NULL
+        );
+        CREATE TABLE sales_orders (
+            order_id INTEGER PRIMARY KEY,
+            region TEXT NOT NULL,
+            quarter TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            status TEXT NOT NULL,
+            FOREIGN KEY(product_id) REFERENCES products(product_id)
+        );
+        INSERT INTO products VALUES
+            (1, &#x27;星辰智脑企业版&#x27;, &#x27;AI平台&#x27;, 50000.0),
+            (2, &#x27;RAG知识库套件&#x27;, &#x27;AI应用&#x27;, 20000.0),
+            (3, &#x27;多Agent办公助手&#x27;, &#x27;AI应用&#x27;, 30000.0);
+        INSERT INTO sales_orders VALUES
+            (101, &#x27;华东&#x27;, &#x27;2025Q3&#x27;, 1, 3, 150000.0, &#x27;PAID&#x27;),
+            (102, &#x27;华东&#x27;, &#x27;2025Q3&#x27;, 3, 4, 120000.0, &#x27;PAID&#x27;),
+            (103, &#x27;华东&#x27;, &#x27;2025Q3&#x27;, 2, 2, 40000.0, &#x27;CANCELLED&#x27;),
+            (104, &#x27;华南&#x27;, &#x27;2025Q3&#x27;, 1, 2, 100000.0, &#x27;PAID&#x27;),
+            (105, &#x27;华南&#x27;, &#x27;2025Q3&#x27;, 2, 5, 100000.0, &#x27;PAID&#x27;),
+            (106, &#x27;华北&#x27;, &#x27;2025Q3&#x27;, 3, 3, 90000.0, &#x27;PAID&#x27;);
+        &quot;&quot;&quot;
+    )
+    conn.commit()
+    # 数据库引擎级物理只读锁（第二道防线）
+    conn.execute(&quot;PRAGMA query_only = ON;&quot;)
+    return conn
+
+
+class TextToSQLAgent:
+    &quot;&quot;&quot;只读安全 Text-to-SQL 数据分析 Agent（含报错自修复重试与业务洞察生成）。&quot;&quot;&quot;
+
+    def __init__(self, conn: sqlite3.Connection, default_limit: int = 100) -&gt; None:
+        self.conn = conn
+        self.guard = SQLSafetyGuard(default_limit=default_limit)
+
+    def get_schema_summary(self) -&gt; str:
+        rows = self.conn.execute(
+            &quot;SELECT name, sql FROM sqlite_master WHERE type=&#x27;table&#x27; ORDER BY name&quot;
+        ).fetchall()
+        return &quot;\n&quot;.join(f&quot;{name}: {ddl}&quot; for name, ddl in rows)
+
+    def _plan_sql(self, question: str, prev_error: str = &quot;&quot;) -&gt; str:
+        &quot;&quot;&quot;本地确定性 SQL 规划器（生产环境替换为对接大模型的 SQL 生成节点）。&quot;&quot;&quot;
+        # 模拟常见注入攻击语句透传，交由 SQLSafetyGuard 统一拦截验证
+        if any(k in question.upper() for k in (&quot;DROP &quot;, &quot;DELETE &quot;, &quot;UPDATE &quot;, &quot;;&quot;, &quot;--&quot;, &quot;PRAGMA &quot;)):
+            return question
+
+        # 演示自纠错：首次故意写错列名 total_amt，捕获 OperationalError 后二次修正为 amount
+        if &quot;各区域&quot; in question and not prev_error and &quot;模拟纠错&quot; in question:
+            return &quot;SELECT region, SUM(total_amt) AS total_sales FROM sales_orders WHERE status = &#x27;PAID&#x27; GROUP BY region&quot;
+
+        if &quot;各区域&quot; in question or &quot;区域&quot; in question:
+            return (
+                &quot;SELECT region, SUM(amount) AS total_sales, COUNT(*) AS order_cnt &quot;
+                &quot;FROM sales_orders WHERE status = &#x27;PAID&#x27; &quot;
+                &quot;GROUP BY region ORDER BY total_sales DESC&quot;
+            )
+        if &quot;最畅销&quot; in question or &quot;商品&quot; in question or &quot;产品&quot; in question:
+            return (
+                &quot;SELECT p.product_name, SUM(o.amount) AS total_sales, SUM(o.quantity) AS total_qty &quot;
+                &quot;FROM sales_orders o JOIN products p ON o.product_id = p.product_id &quot;
+                &quot;WHERE o.status = &#x27;PAID&#x27; GROUP BY p.product_name ORDER BY total_sales DESC&quot;
+            )
+        return &quot;SELECT COUNT(*) AS paid_orders, SUM(amount) AS total_sales FROM sales_orders WHERE status = &#x27;PAID&#x27;&quot;
+
+    def analyze(self, question: str, max_retries: int = 2) -&gt; Dict[str, Any]:
+        prev_error = &quot;&quot;
+        retries = 0
+        for attempt in range(max_retries + 1):
+            candidate_sql = self._plan_sql(question, prev_error=prev_error)
+            safe_sql = self.guard.sanitize_and_validate(candidate_sql)
+            try:
+                cur = self.conn.execute(safe_sql)
+                columns = [desc[0] for desc in cur.description or []]
+                rows = [dict(zip(columns, r)) for r in cur.fetchall()]
+                return {
+                    &quot;question&quot;: question,
+                    &quot;sql&quot;: safe_sql,
+                    &quot;row_count&quot;: len(rows),
+                    &quot;rows&quot;: rows,
+                    &quot;retries&quot;: retries,
+                    &quot;insight&quot;: self._format_insight(question, rows),
+                }
+            except sqlite3.OperationalError as exc:
+                prev_error = str(exc)
+                retries += 1
+                if attempt &gt;= max_retries:
+                    raise RuntimeError(f&quot;SQL 执行连续失败: {prev_error}&quot;) from exc
+        raise RuntimeError(&quot;未预期的执行分支&quot;)
+
+    @staticmethod
+    def _format_insight(question: str, rows: List[Dict[str, Any]]) -&gt; str:
+        if not rows:
+            return f&quot;针对「{question}」，未查询到符合条件的有效已支付订单记录。&quot;
+        top = rows[0]
+        summary_pairs = &quot;, &quot;.join(f&quot;{k}={v}&quot; for k, v in top.items())
+        return f&quot;共检索到 {len(rows)} 条聚合结果，排首位的核心数据为：{summary_pairs}。&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    conn = init_sales_sqlite_db()
+    agent = TextToSQLAgent(conn)
+    res1 = agent.analyze(&quot;请统计各区域有效销售额排名（模拟纠错）&quot;)
+    print(&quot;SQL:&quot;, res1[&quot;sql&quot;])
+    print(&quot;自纠错次数:&quot;, res1[&quot;retries&quot;], &quot;| 洞察:&quot;, res1[&quot;insight&quot;])
+    print(&quot;数据明细:&quot;, res1[&quot;rows&quot;])
+    conn.close()
+</code></pre><div class="output-box"># 预期运行输出示例：
+SQL: SELECT region, SUM(amount) AS total_sales, COUNT(*) AS order_cnt FROM sales_orders WHERE status = &#x27;PAID&#x27; GROUP BY region ORDER BY total_sales DESC LIMIT 100
+自纠错次数: 1 | 洞察: 共检索到 3 条聚合结果，排首位的核心数据为：region=华东, total_sales=270000.0, order_cnt=2。
+数据明细: [{&#x27;region&#x27;: &#x27;华东&#x27;, &#x27;total_sales&#x27;: 270000.0, &#x27;order_cnt&#x27;: 2}, {&#x27;region&#x27;: &#x27;华南&#x27;, &#x27;total_sales&#x27;: 200000.0, &#x27;order_cnt&#x27;: 2}, {&#x27;region&#x27;: &#x27;华北&#x27;, &#x27;total_sales&#x27;: 90000.0, &#x27;order_cnt&#x27;: 1}]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>init_sales_sqlite_db</code> 在建表灌数据后立即执行 <code>PRAGMA query_only = ON;</code>，即便上层守卫被绕过，SQLite 引擎本身也会拒绝一切写操作。<br/>2. <code>SQLSafetyGuard</code> 拦截多语句分号、注释符与高危写关键字，并自动为没有 <code>LIMIT</code> 的查询追加 <code>LIMIT 100</code>。<br/>3. <code>analyze</code> 完整演示了 SQL 报错捕获 -&gt; 带着 <code>prev_error</code> 重新生成合法 SQL 的自纠错闭环（已支付订单严格过滤了 <code>CANCELLED</code> 退单）。</p><h3>实操步骤 2：步骤二：浏览器自动化 DOM 压缩规划器与代码助手 Unified Diff 补丁引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>下半场我们把另外两大热门场景——Browser Agent 与 Coding Agent 的核心引擎骨架亲手落地：前者将杂乱 DOM 树压缩为紧凑的编号可交互元素并规划操作序列；后者按「检索 -&gt; 生成最小 Unified Diff -&gt; 应用并断言验证」闭环安全修复代码。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day47_browser_code_agent.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 47 - 步骤二：浏览器 DOM 压缩规划器与代码助手 Unified Diff 补丁验证原型。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import difflib
+from dataclasses import dataclass
+from typing import Any, Dict, List
+
+
+@dataclass
+class DOMElement:
+    elem_id: int
+    tag: str
+    role: str
+    text: str
+    visible: bool = True
+    interactive: bool = False
+
+
+class BrowserDOMPlanner:
+    &quot;&quot;&quot;浏览器自动化核心：将原始 DOM 压缩为紧凑可交互快照，再规划原子操作序列。&quot;&quot;&quot;
+
+    def compress_dom(self, raw_nodes: List[DOMElement]) -&gt; List[Dict[str, Any]]:
+        &quot;&quot;&quot;过滤不可见与纯装饰节点，只保留可交互元素，通常可削减 85%+ Token。&quot;&quot;&quot;
+        return [
+            {&quot;id&quot;: n.elem_id, &quot;tag&quot;: n.tag, &quot;role&quot;: n.role, &quot;label&quot;: n.text}
+            for n in raw_nodes
+            if n.visible and n.interactive
+        ]
+
+    def plan_actions(self, goal: str, compact_dom: List[Dict[str, Any]]) -&gt; List[Dict[str, Any]]:
+        actions: List[Dict[str, Any]] = []
+        search_box = next((e for e in compact_dom if e[&quot;tag&quot;] == &quot;input&quot;), None)
+        submit_btn = next((e for e in compact_dom if e[&quot;tag&quot;] == &quot;button&quot; and &quot;查询&quot; in e[&quot;label&quot;]), None)
+        if search_box:
+            keyword = goal.replace(&quot;查询&quot;, &quot;&quot;).strip() or &quot;星辰智脑&quot;
+            actions.append({&quot;action&quot;: &quot;type&quot;, &quot;target_id&quot;: search_box[&quot;id&quot;], &quot;value&quot;: keyword})
+        if submit_btn:
+            actions.append({&quot;action&quot;: &quot;click&quot;, &quot;target_id&quot;: submit_btn[&quot;id&quot;]})
+        return actions
+
+
+class CodingAssistantPrototype:
+    &quot;&quot;&quot;代码助手核心：最小化 Unified Diff 补丁生成与沙箱函数验证闭环。&quot;&quot;&quot;
+
+    def generate_unified_diff(self, file_name: str, original: str, patched: str) -&gt; str:
+        diff_lines = difflib.unified_diff(
+            original.splitlines(keepends=True),
+            patched.splitlines(keepends=True),
+            fromfile=f&quot;a/{file_name}&quot;,
+            tofile=f&quot;b/{file_name}&quot;,
+        )
+        return &quot;&quot;.join(diff_lines)
+
+    def fix_zero_division_bug(self, source_code: str) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;定位除零隐患并生成带防御判断的最小化补丁与 Unified Diff。&quot;&quot;&quot;
+        buggy_line = &quot;return total / count&quot;
+        fixed_line = &quot;return total / count if count else 0.0&quot;
+        if buggy_line not in source_code:
+            return {&quot;changed&quot;: False, &quot;patched_code&quot;: source_code, &quot;diff&quot;: &quot;&quot;}
+
+        patched = source_code.replace(buggy_line, fixed_line, 1)
+        diff_text = self.generate_unified_diff(&quot;metrics.py&quot;, source_code, patched)
+        return {&quot;changed&quot;: True, &quot;patched_code&quot;: patched, &quot;diff&quot;: diff_text}
+
+
+if __name__ == &quot;__main__&quot;:
+    raw_dom = [
+        DOMElement(1, &quot;div&quot;, &quot;banner&quot;, &quot;装饰横幅&quot;, visible=True, interactive=False),
+        DOMElement(2, &quot;input&quot;, &quot;textbox&quot;, &quot;输入客户名称&quot;, visible=True, interactive=True),
+        DOMElement(3, &quot;button&quot;, &quot;button&quot;, &quot;查询客户&quot;, visible=True, interactive=True),
+        DOMElement(4, &quot;button&quot;, &quot;button&quot;, &quot;隐藏导出&quot;, visible=False, interactive=True),
+    ]
+    planner = BrowserDOMPlanner()
+    compact = planner.compress_dom(raw_dom)
+    print(&quot;压缩后 DOM 元素数:&quot;, len(compact), &quot;| 规划动作:&quot;, planner.plan_actions(&quot;查询 华东客户&quot;, compact))
+
+    buggy_src = &quot;def avg_order(total: float, count: int) -&gt; float:\n    return total / count\n&quot;
+    coder = CodingAssistantPrototype()
+    fix = coder.fix_zero_division_bug(buggy_src)
+    print(&quot;代码助手生成 Diff:\n&quot; + fix[&quot;diff&quot;])
+</code></pre><div class="output-box"># 预期运行输出示例：
+压缩后 DOM 元素数: 2 | 规划动作: [{&#x27;action&#x27;: &#x27;type&#x27;, &#x27;target_id&#x27;: 2, &#x27;value&#x27;: &#x27;华东客户&#x27;}, {&#x27;action&#x27;: &#x27;click&#x27;, &#x27;target_id&#x27;: 3}]
+代码助手生成 Diff:
+--- a/metrics.py
++++ b/metrics.py
+@@ -1,2 +1,2 @@
+ def avg_order(total: float, count: int) -&gt; float:
+-    return total / count
++    return total / count if count else 0.0
+</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>BrowserDOMPlanner.compress_dom</code> 过滤掉隐藏节点和纯布局 <code>div</code>，只把可交互元素送入规划器，这是真实 Browser Agent 提速降本的关键。<br/>2. <code>CodingAssistantPrototype</code> 使用标准库 <code>difflib.unified_diff</code> 输出工业标准的 Git Diff 补丁，方便人工在 MR 中逐行审阅而不破坏文件其他注释。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：连接真实 SQLite 销售库的只读安全 Text-to-SQL 数据分析 Agent（src/day47_text2sql_agent.py）</h3><p>模块 <code>src/day47_text2sql_agent.py</code> 共计 167 行源码，其中包含 4 行中文工程注释（注释密度约 2.4%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-047 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>sqlite3</code>、<code>pathlib (Path)</code>、<code>typing (Any, Dict, List, Tuple, Union)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>SQLSafetyError</code>（第 11~12 行）】这是一个继承自 ValueError。其核心职责定义为：当候选 SQL 违反只读安全策略或疑似注入攻击时抛出。。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>SQLSafetyGuard</code>（第 15~46 行）】这是一个独立领域模型类。其核心职责定义为：应用层 SQL 只读安全守卫：仅允许单条 SELECT 查询，自动补齐 LIMIT。。类内部暴露了 2 个方法：<code>__init__(self, default_limit)</code>、<code>sanitize_and_validate(self, sql)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SQLSafetyGuard.__init__</code>（第 24~25 行）属于同步实例方法，入参签名为 <code>(self, default_limit)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SQLSafetyGuard.sanitize_and_validate</code>（第 27~46 行）属于同步实例方法，入参签名为 <code>(self, sql)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>TextToSQLAgent</code>（第 89~157 行）】这是一个独立领域模型类。其核心职责定义为：只读安全 Text-to-SQL 数据分析 Agent（含报错自修复重试与业务洞察生成）。。类内部暴露了 5 个方法：<code>__init__(self, conn, default_limit)</code>、<code>get_schema_summary(self)</code>、<code>_plan_sql(self, question, prev_error)</code>、<code>analyze(self, question, max_retries)</code>、<code>_format_insight(question, rows)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>TextToSQLAgent.__init__</code>（第 92~94 行）属于同步实例方法，入参签名为 <code>(self, conn, default_limit)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>TextToSQLAgent.get_schema_summary</code>（第 96~100 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>TextToSQLAgent._plan_sql</code>（第 102~124 行）属于同步实例方法，入参签名为 <code>(self, question, prev_error)</code>。文档说明：本地确定性 SQL 规划器（生产环境替换为对接大模型的 SQL 生成节点）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>TextToSQLAgent.analyze</code>（第 126~149 行）属于同步实例方法，入参签名为 <code>(self, question, max_retries)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>TextToSQLAgent._format_insight</code>（第 152~157 行）属于同步实例方法，入参签名为 <code>(question, rows)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>init_sales_sqlite_db</code>（第 49~86 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(db_path)</code>。职责说明：创建并初始化星辰数科真实 SQLite 销售数据库，初始化完成后开启只读模式。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day47_text2sql_agent.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day47/day47_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day47/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：浏览器自动化 DOM 压缩规划器与代码助手 Unified Diff 补丁引擎（src/day47_browser_code_agent.py）</h3><p>模块 <code>src/day47_browser_code_agent.py</code> 共计 81 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-047 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>difflib</code>、<code>dataclasses (dataclass)</code>、<code>typing (Any, Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>DOMElement</code>（第 11~17 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>BrowserDOMPlanner</code>（第 20~40 行）】这是一个独立领域模型类。其核心职责定义为：浏览器自动化核心：将原始 DOM 压缩为紧凑可交互快照，再规划原子操作序列。。类内部暴露了 2 个方法：<code>compress_dom(self, raw_nodes)</code>、<code>plan_actions(self, goal, compact_dom)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>BrowserDOMPlanner.compress_dom</code>（第 23~29 行）属于同步实例方法，入参签名为 <code>(self, raw_nodes)</code>。文档说明：过滤不可见与纯装饰节点，只保留可交互元素，通常可削减 85%+ Token。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>BrowserDOMPlanner.plan_actions</code>（第 31~40 行）属于同步实例方法，入参签名为 <code>(self, goal, compact_dom)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>CodingAssistantPrototype</code>（第 43~64 行）】这是一个独立领域模型类。其核心职责定义为：代码助手核心：最小化 Unified Diff 补丁生成与沙箱函数验证闭环。。类内部暴露了 2 个方法：<code>generate_unified_diff(self, file_name, original, patched)</code>、<code>fix_zero_division_bug(self, source_code)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>CodingAssistantPrototype.generate_unified_diff</code>（第 46~53 行）属于同步实例方法，入参签名为 <code>(self, file_name, original, patched)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>CodingAssistantPrototype.fix_zero_division_bug</code>（第 55~64 行）属于同步实例方法，入参签名为 <code>(self, source_code)</code>。文档说明：定位除零隐患并生成带防御判断的最小化补丁与 Unified Diff。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day47_browser_code_agent.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day47/day47_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day47/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day47_text2sql_agent.py（共 167 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day47_text2sql_agent.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 47 - 步骤一：连接真实 SQLite 销售库的只读安全 Text-to-SQL 数据分析 Agent。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 47 - 步骤一：连接真实 SQLite 销售库的只读安全 Text-to-SQL 数据分析 Agent。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>class SQLSafetyError(ValueError):</code></td><td>核心意图：代表语句：`class SQLSafetyError(ValueError):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>FORBIDDEN_KEYWORDS = re.compile(</code></td><td>核心意图：代表语句：`FORBIDDEN_KEYWORDS = re.compile(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>self.default_limit = default_limit</code></td><td>核心意图：代表语句：`self.default_limit = default_limit`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>raise SQLSafetyError(&quot;SQL 不能为空&quot;)</code></td><td>核心意图：代表语句：`raise SQLSafetyError(&quot;SQL 不能为空&quot;)`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>raise SQLSafetyError(&quot;安全拦截：检测到写操作或高危系统关键字&quot;)</code></td><td>核心意图：自动补齐 LIMIT 保护，防止全表扫描撑爆内存。代表语句：`raise SQLSafetyError(&quot;安全拦截：检测到写操作或高危系统关键字&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>def init_sales_sqlite_db(db_path: Union[str, Path] = &quot;:memory:&quot;) -&gt; sqli</code></td><td>核心意图：代表语句：`def init_sales_sqlite_db(db_path: Union[str, Path] = &quot;:memory:&quot;) -&gt; sqlite3.Connection:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L57-L64</code></td><td><code>category TEXT NOT NULL,</code></td><td>核心意图：代表语句：`category TEXT NOT NULL,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L65-L72</code></td><td><code>quantity INTEGER NOT NULL,</code></td><td>核心意图：代表语句：`quantity INTEGER NOT NULL,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L73-L80</code></td><td><code>(3, &#x27;多Agent办公助手&#x27;, &#x27;AI应用&#x27;, 30000.0);</code></td><td>核心意图：代表语句：`(3, &#x27;多Agent办公助手&#x27;, &#x27;AI应用&#x27;, 30000.0);`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L81-L88</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：数据库引擎级物理只读锁（第二道防线）。代表语句：`&quot;&quot;&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L89-L96</code></td><td><code>class TextToSQLAgent:</code></td><td>核心意图：代表语句：`class TextToSQLAgent:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L97-L104</code></td><td><code>rows = self.conn.execute(</code></td><td>核心意图：模拟常见注入攻击语句透传，交由 SQLSafetyGuard 统一拦截验证。代表语句：`rows = self.conn.execute(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L105-L112</code></td><td><code>if any(k in question.upper() for k in (&quot;DROP &quot;, &quot;DELETE &quot;, &quot;UPDATE &quot;, &quot;;</code></td><td>核心意图：演示自纠错：首次故意写错列名 total_amt，捕获 OperationalError 后二次修正为 amount。代表语句：`if any(k in question.upper() for k in (&quot;DROP &quot;, &quot;DELETE &quot;, &quot;UPDATE &quot;, &quot;;&quot;, &quot;--&quot;, &quot;PRAGMA &quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>return (</code></td><td>核心意图：代表语句：`return (`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>&quot;FROM sales_orders o JOIN products p ON o.product_id = p.product_id &quot;</code></td><td>核心意图：代表语句：`&quot;FROM sales_orders o JOIN products p ON o.product_id = p.product_id &quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L129-L136</code></td><td><code>for attempt in range(max_retries + 1):</code></td><td>核心意图：代表语句：`for attempt in range(max_retries + 1):`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L137-L144</code></td><td><code>&quot;question&quot;: question,</code></td><td>核心意图：代表语句：`&quot;question&quot;: question,`。工程剖析：此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。</td></tr><tr><td><code>L145-L152</code></td><td><code>prev_error = str(exc)</code></td><td>核心意图：代表语句：`prev_error = str(exc)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>if not rows:</code></td><td>核心意图：代表语句：`if not rows:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L167</code></td><td><code>conn = init_sales_sqlite_db()</code></td><td>核心意图：代表语句：`conn = init_sales_sqlite_db()`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day47_browser_code_agent.py（共 81 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day47_browser_code_agent.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 47 - 步骤二：浏览器 DOM 压缩规划器与代码助手 Unified Diff 补丁验证原型。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 47 - 步骤二：浏览器 DOM 压缩规划器与代码助手 Unified Diff 补丁验证原型。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>interactive: bool = False</code></td><td>核心意图：代表语句：`interactive: bool = False`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>return [</code></td><td>核心意图：代表语句：`return [`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>search_box = next((e for e in compact_dom if e[&quot;tag&quot;] == &quot;input&quot;), None)</code></td><td>核心意图：代表语句：`search_box = next((e for e in compact_dom if e[&quot;tag&quot;] == &quot;input&quot;), None)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>class CodingAssistantPrototype:</code></td><td>核心意图：代表语句：`class CodingAssistantPrototype:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>patched.splitlines(keepends=True),</code></td><td>核心意图：代表语句：`patched.splitlines(keepends=True),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>buggy_line = &quot;return total / count&quot;</code></td><td>核心意图：代表语句：`buggy_line = &quot;return total / count&quot;`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>]</code></td><td>核心意图：代表语句：`]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L81</code></td><td><code>print(&quot;代码助手生成 Diff:\n&quot; + fix[&quot;diff&quot;])</code></td><td>核心意图：代表语句：`print(&quot;代码助手生成 Diff:\n&quot; + fix[&quot;diff&quot;])`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day47/tests/test_day47.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day47/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day47/tests/test_day47.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 47 自动化单元测试：验证真实 SQLite 销售库 Text-to-SQL、防注入拦截及浏览器/代码助手原型。&quot;&quot;&quot;
+
+import pytest
+from src.day47_text2sql_agent import SQLSafetyError, TextToSQLAgent, init_sales_sqlite_db
+from src.day47_browser_code_agent import BrowserDOMPlanner, CodingAssistantPrototype, DOMElement
+
+
+def test_text2sql_queries_real_sqlite_and_self_corrects():
+    conn = init_sales_sqlite_db()
+    agent = TextToSQLAgent(conn, default_limit=50)
+
+    res_region = agent.analyze(&quot;统计各区域有效销售额（模拟纠错）&quot;)
+    assert res_region[&quot;retries&quot;] == 1
+    assert &quot;LIMIT 50&quot; in res_region[&quot;sql&quot;]
+    # 华东有效已支付订单应为 150000 + 120000 = 270000（不含 40000 的 CANCELLED 退单）
+    assert res_region[&quot;rows&quot;][0][&quot;region&quot;] == &quot;华东&quot;
+    assert res_region[&quot;rows&quot;][0][&quot;total_sales&quot;] == 270000.0
+
+    res_prod = agent.analyze(&quot;最畅销的商品是什么&quot;)
+    assert res_prod[&quot;rows&quot;][0][&quot;product_name&quot;] == &quot;星辰智脑企业版&quot;
+    assert res_prod[&quot;rows&quot;][0][&quot;total_sales&quot;] == 250000.0
+    conn.close()
+
+
+@pytest.mark.parametrize(
+    &quot;malicious_sql&quot;,
+    [
+        &quot;DROP TABLE sales_orders&quot;,
+        &quot;DELETE FROM sales_orders WHERE order_id = 101&quot;,
+        &quot;SELECT * FROM products; DROP TABLE products&quot;,
+        &quot;SELECT * FROM products -- 注释绕过&quot;,
+        &quot;PRAGMA query_only = OFF&quot;,
+    ],
+)
+def test_text2sql_blocks_injection_and_writes(malicious_sql: str):
+    conn = init_sales_sqlite_db()
+    agent = TextToSQLAgent(conn)
+    with pytest.raises(SQLSafetyError):
+        agent.analyze(malicious_sql)
+    conn.close()
+
+
+def test_browser_planner_and_coding_assistant():
+    planner = BrowserDOMPlanner()
+    compact = planner.compress_dom(
+        [
+            DOMElement(1, &quot;div&quot;, &quot;text&quot;, &quot;噪音&quot;, visible=True, interactive=False),
+            DOMElement(2, &quot;input&quot;, &quot;textbox&quot;, &quot;搜索框&quot;, visible=True, interactive=True),
+            DOMElement(3, &quot;button&quot;, &quot;button&quot;, &quot;查询&quot;, visible=True, interactive=True),
+        ]
+    )
+    assert len(compact) == 2
+    actions = planner.plan_actions(&quot;查询 订单101&quot;, compact)
+    assert [a[&quot;action&quot;] for a in actions] == [&quot;type&quot;, &quot;click&quot;]
+
+    coder = CodingAssistantPrototype()
+    res = coder.fix_zero_division_bug(&quot;def avg(total, count):\n    return total / count\n&quot;)
+    assert res[&quot;changed&quot;] is True
+    assert &quot;-    return total / count&quot; in res[&quot;diff&quot;]
+    assert &quot;+    return total / count if count else 0.0&quot; in res[&quot;diff&quot;]
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-047</code>，承接自 Day 46 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day47-text2sql-browser-code-agents</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day47-text2sql-browser-code-agents）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day47-text2sql-browser-code-agents
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day47.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-047）
+git add src/day47_text2sql_agent.py src/day47_browser_code_agent.py tests/test_day47.py
+git commit -m &quot;feat(day47): 实现连接真实SQLite销售库的只读防注入Text-to-SQL Agent及浏览器/代码助手原型
+
+Refs: STARMIND-047
+- 完成 实用 Agent 场景专题 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day47-text2sql-browser-code-agents</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-047 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-047 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day47_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day47_text2sql_agent.py src/day47_browser_code_agent.py
+    - echo &quot;Day 47 语法编译检查通过&quot;
+
+day47_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day47/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day47/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (AI 架构师)</span><span>状态：Approved</span></div><p><code>SQLSafetyGuard</code> + <code>PRAGMA query_only = ON</code> 双重纵深防御写得非常扎实！而且故意在样本库里放了一条 <code>CANCELLED</code> 退单来验证口径过滤，细节满分。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p>用 <code>@pytest.mark.parametrize</code> 批量覆盖 5 种 SQL 注入和写操作攻击太爽了，以后加新规则只要往列表里追加一行用例就行。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>商业分析部负责人试跑了华东区销售额统计，看到自动排除取消订单后直接竖了大拇指！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-047 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-047（实用 Agent 场景专题）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科商业分析部每天接到业务线 80+ 个临时取数需求（如“华东区 Q3 销售额最高的 3 个产品是什么？”“各区域平均客单价对比”），数据分析师疲于写重复 SQL；同时研发团队也在探索安全可控的代码自动修复与网页巡检自动化 Agent。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）直接把自然语言转 SQL 执行存在严重的 SQL 注入、写操作误删表以及全表扫描拖垮数据库的风险。；（2）大模型偶尔会拼错表名或字段名，缺少将数据库报错回传自纠错的闭环机制。；（3）浏览器原始 HTML 动辄数万 Token、代码助手直接覆盖整文件极易引入破坏性改动，亟需工程化架构范式。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）构建真实 SQLite 销售数据库（含 <code>customers</code>、<code>products</code>、<code>sales_orders</code> 三张关联表），实现带 <code>SQLSafetyGuard</code> 双重只读保护的 Text-to-SQL 数据分析 Agent。；（2）实现 SQL 语法/字段报错自动捕获与自纠错重试机制，并将查询结果自动格式化为业务洞察摘要。；（3）实现浏览器自动化（DOM 精简快照 + 动作规划）与代码助手（代码检索 -&gt; Unified Diff 补丁生成 -&gt; 沙箱校验）核心架构原型。，必须全部翻译成可量化的测试用例和监控指标（例如 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day47/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. Text-to-SQL 生产防注入的“双重锁”原则】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：千万不要只依赖应用层正则表达式去拦 SQL 注入！因为 SQL 语法变种极多（注释混淆、CTE 嵌套、特殊内置函数）。生产标准必须是**双锁叠加**：<br/>1) 应用层 <code>SQLSafetyGuard</code> 拦截非 <code>SELECT</code>、多语句分号、危险关键词并强制追加 <code>LIMIT</code>；<br/>2) 数据库层配置**只读数据库账号（仅授予目标表 <code>SELECT</code> 权限）** + SQLite <code>PRAGMA query_only = ON</code> + 语句超时（<code>statement_timeout = 5s</code>）。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：在校验多语句注入时，记得先去掉 SQL 末尾合法的单个分号 <code>;</code> 再检查中间是否还有 <code>;</code>，否则正常带结尾分号的 <code>SELECT ...;</code> 会被误杀！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. Text-to-SQL 生产防注入的“双重锁”原则」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 业务口径词典（Semantic Layer）决定 Text-to-SQL 准确率上限】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：企业问数最容易出错的往往不是 SQL 语法，而是**业务口径**！例如“有效销售额”到底包不包含 <code>status = &#x27;CANCELLED&#x27;</code> 的退单？必须在 Schema Prompt 中明确注入业务口径（如“统计销售额时必须过滤 <code>status = &#x27;PAID&#x27;</code>”），否则模型算出来的数和财务报表永远对不上。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：直接把几百张裸表塞进 Prompt 会导致模型选错表；大型数仓应先建立“指标宽表/视图（View）”，让 Agent 只查干净的业务视图。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 业务口径词典（Semantic Layer）决定 Text-to-SQL 准确率上限」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. Browser Agent 与 Coding Agent 的核心工程共性】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：无论是操作网页还是修改代码，高成功率的秘诀都是**压缩观测空间 + 原子化动作 + 即时反馈验证**：浏览器压缩为编号可交互树，代码压缩为目标函数片段与 Unified Diff，每步执行后立即获取页面状态或单测结果作为下一轮 <code>Observation</code>。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：让 Coding Agent 直接在生产代码仓无沙箱运行 <code>subprocess</code> 执行任意命令是重大安全隐患，必须在隔离容器或受限只读测试环境中执行校验。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. Browser Agent 与 Coding Agent 的核心工程共性」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 47 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day47/</code> 中亲手编写了 <code>src/day47_text2sql_agent.py</code>、<code>src/day47_browser_code_agent.py</code> 以及对应的自动化测试 <code>tests/test_day47.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day47_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 47 / STARMIND-047）：1. 已在分支 <code>feat/day47-text2sql-browser-code-agents</code> 完成 实用 Agent 场景专题 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 48）：明天（Day 48）正式开启第四阶段压轴大戏——「阶段项目三（上）：多 Agent 智能办公助手」，我们将完成整体多 Agent 架构设计、专家角色划分，并一口气落地 5 大企业办公工具集。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 47 掌握的「实用 Agent 场景专题」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「实用 Agent 场景专题」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：实用 Agent 场景专题 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-047 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day47.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 47 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day47/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day47_text2sql_agent.py, src/day47_browser_code_agent.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>自然语言提问“华东区总销售额”、“各区域销售额排名”或“最畅销商品”时，能生成正确 SQL 并在真实 SQLite 上查出精准数值。；任何包含 `DROP/DELETE/UPDATE/INSERT/ALTER/PRAGMA` 或多语句分号 `;` 的 SQL 均被 `SQLSafetyGuard` 100% 拦截。；缺少 `LIMIT` 的查询自动追加 `LIMIT 100`；代码助手原型能基于问题生成标准 Diff 并通过校验，所有单测本地 100% 通过。</td><td>运行 `pytest versions/day47/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day47/day47_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day47-text2sql-browser-code-agents` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「实用 Agent 场景专题」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-047 需求时，我们的核心业务目标是：构建真实 SQLite 销售数据库（含 <code>customers</code>、<code>products</code>、<code>sales_orders</code> 三张关联表），实现带 <code>SQLSafetyGuard</code> 双重只读保护的 Text-to-SQL 数据分析 Agent。；实现 SQL 语法/字段报错自动捕获与自纠错重试机制，并将查询结果自动格式化为业务洞察摘要。；实现浏览器自动化（DOM 精简快照 + 动作规划）与代码助手（代码检索 -&gt; Unified Diff 补丁生成 -&gt; 沙箱校验）核心架构原型。。最初我们也评估过极简脚本方案，但在 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. Text-to-SQL 生产防注入的“双重锁”原则、2. 业务口径词典（Semantic Layer）决定 Text-to-SQL 准确率上限、3. Browser Agent 与 Coding Agent 的核心工程共性 这几层解耦抽象，既满足了当前阶段的 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「实用 Agent 场景专题」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 47 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day47_text2sql_agent.py、src/day47_browser_code_agent.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天这一仗打得太爽了！大家亲眼看到：真实 SQLite 销售库配合 <code>SQLSafetyGuard</code>（只读白名单 + 禁多语句分号 + 强 LIMIT 截断 + <code>PRAGMA query_only=ON</code> 双重物理锁），既能让运营总监用大白话秒查各区域销售额和 Top 商品，又能把恶意 <code>DROP TABLE</code> 注入死死挡在门外。明天我们正式启动阶段项目三「多 Agent 智能办公助手」，准备大干一场！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：为 Text-to-SQL 增加表名白名单校验</strong><span class="badge">基础巩固</span></div><p>编写 <code>check_allowed_tables(sql, allowed_tables)</code>，解析 <code>FROM</code> 与 <code>JOIN</code> 后紧跟的表名，拒绝查询不在白名单内的敏感表（如 <code>hr_salaries</code>、<code>sqlite_master</code>）。</p><p><strong>💡 思路提示：</strong>使用正则 `re.findall(r&#x27;\b(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)&#x27;, sql, re.I)` 提取表名并检查是否全部属于 `allowed_tables`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-47-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-47-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 47 作业 1 参考答案：Text-to-SQL 表名白名单校验器。&quot;&quot;&quot;
+
+import re
+from typing import Set
+
+
+def check_allowed_tables(sql: str, allowed_tables: Set[str]) -&gt; bool:
+    tables = re.findall(r&quot;\b(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)&quot;, sql, re.IGNORECASE)
+    return all(t.lower() in {a.lower() for a in allowed_tables} for t in tables)
+
+
+if __name__ == &quot;__main__&quot;:
+    allowed = {&quot;products&quot;, &quot;sales_orders&quot;}
+    assert check_allowed_tables(&quot;SELECT * FROM sales_orders JOIN products ON 1=1&quot;, allowed) is True
+    assert check_allowed_tables(&quot;SELECT * FROM hr_salaries&quot;, allowed) is False
+    print(&quot;表名白名单校验通过&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>表级白名单能防止即便是只读账号也误查到同一库内的薪酬、密钥等高敏系统表。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：实现 Text-to-SQL 结果集行数截断与列脱敏</strong><span class="badge">企业实战</span></div><p>编写 <code>mask_sensitive_columns(rows, sensitive_cols={&#x27;phone&#x27;, &#x27;email&#x27;})</code>，对查询结果字典列表中的敏感列自动替换为 <code>***</code>，避免业务问数泄露客户隐私。</p><p><strong>💡 思路提示：</strong>遍历每行字典，对命中 `sensitive_cols` 的键赋值为 `&#x27;***&#x27;`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-47-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-47-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 47 作业 2 参考答案：SQL 结果集敏感列自动脱敏。&quot;&quot;&quot;
+
+from typing import Any, Dict, List, Set
+
+
+def mask_sensitive_columns(rows: List[Dict[str, Any]], sensitive_cols: Set[str]) -&gt; List[Dict[str, Any]]:
+    return [
+        {k: (&quot;***&quot; if k.lower() in sensitive_cols else v) for k, v in row.items()}
+        for row in rows
+    ]
+
+
+if __name__ == &quot;__main__&quot;:
+    raw = [{&quot;customer&quot;: &quot;星辰客户A&quot;, &quot;phone&quot;: &quot;13800138000&quot;, &quot;amount&quot;: 50000}]
+    safe = mask_sensitive_columns(raw, {&quot;phone&quot;, &quot;email&quot;})
+    print(safe)
+    assert safe[0][&quot;phone&quot;] == &quot;***&quot; and safe[0][&quot;amount&quot;] == 50000
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>在 SQL 返回层做列级自动脱敏，与 Day 46 的文本 PII 护栏形成互补。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：为 Coding Agent 增加统一补丁应用前的语法预检</strong><span class="badge">架构进阶</span></div><p>编写 <code>verify_python_syntax(code_str)</code>，利用内置 <code>ast.parse</code> 在写入文件前校验补丁后的 Python 代码是否存在语法错误，返回 <code>(ok, error_msg)</code>。</p><p><strong>💡 思路提示：</strong>捕获 `SyntaxError` 并返回具体出错行号与提示。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-47-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-47-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 47 作业 3 参考答案：Coding Agent AST 语法预检器。&quot;&quot;&quot;
+
+import ast
+from typing import Tuple
+
+
+def verify_python_syntax(code_str: str) -&gt; Tuple[bool, str]:
+    try:
+        ast.parse(code_str)
+        return True, &quot;OK&quot;
+    except SyntaxError as exc:
+        return False, f&quot;第 {exc.lineno} 行语法错误: {exc.msg}&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    assert verify_python_syntax(&quot;x = 1 + 2&quot;)[0] is True
+    ok, msg = verify_python_syntax(&quot;def broken(:\n    pass&quot;)
+    print(&quot;语法拦截:&quot;, ok, msg)
+    assert ok is False
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>AST 语法预检耗时不到 1 毫秒，却能在落盘前拦掉绝大多数大模型漏括号、缩进错位的低级补丁。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day46/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day48/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

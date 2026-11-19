@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 37：阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 6 周</span>
+      <span class="badge badge-ticket">STARMIND-037</span>
+      <span class="badge">Day 37 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="37" onclick="toggleDayComplete(37, this)">标记今日已完成</button>
+      <a class="btn" href="../day36/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day38/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day37-project2-multiturn-sse-e2e</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day37/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day37/day37_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day37_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 6 周：第6周：阶段项目二——企业级知识库问答系统实战与答辩</div>
+        <h1>Day 37：阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调</h1>
+        <p class="hero-sub">补齐企业级交互体验闭环：多会话上下文记忆、指代消解改写、证据高亮溯源与 SSE 打字机流式输出</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-037</span>
+          <span class="hero-tag">分支：feat/day37-project2-multiturn-sse-e2e</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！昨天前端同学提的这三个需求——**多轮上下文改写、引用证据高亮、SSE 流式输出**——正是把一个「能用的后端接口」打磨成「员工每天离不开的 AI 产品」的临门一脚！<br/>今天咱们把项目二（下）彻底封板：<br/>1. **多会话管理器（SessionManager）**：为每个员工/对话窗口维护独立 <code>session_id</code> 的滑动窗口历史记录，互不串线；<br/>2. **多轮指代消解改写器（MultiTurnQueryRewriter）**：员工第一轮问「北京出差住宿上限是多少？」，第二轮追问「那餐饮补助呢？」或「它需要提前几天OA申请？」，系统自动把省略的主语补全为可独立检索的完整 Query；<br/>3. **引用溯源高亮器（CitationHighlighter）**：自动定位命中的关键证据词并包上 <code>&lt;mark&gt;...&lt;/mark&gt;</code> 标签，前端直接渲染出荧光笔高亮卡片；<br/>4. **SSE（Server-Sent Events）流式接口**：基于 FastAPI <code>StreamingResponse(media_type=&#x27;text/event-stream&#x27;)</code> 按协议顺序推送 <code>event: meta -&gt; event: citation -&gt; event: token -&gt; event: done</code>，并用 <code>TestClient</code> 跑通全链路端到端联调！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 36）我们完成了项目二（上）：多格式文档解析入库、ACL 权限过滤、混合检索+Rerank 引擎和 FastAPI 基础接口。但前端联调时立刻提了三个最影响用户体验的硬需求：「1. 员工连续追问『那需要提前几天申请？』系统忘了上一轮在聊年假；2. 引用片段是一坨纯文本，用户找不到重点词；3. 等整段答案拼完才返回太慢，必须上 ChatGPT 同款 SSE 流式打字机！」</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 38）我们将迎来第三阶段收官大战——**项目二答辩与代码评审**：准备 10 分钟技术答辩架构讲稿、执行 GitLab Code Review 评分表、并对项目二进行并发压测瓶颈定位与重构优化实战！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 37 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 37）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 36）我们完成了项目二（上）：多格式文档解析入库、ACL 权限过滤、混合检索+Rerank 引擎和 FastAPI 基础接口。但前端联调时立刻提了三个最影响用户体验的硬需求：「1. 员工连续追问『那需要提前几天申请？』系统忘了上一轮在聊年假；2. 引用片段是一坨纯文本，用户找不到重点词；3. 等整段答案拼完才返回太慢，必须上 ChatGPT 同款 SSE 流式打字机！」 今天我们通过需求单 STARMIND-037，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day37/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 38）我们将迎来第三阶段收官大战——**项目二答辩与代码评审**：准备 10 分钟技术答辩架构讲稿、执行 GitLab Code Review 评分表、并对项目二进行并发压测瓶颈定位与重构优化实战！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>多轮 RAG 指代消解原理与 SSE 协议深度剖析</td><td>对比 WebSocket 与 SSE 在大模型流式问答中的选型优劣，设计 meta/citation/token/done 四类事件帧结构。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>实现多会话、多轮改写与引用高亮引擎（day37_session_highlight.py）</td><td>编码 SessionManager、MultiTurnQueryRewriter、CitationHighlighter 与流式事件生成器。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>实现 FastAPI 多会话与 SSE 流式接口（day37_sse_api.py）</td><td>挂载会话 CRUD、同步问答与 SSE 流式问答接口，配置防缓冲响应头。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>全链路 TestClient 端到端联调与 Code Review</td><td>编写覆盖多会话隔离、多轮追问改写、高亮校验与 SSE 帧解析的完整 E2E 自动化测试。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-037）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>项目二后端单轮问答 API 已就绪，现需补齐企业级聊天产品的核心交互闭环：多会话并发隔离、多轮追问上下文改写、引用片段关键词高亮溯源，以及降低用户首字等待焦虑的 SSE 流式传输。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>多轮追问（如「那病假呢？」「它怎么申请？」）直接送去检索会导致召回完全偏航。</li><li>用户看到 150 字的引用原文仍需肉眼扫读寻找核心数字与条款，信任建立慢。</li><li>同步接口需等待完整答案生成才返回，首字节时间（TTFT）体验差。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现 `SessionManager`：支持多会话创建、列表、滑动窗口历史查询、删除与状态隔离。</li><li>实现 `MultiTurnQueryRewriter`：结合会话历史自动识别指代词与短追问，输出带上下文锚点的规范化检索 Query。</li><li>实现 `CitationHighlighter`：自动提取查询关键词并在引用片段中插入 `&lt;mark&gt;...&lt;/mark&gt;` 高亮标签。</li><li>实现 FastAPI SSE 流式端点 `POST /api/v1/chat/stream`，按标准 SSE 帧协议依次推送 `meta`、`citation`、`token`、`done` 事件。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>两个不同 `session_id` 的并发对话历史 100% 隔离，互不干扰。</li><li>在「年假规定」之后的追问「它需要提前几天申请？」能被正确改写包含「年假」并精准命中年假审批条款。</li><li>返回的引用片段包含有效的 `&lt;mark&gt;...&lt;/mark&gt;` 高亮标签且不破坏原文完整性。</li><li>SSE 接口响应头包含 `text/event-stream`，客户端解析全部 `token` 帧后可无损还原完整回答，且本轮对话自动持久化至会话历史。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>SSE 响应头必须设置 `Cache-Control: no-cache` 和 `X-Accel-Buffering: no`（防止生产 Nginx 缓冲导致打字机卡顿）。</li><li>单会话历史支持 `max_turns` 滑动窗口截断，防止超长对话撑爆内存与 Token 窗口。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>多轮流式 RAG 与单轮问答最大的架构差异在于「状态流转」与「渐进式渲染」：<br/>1. **两步分离（改写只用于检索，原文用于展示）**：收到用户追问后，先从 <code>SessionManager</code> 取出最近 3 轮对话，经 <code>MultiTurnQueryRewriter</code> 生成独立完整的 <code>rewritten_query</code> 送去检索；但写入对话历史展示给用户的仍是原始问题，保证 UI 界面自然清爽。<br/>2. **引用先行 + 文本流式（Citations-First SSE Pattern）**：在 SSE 流式协议中，我们先推送 <code>event: meta</code>（包含 <code>session_id</code> 和 <code>rewritten_query</code>，让用户知道 AI 听懂了指代）和 <code>event: citation</code>（带 <code>&lt;mark&gt;</code> 高亮的证据卡片，前端立刻渲染右侧溯源栏），再逐块推送 <code>event: token</code> 打字机正文，最后发送 <code>event: done</code> 结束信号并将本轮问答原子落盘。<br/>3. **安全的高亮策略**：<code>CitationHighlighter</code> 按词长降序匹配非重叠高亮词（并做 HTML 特殊字符防注入转义思想），避免短词切碎长词导致嵌套 <code>&lt;mark&gt;&lt;mark&gt;...&lt;/mark&gt;&lt;/mark&gt;</code> 的前端渲染 Bug。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 37.1：多轮对话指代消解与引用高亮全链路架构（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 552" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="552" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">多轮对话指代消解与引用高亮全链路架构</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">用户追问</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">“它需要提前几天OA申请？”</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">SessionManager</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">读取最近 N 轮会话历史</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">MultiTurnQueryRewriter</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">改写为“年假需要提前几天OA申请？”</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">混合检索引擎</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">精准命中年假审批条款</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">CitationHighlighter</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">插入 &lt;mark&gt; 荧光笔高亮</text>
+<rect x="24" y="400" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="414" width="540" height="76" rx="9" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="430.0" y="444" text-anchor="middle" font-size="14" font-weight="700" fill="#075985">SSE 流式推送</text>
+<text x="430.0" y="468" text-anchor="middle" font-size="12" fill="#475569">meta -&gt; citation -&gt; token -&gt; done</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">当前问题</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">历史主题</text>
+<line x1="629.0" y1="250" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">rewritten_query</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">Top-K 证据</text>
+<line x1="629.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">高亮引用+回答流</text>
+<line x1="430.0" y1="490" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="326.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">done后落盘本轮</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>会话历史驱动查询改写 -&gt; 混合检索 -&gt; 证据高亮 -&gt; 流式生成 -&gt; 历史持久化闭环。</div></div><div class="diagram-card"><div class="diagram-title">图 37.2：SSE（Server-Sent Events）四阶段事件帧时序图（SEQUENCE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/></marker></defs>
+<rect width="720" height="420" rx="12" fill="#fafafc"/>
+<text x="360.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">SSE（Server-Sent Events）四阶段事件帧时序图</text>
+<rect x="128.0" y="44" width="144" height="44" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="200.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a8a">前端 EventSource / Fetch</text>
+<line x1="200.0" y1="88" x2="200.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<rect x="448.0" y="44" width="144" height="44" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="520.0" y="70" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">FastAPI StreamingResponse</text>
+<line x1="520.0" y1="88" x2="520.0" y2="398" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+<line x1="200.0" y1="122" x2="520.0" y2="122" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="360.0" y="114" text-anchor="middle" font-size="11.5" fill="#0f172a">1. POST /api/v1/chat/stream</text>
+<line x1="520.0" y1="174" x2="200.0" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="360.0" y="166" text-anchor="middle" font-size="11.5" fill="#0f172a">2. 1. event: meta (rewritten_query)</text>
+<line x1="520.0" y1="226" x2="200.0" y2="226" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="360.0" y="218" text-anchor="middle" font-size="11.5" fill="#0f172a">3. 2. event: citation (带&lt;mark&gt;高亮)</text>
+<line x1="520.0" y1="278" x2="200.0" y2="278" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="360.0" y="270" text-anchor="middle" font-size="11.5" fill="#0f172a">4. 3. event: token (逐块打字机文本)</text>
+<line x1="520.0" y1="330" x2="200.0" y2="330" stroke="#334155" stroke-width="2" marker-end="url(#arrow-seq)"/>
+<text x="360.0" y="322" text-anchor="middle" font-size="11.5" fill="#0f172a">5. 4. event: done (total_tokens &amp; latency)</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>通过单条 HTTP 长连接按序推送结构化元数据、高亮引用卡片与流式正文 Token。</div></div><div class="diagram-card"><div class="diagram-title">图 37.3：多会话内存隔离与滑动窗口淘汰流程（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">多会话内存隔离与滑动窗口淘汰流程</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">Session A (研发小王)</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">聊 ERR-5042 排障</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Session B (财务小李)</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">聊 差旅住宿报销</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">滑动窗口裁剪</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">保留最近 max_turns 轮</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">独立上下文输出</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">零串线 / 内存可控</text>
+<line x1="256" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="358.5" y="66.0" width="144" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="430.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">append_turn</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="501.5" y="66.0" width="144" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">append_turn</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="616.0" y="132.5" width="204" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">get_history(sid)</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>按 session_id 隔离上下文并自动裁剪超限历史轮次，保障高并发下内存稳定。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 为什么大模型流式问答首选 SSE 而不是 WebSocket？</h3><p>AI 问答天然是「客户端发一次请求 -&gt; 服务端单向流式吐字」的半双工模式：<br/>- **SSE 优势**：纯标准 HTTP/1.1 或 HTTP/2 协议，天然穿透企业防火墙和代理，支持 <code>POST</code> 携带 JSON Body 与 JWT Header，服务端无状态扩展成本远低于 WebSocket；<br/>- **WebSocket 适用场景**：需要实时全双工语音打断（如实时语音助手）或多人协同白板时才需要上 WebSocket。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：很多同学在本地测 SSE 打字机丝滑流畅，一上测试环境经过 Nginx 反向代理就变成「卡住 5 秒然后瞬间全吐出来」！原因就是 Nginx 默认开启了 `proxy_buffering on`。务必在 FastAPI 响应头加上 `X-Accel-Buffering: no` 并在 Nginx 配 `proxy_buffering off;`！</div><h3>2. 2. 引用高亮防 XSS 安全红线</h3><p>前端渲染后端返回的 <code>&lt;mark&gt;关键词&lt;/mark&gt;</code> 时通常需要 <code>v-html</code> 或 <code>dangerouslySetInnerHTML</code>。因此后端在插入 <code>&lt;mark&gt;</code> 标签**之前**，必须先对原始文档内容执行 <code>html.escape()</code> 转义掉 <code>&lt;script&gt;</code> 等恶意标签，确保只有后端生成的 <code>&lt;mark&gt;</code> 标签是真实 HTML，彻底杜绝存储型 XSS 漏洞！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：先 `html.escape(snippet)`，再对转义后的安全文本做 `&lt;mark&gt;` 包裹，顺序千万别写反！</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈线上血泪史：SSE 流式接口千万记得处理「客户端中途断开（Stop Generating）」！】<br/>前端点「停止生成」按钮关闭 HTTP 连接后，如果后端生成器没有监听 <code>await request.is_disconnected()</code>，后端的 LLM 推理和计费还会傻傻地跑完剩下 1000 个 Token！在生产 FastAPI <code>async def</code> 流式生成器里，每收到一个 Chunk 都要检查 <code>if await request.is_disconnected(): break</code>，及时掐断上游 LLM 连接省真金白银！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day37/</code> 与 <code>notebooks/day37/day37_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现多会话管理、多轮指代消解改写、安全高亮与 SSE 流式服务引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们把项目二（下）的核心逻辑全部封装进 <code>day37_session_highlight.py</code>：包含多会话隔离的 <code>SessionManager</code>、指代消解 <code>MultiTurnQueryRewriter</code>、带 XSS 防护的 <code>CitationHighlighter</code>，以及同时支持同步问答和 SSE 流式事件生成的 <code>StreamingKBService</code>。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day37_session_highlight.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 37 - 步骤一：阶段项目二(下) 多会话管理、多轮查询改写、安全引用高亮与 SSE 流式引擎
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import html
+import json
+import re
+import time
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple
+
+
+@dataclass
+class ChatTurn:
+    role: str  # &quot;user&quot; | &quot;assistant&quot;
+    content: str
+    rewritten_query: Optional[str] = None
+
+
+@dataclass
+class HighlightedCitation:
+    index: int
+    doc_id: str
+    source: str
+    section: str
+    raw_snippet: str
+    highlighted_snippet: str
+    score: float
+
+
+class SessionManager:
+    &quot;&quot;&quot;多会话对话历史管理器：支持按 session_id 隔离与滑动窗口自动裁剪。&quot;&quot;&quot;
+
+    def __init__(self, max_turns: int = 6) -&gt; None:
+        self.max_turns = max_turns
+        self._sessions: Dict[str, Dict[str, Any]] = {}
+
+    def create_session(self, title: str = &quot;新对话&quot;, department: str = &quot;public&quot;) -&gt; str:
+        sid = f&quot;sess_{uuid.uuid4().hex[:10]}&quot;
+        self._sessions[sid] = {
+            &quot;session_id&quot;: sid,
+            &quot;title&quot;: title,
+            &quot;department&quot;: department,
+            &quot;history&quot;: [],
+        }
+        return sid
+
+    def ensure_session(self, session_id: Optional[str], department: str = &quot;public&quot;) -&gt; str:
+        if session_id and session_id in self._sessions:
+            return session_id
+        if session_id:
+            self._sessions[session_id] = {
+                &quot;session_id&quot;: session_id,
+                &quot;title&quot;: &quot;自动创建会话&quot;,
+                &quot;department&quot;: department,
+                &quot;history&quot;: [],
+            }
+            return session_id
+        return self.create_session(department=department)
+
+    def append_turn(self, session_id: str, role: str, content: str, rewritten_query: Optional[str] = None) -&gt; None:
+        sess = self._sessions[session_id]
+        sess[&quot;history&quot;].append(ChatTurn(role=role, content=content, rewritten_query=rewritten_query))
+        max_msgs = self.max_turns * 2
+        if len(sess[&quot;history&quot;]) &gt; max_msgs:
+            sess[&quot;history&quot;] = sess[&quot;history&quot;][-max_msgs:]
+
+    def get_history(self, session_id: str) -&gt; List[ChatTurn]:
+        if session_id not in self._sessions:
+            raise KeyError(f&quot;Session {session_id} not found&quot;)
+        return list(self._sessions[session_id][&quot;history&quot;])
+
+    def list_sessions(self) -&gt; List[Dict[str, Any]]:
+        return [
+            {
+                &quot;session_id&quot;: s[&quot;session_id&quot;],
+                &quot;title&quot;: s[&quot;title&quot;],
+                &quot;department&quot;: s[&quot;department&quot;],
+                &quot;turn_count&quot;: len(s[&quot;history&quot;]) // 2,
+            }
+            for s in self._sessions.values()
+        ]
+
+    def delete_session(self, session_id: str) -&gt; bool:
+        return self._sessions.pop(session_id, None) is not None
+
+
+class MultiTurnQueryRewriter:
+    &quot;&quot;&quot;
+    多轮对话指代消解改写器：
+    识别「它/这个/该制度/那…」等指代词与短追问，从上一轮用户问题中提取主题实体进行语义补全。
+    &quot;&quot;&quot;
+
+    PRONOUNS = (&quot;它&quot;, &quot;这个&quot;, &quot;那个&quot;, &quot;该制度&quot;, &quot;这项&quot;, &quot;上面&quot;)
+    TOPIC_KEYWORDS = (&quot;年假&quot;, &quot;病假&quot;, &quot;出差&quot;, &quot;住宿&quot;, &quot;餐饮&quot;, &quot;发布窗口&quot;, &quot;周五&quot;, &quot;ERR-5042&quot;, &quot;VPN&quot;, &quot;天枢项目&quot;)
+
+    def rewrite(self, history: Sequence[ChatTurn], current_query: str) -&gt; str:
+        user_turns = [t for t in history if t.role == &quot;user&quot;]
+        if not user_turns:
+            return current_query
+
+        last_q = user_turns[-1].rewritten_query or user_turns[-1].content
+        # 抽取上一轮的核心业务主题
+        anchor = next((kw for kw in self.TOPIC_KEYWORDS if kw in last_q), &quot;&quot;)
+        if not anchor:
+            anchor = re.sub(r&quot;[？?！!。，,请问一下呢吧]&quot;, &quot;&quot;, last_q)[:10]
+
+        has_pronoun = any(p in current_query for p in self.PRONOUNS)
+        is_short_followup = (current_query.startswith(&quot;那&quot;) or len(current_query.strip()) &lt;= 11) and (
+            anchor not in current_query
+        )
+
+        if not has_pronoun and not is_short_followup:
+            return current_query
+
+        rewritten = current_query
+        for p in self.PRONOUNS:
+            if p in rewritten:
+                rewritten = rewritten.replace(p, anchor)
+        if anchor not in rewritten:
+            rewritten = f&quot;关于{anchor}，{rewritten}&quot;
+        return rewritten
+
+
+class CitationHighlighter:
+    &quot;&quot;&quot;安全引用溯源高亮器：先 HTML 转义防 XSS，再对命中关键词插入 &lt;mark&gt;...&lt;/mark&gt; 高亮标签。&quot;&quot;&quot;
+
+    STOP_WORDS = {&quot;怎么&quot;, &quot;多少&quot;, &quot;什么&quot;, &quot;需要&quot;, &quot;可以&quot;, &quot;请问&quot;, &quot;关于&quot;, &quot;一下&quot;, &quot;是否&quot;, &quot;如何&quot;, &quot;我们&quot;}
+
+    @classmethod
+    def highlight(cls, query: str, snippet: str) -&gt; str:
+        safe_text = html.escape(snippet)
+        # 提取英文/错误码/数字与长度&gt;=2的中文关键片段
+        raw_terms = re.findall(r&quot;[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*|[\u4e00-\u9fff]{2,4}&quot;, query)
+        candidates: List[str] = []
+        for term in raw_terms:
+            if term in cls.STOP_WORDS:
+                continue
+            if len(term) &gt; 2 and re.fullmatch(r&quot;[\u4e00-\u9fff]+&quot;, term):
+                # 同时加入完整短语和二元词组以提高命中率
+                candidates.append(term)
+                for i in range(len(term) - 1):
+                    bg = term[i : i + 2]
+                    if bg not in cls.STOP_WORDS:
+                        candidates.append(bg)
+            else:
+                candidates.append(term)
+
+        # 去重并按长度降序，优先匹配长词避免碎片化高亮
+        unique_terms = sorted(set(candidates), key=len, reverse=True)
+        matched_terms = [t for t in unique_terms if t.lower() in safe_text.lower()][:6]
+        if not matched_terms:
+            return safe_text
+
+        pattern = re.compile(&quot;|&quot;.join(re.escape(t) for t in matched_terms), flags=re.IGNORECASE)
+        return pattern.sub(lambda m: f&quot;&lt;mark&gt;{m.group(0)}&lt;/mark&gt;&quot;, safe_text)
+
+
+class StreamingKBService:
+    &quot;&quot;&quot;集多会话、多轮改写、混合检索、引用高亮与 SSE 流式生成于一体的项目二完整服务。&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self.sessions = SessionManager(max_turns=6)
+        self.rewriter = MultiTurnQueryRewriter()
+        self.docs: List[Dict[str, str]] = [
+            {
+                &quot;doc_id&quot;: &quot;hr-leave&quot;,
+                &quot;source&quot;: &quot;HR员工休假手册.md&quot;,
+                &quot;section&quot;: &quot;年假与审批流程&quot;,
+                &quot;department&quot;: &quot;public&quot;,
+                &quot;content&quot;: &quot;入职满1年员工享有5天带薪年假，年假需提前3个工作日在OA系统提交审批；病假超过2天须提供公立医院诊断证明。&quot;,
+            },
+            {
+                &quot;doc_id&quot;: &quot;fin-travel&quot;,
+                &quot;source&quot;: &quot;财务差旅制度.md&quot;,
+                &quot;section&quot;: &quot;差旅住宿与餐补标准&quot;,
+                &quot;department&quot;: &quot;public&quot;,
+                &quot;content&quot;: &quot;一线城市（北京、上海、深圳、广州）出差酒店住宿上限每晚600元，餐饮补助按每天100元定额随工资发放，出差需提前3天在OA发起申请。&quot;,
+            },
+            {
+                &quot;doc_id&quot;: &quot;ops-5042&quot;,
+                &quot;source&quot;: &quot;运维排障手册.md&quot;,
+                &quot;section&quot;: &quot;ERR-5042网关超时&quot;,
+                &quot;department&quot;: &quot;rd&quot;,
+                &quot;content&quot;: &quot;错误码ERR-5042表示星辰统一网关调用上游推理服务超时（默认15秒），排查步骤：检查上游显存水位并调大proxy_read_timeout。&quot;,
+            },
+        ]
+
+    def _retrieve(self, query: str, department: str = &quot;public&quot;, top_k: int = 2) -&gt; List[Tuple[Dict[str, str], float]]:
+        allowed = {&quot;public&quot;, department}
+        q_lower = query.lower()
+        q_terms = set(re.findall(r&quot;[a-z0-9]+(?:[-_][a-z0-9]+)*&quot;, q_lower))
+        for chunk in re.findall(r&quot;[\u4e00-\u9fff]+&quot;, q_lower):
+            for i in range(len(chunk) - 1):
+                q_terms.add(chunk[i : i + 2])
+
+        q_codes = set(re.findall(r&quot;[a-z0-9]+[-_][a-z0-9]+&quot;, q_lower))
+        scored: List[Tuple[Dict[str, str], float]] = []
+        for d in self.docs:
+            if d[&quot;department&quot;] not in allowed:
+                continue
+            text = (d[&quot;section&quot;] + &quot; &quot; + d[&quot;content&quot;]).lower()
+            hits = sum(1 for t in q_terms if t in text)
+            code_bonus = 0.5 if (q_codes and any(c in text for c in q_codes)) else 0.0
+            score = round(min(1.0, hits / max(1, len(q_terms)) + code_bonus), 4)
+            if score &gt;= 0.18:
+                scored.append((d, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
+
+    def prepare_answer(
+        self,
+        session_id: Optional[str],
+        question: str,
+        department: str = &quot;public&quot;,
+    ) -&gt; Dict[str, Any]:
+        t0 = time.perf_counter()
+        sid = self.sessions.ensure_session(session_id, department=department)
+        history = self.sessions.get_history(sid)
+        rewritten = self.rewriter.rewrite(history, question)
+        hits = self._retrieve(rewritten, department=department, top_k=2)
+
+        if not hits:
+            answer = &quot;抱歉，星辰知识库中未检索到足够依据回答当前问题。&quot;
+            citations: List[HighlightedCitation] = []
+        else:
+            citations = [
+                HighlightedCitation(
+                    index=i,
+                    doc_id=d[&quot;doc_id&quot;],
+                    source=d[&quot;source&quot;],
+                    section=d[&quot;section&quot;],
+                    raw_snippet=d[&quot;content&quot;],
+                    highlighted_snippet=CitationHighlighter.highlight(rewritten, d[&quot;content&quot;]),
+                    score=sc,
+                )
+                for i, (d, sc) in enumerate(hits, start=1)
+            ]
+            top_c = citations[0]
+            answer = f&quot;根据《{top_c.source}》（{top_c.section}）：{top_c.raw_snippet} [1]&quot;
+
+        # 将本轮用户原问题与回答写入会话记忆
+        self.sessions.append_turn(sid, &quot;user&quot;, question, rewritten_query=rewritten)
+        self.sessions.append_turn(sid, &quot;assistant&quot;, answer)
+
+        return {
+            &quot;session_id&quot;: sid,
+            &quot;original_question&quot;: question,
+            &quot;rewritten_query&quot;: rewritten,
+            &quot;answer&quot;: answer,
+            &quot;citations&quot;: citations,
+            &quot;latency_ms&quot;: round((time.perf_counter() - t0) * 1000.0, 2),
+        }
+
+    def stream_sse_events(
+        self,
+        session_id: Optional[str],
+        question: str,
+        department: str = &quot;public&quot;,
+        chunk_chars: int = 12,
+    ) -&gt; Generator[str, None, None]:
+        &quot;&quot;&quot;按标准 SSE 帧协议依次流式推送：meta -&gt; citation -&gt; token -&gt; done。&quot;&quot;&quot;
+        result = self.prepare_answer(session_id=session_id, question=question, department=department)
+
+        # 1. 元数据帧（前端可展示“已理解上下文：xxx”）
+        meta_payload = {
+            &quot;session_id&quot;: result[&quot;session_id&quot;],
+            &quot;rewritten_query&quot;: result[&quot;rewritten_query&quot;],
+        }
+        yield f&quot;event: meta\ndata: {json.dumps(meta_payload, ensure_ascii=False)}\n\n&quot;
+
+        # 2. 高亮引用帧（Citations-First，右侧溯源栏瞬间点亮）
+        for c in result[&quot;citations&quot;]:
+            cit_payload = {
+                &quot;index&quot;: c.index,
+                &quot;doc_id&quot;: c.doc_id,
+                &quot;source&quot;: c.source,
+                &quot;section&quot;: c.section,
+                &quot;highlighted_snippet&quot;: c.highlighted_snippet,
+                &quot;score&quot;: c.score,
+            }
+            yield f&quot;event: citation\ndata: {json.dumps(cit_payload, ensure_ascii=False)}\n\n&quot;
+
+        # 3. 正文打字机分片帧
+        answer = result[&quot;answer&quot;]
+        for i in range(0, len(answer), chunk_chars):
+            piece = answer[i : i + chunk_chars]
+            yield f&quot;event: token\ndata: {json.dumps({&#x27;delta&#x27;: piece}, ensure_ascii=False)}\n\n&quot;
+
+        # 4. 完成结束帧
+        done_payload = {
+            &quot;session_id&quot;: result[&quot;session_id&quot;],
+            &quot;total_chars&quot;: len(answer),
+            &quot;latency_ms&quot;: result[&quot;latency_ms&quot;],
+        }
+        yield f&quot;event: done\ndata: {json.dumps(done_payload, ensure_ascii=False)}\n\n&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    svc = StreamingKBService()
+    sid = svc.sessions.create_session(&quot;年假咨询&quot;)
+    r1 = svc.prepare_answer(sid, &quot;入职满一年年假有几天？&quot;)
+    r2 = svc.prepare_answer(sid, &quot;它需要提前几天OA申请？&quot;)
+    print(&quot;第2轮改写:&quot;, r2[&quot;rewritten_query&quot;])
+    print(&quot;高亮引用:&quot;, r2[&quot;citations&quot;][0].highlighted_snippet)
+</code></pre><div class="output-box"># 预期运行输出示例：
+第2轮改写: 年假需要提前几天OA申请？
+高亮引用: 入职满1年员工享有5天带薪&lt;mark&gt;年假&lt;/mark&gt;，&lt;mark&gt;年假&lt;/mark&gt;需&lt;mark&gt;提前&lt;/mark&gt;3个工作日在&lt;mark&gt;OA&lt;/mark&gt;系统提交审批；病假超过2天须提供公立医院诊断证明。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>CitationHighlighter.highlight</code> 先调用 <code>html.escape(snippet)</code> 转义原文本，再一次性用合并正则替换所有非重叠命中词为 <code>&lt;mark&gt;...&lt;/mark&gt;</code>，既安全防 XSS 又彻底避免嵌套标签问题。<br/>2. <code>stream_sse_events</code> 严格遵循 <code>event: &lt;type&gt;\ndata: &lt;json&gt;\n\n</code> SSE 标准格式，前端用原生 <code>fetch + ReadableStream</code> 即可零依赖实现丝滑打字机与溯源卡片联动。</p><h3>实操步骤 2：步骤二：实现多会话管理与 SSE 流式问答 FastAPI 服务（day37_sse_api.py）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>现在把 <code>StreamingKBService</code> 挂载到 FastAPI，完整暴露会话 CRUD、同步问答和 <code>/api/v1/chat/stream</code> SSE 流式接口，并设置防 Nginx 缓冲的关键响应头！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day37_sse_api.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 37 - 步骤二：阶段项目二(下) 多会话管理与 SSE 流式问答 FastAPI 后端服务
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day37_session_highlight import StreamingKBService
+
+
+class CreateSessionRequest(BaseModel):
+    title: str = Field(default=&quot;新对话&quot;, max_length=64)
+    department: str = Field(default=&quot;public&quot;)
+
+
+class ChatRequest(BaseModel):
+    session_id: Optional[str] = None
+    question: str = Field(..., min_length=2, max_length=500)
+    department: str = Field(default=&quot;public&quot;)
+
+
+def create_chat_app(service: Optional[StreamingKBService] = None) -&gt; FastAPI:
+    svc = service if service is not None else StreamingKBService()
+    app = FastAPI(
+        title=&quot;StarMind-KB v2.0 多轮流式问答服务&quot;,
+        version=&quot;2.1.0&quot;,
+    )
+
+    @app.post(&quot;/api/v1/sessions&quot;)
+    def create_session(req: CreateSessionRequest) -&gt; Dict[str, str]:
+        sid = svc.sessions.create_session(title=req.title, department=req.department)
+        return {&quot;session_id&quot;: sid, &quot;title&quot;: req.title, &quot;department&quot;: req.department}
+
+    @app.get(&quot;/api/v1/sessions&quot;)
+    def list_sessions() -&gt; Dict[str, Any]:
+        items = svc.sessions.list_sessions()
+        return {&quot;total&quot;: len(items), &quot;items&quot;: items}
+
+    @app.get(&quot;/api/v1/sessions/{session_id}/history&quot;)
+    def get_session_history(session_id: str) -&gt; Dict[str, Any]:
+        try:
+            turns = svc.sessions.get_history(session_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {
+            &quot;session_id&quot;: session_id,
+            &quot;history&quot;: [
+                {&quot;role&quot;: t.role, &quot;content&quot;: t.content, &quot;rewritten_query&quot;: t.rewritten_query}
+                for t in turns
+            ],
+        }
+
+    @app.delete(&quot;/api/v1/sessions/{session_id}&quot;)
+    def delete_session(session_id: str) -&gt; Dict[str, Any]:
+        if not svc.sessions.delete_session(session_id):
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        return {&quot;deleted&quot;: True, &quot;session_id&quot;: session_id}
+
+    @app.post(&quot;/api/v1/chat/ask&quot;)
+    def chat_ask(req: ChatRequest) -&gt; Dict[str, Any]:
+        res = svc.prepare_answer(
+            session_id=req.session_id,
+            question=req.question,
+            department=req.department,
+        )
+        return {
+            &quot;session_id&quot;: res[&quot;session_id&quot;],
+            &quot;rewritten_query&quot;: res[&quot;rewritten_query&quot;],
+            &quot;answer&quot;: res[&quot;answer&quot;],
+            &quot;latency_ms&quot;: res[&quot;latency_ms&quot;],
+            &quot;citations&quot;: [
+                {
+                    &quot;index&quot;: c.index,
+                    &quot;doc_id&quot;: c.doc_id,
+                    &quot;source&quot;: c.source,
+                    &quot;section&quot;: c.section,
+                    &quot;highlighted_snippet&quot;: c.highlighted_snippet,
+                    &quot;score&quot;: c.score,
+                }
+                for c in res[&quot;citations&quot;]
+            ],
+        }
+
+    @app.post(&quot;/api/v1/chat/stream&quot;)
+    def chat_stream(req: ChatRequest) -&gt; StreamingResponse:
+        # 生产级 SSE 必配响应头：禁止代理缓存与 Nginx 缓冲
+        headers = {
+            &quot;Cache-Control&quot;: &quot;no-cache&quot;,
+            &quot;Connection&quot;: &quot;keep-alive&quot;,
+            &quot;X-Accel-Buffering&quot;: &quot;no&quot;,
+        }
+        return StreamingResponse(
+            svc.stream_sse_events(
+                session_id=req.session_id,
+                question=req.question,
+                department=req.department,
+            ),
+            media_type=&quot;text/event-stream&quot;,
+            headers=headers,
+        )
+
+    return app
+
+
+app = create_chat_app()
+
+if __name__ == &quot;__main__&quot;:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_chat_app())
+    sid = client.post(&quot;/api/v1/sessions&quot;, json={&quot;title&quot;: &quot;差旅咨询&quot;}).json()[&quot;session_id&quot;]
+    client.post(&quot;/api/v1/chat/ask&quot;, json={&quot;session_id&quot;: sid, &quot;question&quot;: &quot;北京出差住酒店上限是多少？&quot;})
+    with client.stream(&quot;POST&quot;, &quot;/api/v1/chat/stream&quot;, json={&quot;session_id&quot;: sid, &quot;question&quot;: &quot;那餐饮补助呢？&quot;}) as r:
+        print(&quot;SSE Content-Type:&quot;, r.headers[&quot;content-type&quot;])
+        for line in r.iter_lines():
+            if line:
+                print(&quot; &quot;, line)
+</code></pre><div class="output-box"># 预期运行输出示例：
+SSE Content-Type: text/event-stream; charset=utf-8
+  event: meta
+  data: {&quot;session_id&quot;: &quot;sess_...&quot;, &quot;rewritten_query&quot;: &quot;关于出差，那餐饮补助呢？&quot;}
+  event: citation
+  data: {&quot;index&quot;: 1, ..., &quot;highlighted_snippet&quot;: &quot;...&lt;mark&gt;餐饮&lt;/mark&gt;补助按每天100元...&quot;}
+  event: token
+  data: {&quot;delta&quot;: &quot;根据《财务差旅制度.md&quot;}
+  ...
+  event: done
+  data: {&quot;session_id&quot;: &quot;sess_...&quot;, &quot;total_chars&quot;: ..., &quot;latency_ms&quot;: ...}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>/api/v1/chat/stream</code> 返回 <code>StreamingResponse(..., media_type=&#x27;text/event-stream&#x27;, headers={&#x27;X-Accel-Buffering&#x27;: &#x27;no&#x27;, ...})</code>，确保经过 Nginx 也能实时逐帧到达浏览器。<br/>2. 会话 CRUD 与流式问答共享同一个 <code>StreamingKBService</code> 实例，调用完流式接口后立刻查询 <code>/api/v1/sessions/{sid}/history</code> 就能看到完整持久化的对话记录。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现多会话管理、多轮指代消解改写、安全高亮与 SSE 流式服务引擎（src/day37_session_highlight.py）</h3><p>模块 <code>src/day37_session_highlight.py</code> 共计 308 行源码，其中包含 9 行中文工程注释（注释密度约 2.9%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-037 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>html</code>、<code>json</code>、<code>re</code>、<code>time</code>、<code>uuid</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Dict, Generator, List, Optional, Sequence, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ChatTurn</code>（第 17~20 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>HighlightedCitation</code>（第 24~31 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>SessionManager</code>（第 34~88 行）】这是一个独立领域模型类。其核心职责定义为：多会话对话历史管理器：支持按 session_id 隔离与滑动窗口自动裁剪。。类内部暴露了 7 个方法：<code>__init__(self, max_turns)</code>、<code>create_session(self, title, department)</code>、<code>ensure_session(self, session_id, department)</code>、<code>append_turn(self, session_id, role, content, rewritten_query)</code>、<code>get_history(self, session_id)</code>、<code>list_sessions(self)</code>、<code>delete_session(self, session_id)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SessionManager.__init__</code>（第 37~39 行）属于同步实例方法，入参签名为 <code>(self, max_turns)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SessionManager.create_session</code>（第 41~49 行）属于同步实例方法，入参签名为 <code>(self, title, department)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SessionManager.ensure_session</code>（第 51~62 行）属于同步实例方法，入参签名为 <code>(self, session_id, department)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SessionManager.append_turn</code>（第 64~69 行）属于同步实例方法，入参签名为 <code>(self, session_id, role, content, rewritten_query)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SessionManager.get_history</code>（第 71~74 行）属于同步实例方法，入参签名为 <code>(self, session_id)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SessionManager.list_sessions</code>（第 76~85 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>MultiTurnQueryRewriter</code>（第 91~125 行）】这是一个独立领域模型类。其核心职责定义为：多轮对话指代消解改写器：<br/>识别「它/这个/该制度/那…」等指代词与短追问，从上一轮用户问题中提取主题实体进行语义补全。。类内部暴露了 1 个方法：<code>rewrite(self, history, current_query)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>MultiTurnQueryRewriter.rewrite</code>（第 100~125 行）属于同步实例方法，入参签名为 <code>(self, history, current_query)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>CitationHighlighter</code>（第 128~159 行）】这是一个独立领域模型类。其核心职责定义为：安全引用溯源高亮器：先 HTML 转义防 XSS，再对命中关键词插入 &lt;mark&gt;...&lt;/mark&gt; 高亮标签。。类内部暴露了 1 个方法：<code>highlight(cls, query, snippet)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>CitationHighlighter.highlight</code>（第 134~159 行）属于同步实例方法，入参签名为 <code>(cls, query, snippet)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>StreamingKBService</code>（第 162~299 行）】这是一个独立领域模型类。其核心职责定义为：集多会话、多轮改写、混合检索、引用高亮与 SSE 流式生成于一体的项目二完整服务。。类内部暴露了 4 个方法：<code>__init__(self)</code>、<code>_retrieve(self, query, department, top_k)</code>、<code>prepare_answer(self, session_id, question, department)</code>、<code>stream_sse_events(self, session_id, question, department, chunk_chars)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>StreamingKBService.__init__</code>（第 165~190 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StreamingKBService._retrieve</code>（第 192~212 行）属于同步实例方法，入参签名为 <code>(self, query, department, top_k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StreamingKBService.prepare_answer</code>（第 214~256 行）属于同步实例方法，入参签名为 <code>(self, session_id, question, department)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>StreamingKBService.stream_sse_events</code>（第 258~299 行）属于同步实例方法，入参签名为 <code>(self, session_id, question, department, chunk_chars)</code>。文档说明：按标准 SSE 帧协议依次流式推送：meta -&gt; citation -&gt; token -&gt; done。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day37_session_highlight.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day37/day37_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day37/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现多会话管理与 SSE 流式问答 FastAPI 服务（day37_sse_api.py）（src/day37_sse_api.py）</h3><p>模块 <code>src/day37_sse_api.py</code> 共计 128 行源码，其中包含 1 行中文工程注释（注释密度约 0.8%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-037 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Any, Dict, List, Optional)</code>、<code>fastapi (FastAPI, HTTPException)</code>、<code>fastapi.responses (StreamingResponse)</code>、<code>pydantic (BaseModel, Field)</code>、<code>src.day37_session_highlight (StreamingKBService)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>CreateSessionRequest</code>（第 22~24 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>ChatRequest</code>（第 27~30 行）】这是一个继承自 BaseModel。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>create_chat_app</code>（第 33~113 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(service)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day37_sse_api.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day37/day37_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day37/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day37_session_highlight.py（共 308 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day37_session_highlight.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>import re</code></td><td>核心意图：代表语句：`import re`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>class ChatTurn:</code></td><td>核心意图：代表语句：`class ChatTurn:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>index: int</code></td><td>核心意图：代表语句：`index: int`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>class SessionManager:</code></td><td>核心意图：代表语句：`class SessionManager:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>def create_session(self, title: str = &quot;新对话&quot;, department: str = &quot;public&quot;)</code></td><td>核心意图：代表语句：`def create_session(self, title: str = &quot;新对话&quot;, department: str = &quot;public&quot;) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>return sid</code></td><td>核心意图：代表语句：`return sid`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;title&quot;: &quot;自动创建会话&quot;,</code></td><td>核心意图：代表语句：`&quot;title&quot;: &quot;自动创建会话&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>sess = self._sessions[session_id]</code></td><td>核心意图：代表语句：`sess = self._sessions[session_id]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>raise KeyError(f&quot;Session {session_id} not found&quot;)</code></td><td>核心意图：代表语句：`raise KeyError(f&quot;Session {session_id} not found&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>&quot;department&quot;: s[&quot;department&quot;],</code></td><td>核心意图：代表语句：`&quot;department&quot;: s[&quot;department&quot;],`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L89-L96</code></td><td><code>class MultiTurnQueryRewriter:</code></td><td>核心意图：代表语句：`class MultiTurnQueryRewriter:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L97-L104</code></td><td><code>PRONOUNS = (&quot;它&quot;, &quot;这个&quot;, &quot;那个&quot;, &quot;该制度&quot;, &quot;这项&quot;, &quot;上面&quot;)</code></td><td>核心意图：代表语句：`PRONOUNS = (&quot;它&quot;, &quot;这个&quot;, &quot;那个&quot;, &quot;该制度&quot;, &quot;这项&quot;, &quot;上面&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>last_q = user_turns[-1].rewritten_query or user_turns[-1].content</code></td><td>核心意图：抽取上一轮的核心业务主题。代表语句：`last_q = user_turns[-1].rewritten_query or user_turns[-1].content`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>anchor not in current_query</code></td><td>核心意图：代表语句：`anchor not in current_query`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>if p in rewritten:</code></td><td>核心意图：代表语句：`if p in rewritten:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>&quot;&quot;&quot;安全引用溯源高亮器：先 HTML 转义防 XSS，再对命中关键词插入 &lt;mark&gt;...&lt;/mark&gt; 高亮标签。&quot;&quot;&quot;</code></td><td>核心意图：提取英文/错误码/数字与长度&gt;=2的中文关键片段。代表语句：`&quot;&quot;&quot;安全引用溯源高亮器：先 HTML 转义防 XSS，再对命中关键词插入 &lt;mark&gt;...&lt;/mark&gt; 高亮标签。&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L137-L144</code></td><td><code>raw_terms = re.findall(r&quot;[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*|[\u4e00-\u9ff</code></td><td>核心意图：同时加入完整短语和二元词组以提高命中率。代表语句：`raw_terms = re.findall(r&quot;[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*|[\u4e00-\u9fff]{2,4}&quot;, query)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L145-L152</code></td><td><code>for i in range(len(term) - 1):</code></td><td>核心意图：去重并按长度降序，优先匹配长词避免碎片化高亮。代表语句：`for i in range(len(term) - 1):`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L153-L160</code></td><td><code>unique_terms = sorted(set(candidates), key=len, reverse=True)</code></td><td>核心意图：代表语句：`unique_terms = sorted(set(candidates), key=len, reverse=True)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L161-L168</code></td><td><code>class StreamingKBService:</code></td><td>核心意图：代表语句：`class StreamingKBService:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L169-L176</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L177-L184</code></td><td><code>&quot;doc_id&quot;: &quot;fin-travel&quot;,</code></td><td>核心意图：代表语句：`&quot;doc_id&quot;: &quot;fin-travel&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L185-L192</code></td><td><code>&quot;source&quot;: &quot;运维排障手册.md&quot;,</code></td><td>核心意图：代表语句：`&quot;source&quot;: &quot;运维排障手册.md&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L193-L200</code></td><td><code>allowed = {&quot;public&quot;, department}</code></td><td>核心意图：代表语句：`allowed = {&quot;public&quot;, department}`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L201-L208</code></td><td><code>scored: List[Tuple[Dict[str, str], float]] = []</code></td><td>核心意图：代表语句：`scored: List[Tuple[Dict[str, str], float]] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L209-L216</code></td><td><code>if score &gt;= 0.18:</code></td><td>核心意图：代表语句：`if score &gt;= 0.18:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L217-L224</code></td><td><code>question: str,</code></td><td>核心意图：代表语句：`question: str,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L225-L232</code></td><td><code>if not hits:</code></td><td>核心意图：代表语句：`if not hits:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L233-L240</code></td><td><code>doc_id=d[&quot;doc_id&quot;],</code></td><td>核心意图：代表语句：`doc_id=d[&quot;doc_id&quot;],`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L241-L248</code></td><td><code>]</code></td><td>核心意图：将本轮用户原问题与回答写入会话记忆。代表语句：`]`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L249-L256</code></td><td><code>return {</code></td><td>核心意图：代表语句：`return {`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L257-L264</code></td><td><code>def stream_sse_events(</code></td><td>核心意图：代表语句：`def stream_sse_events(`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L265-L272</code></td><td><code>&quot;&quot;&quot;按标准 SSE 帧协议依次流式推送：meta -&gt; citation -&gt; token -&gt; done。&quot;&quot;&quot;</code></td><td>核心意图：1. 元数据帧（前端可展示“已理解上下文：xxx”）。代表语句：`&quot;&quot;&quot;按标准 SSE 帧协议依次流式推送：meta -&gt; citation -&gt; token -&gt; done。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L273-L280</code></td><td><code>yield f&quot;event: meta\ndata: {json.dumps(meta_payload, ensure_ascii=False)</code></td><td>核心意图：2. 高亮引用帧（Citations-First，右侧溯源栏瞬间点亮）。代表语句：`yield f&quot;event: meta\ndata: {json.dumps(meta_payload, ensure_ascii=False)}\n\n&quot;`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L281-L288</code></td><td><code>&quot;section&quot;: c.section,</code></td><td>核心意图：3. 正文打字机分片帧。代表语句：`&quot;section&quot;: c.section,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L289-L296</code></td><td><code>for i in range(0, len(answer), chunk_chars):</code></td><td>核心意图：4. 完成结束帧。代表语句：`for i in range(0, len(answer), chunk_chars):`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L297-L304</code></td><td><code>&quot;latency_ms&quot;: result[&quot;latency_ms&quot;],</code></td><td>核心意图：代表语句：`&quot;latency_ms&quot;: result[&quot;latency_ms&quot;],`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L305-L308</code></td><td><code>r1 = svc.prepare_answer(sid, &quot;入职满一年年假有几天？&quot;)</code></td><td>核心意图：代表语句：`r1 = svc.prepare_answer(sid, &quot;入职满一年年假有几天？&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day37_sse_api.py（共 128 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day37_sse_api.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from typing import Any, Dict, List, Optional</code></td><td>核心意图：代表语句：`from typing import Any, Dict, List, Optional`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>sys.path.insert(0, str(ROOT))</code></td><td>核心意图：代表语句：`sys.path.insert(0, str(ROOT))`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>class ChatRequest(BaseModel):</code></td><td>核心意图：代表语句：`class ChatRequest(BaseModel):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>def create_chat_app(service: Optional[StreamingKBService] = None) -&gt; Fas</code></td><td>核心意图：代表语句：`def create_chat_app(service: Optional[StreamingKBService] = None) -&gt; FastAPI:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>def create_session(req: CreateSessionRequest) -&gt; Dict[str, str]:</code></td><td>核心意图：代表语句：`def create_session(req: CreateSessionRequest) -&gt; Dict[str, str]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L49-L56</code></td><td><code>@app.get(&quot;/api/v1/sessions/{session_id}/history&quot;)</code></td><td>核心意图：代表语句：`@app.get(&quot;/api/v1/sessions/{session_id}/history&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处建立了防御性异常捕获边界，防止底层 I/O、格式解析或外部接口抖动直接导致主进程崩溃。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>&quot;session_id&quot;: session_id,</code></td><td>核心意图：代表语句：`&quot;session_id&quot;: session_id,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L65-L72</code></td><td><code>def delete_session(session_id: str) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`def delete_session(session_id: str) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>session_id=req.session_id,</code></td><td>核心意图：代表语句：`session_id=req.session_id,`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L81-L88</code></td><td><code>&quot;latency_ms&quot;: res[&quot;latency_ms&quot;],</code></td><td>核心意图：代表语句：`&quot;latency_ms&quot;: res[&quot;latency_ms&quot;],`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L89-L96</code></td><td><code>&quot;score&quot;: c.score,</code></td><td>核心意图：代表语句：`&quot;score&quot;: c.score,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L97-L104</code></td><td><code>headers = {</code></td><td>核心意图：生产级 SSE 必配响应头：禁止代理缓存与 Nginx 缓冲。代表语句：`headers = {`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>session_id=req.session_id,</code></td><td>核心意图：代表语句：`session_id=req.session_id,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L113-L120</code></td><td><code>return app</code></td><td>核心意图：代表语句：`return app`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>client = TestClient(create_chat_app())</code></td><td>核心意图：代表语句：`client = TestClient(create_chat_app())`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day37/tests/test_day37.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day37/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day37/tests/test_day37.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 37 全链路端到端集成测试：验证多会话隔离、多轮指代改写、安全高亮与 SSE 流式解析。&quot;&quot;&quot;
+
+import json
+from typing import Any, List, Tuple
+
+from fastapi.testclient import TestClient
+
+from src.day37_session_highlight import CitationHighlighter
+from src.day37_sse_api import create_chat_app
+
+
+def _parse_sse_frames(raw_text: str) -&gt; List[Tuple[str, Any]]:
+    frames: List[Tuple[str, Any]] = []
+    for block in raw_text.strip().split(&quot;\n\n&quot;):
+        event_type = &quot;message&quot;
+        data_str = &quot;&quot;
+        for line in block.splitlines():
+            if line.startswith(&quot;event:&quot;):
+                event_type = line.split(&quot;:&quot;, 1)[1].strip()
+            elif line.startswith(&quot;data:&quot;):
+                data_str = line.split(&quot;:&quot;, 1)[1].strip()
+        if data_str:
+            frames.append((event_type, json.loads(data_str)))
+    return frames
+
+
+def test_citation_highlighter_prevents_xss_and_marks_keywords():
+    raw = &quot;年假需提前3天OA申请，&lt;script&gt;alert(1)&lt;/script&gt;严禁绕过审批。&quot;
+    out = CitationHighlighter.highlight(&quot;年假提前OA申请&quot;, raw)
+    assert &quot;&lt;script&gt;&quot; not in out
+    assert &quot;&amp;lt;script&amp;gt;&quot; in out
+    assert &quot;&lt;mark&gt;年假&lt;/mark&gt;&quot; in out
+    assert &quot;&lt;mark&gt;OA&lt;/mark&gt;&quot; in out
+
+
+def test_multi_session_isolation_and_multiturn_rewrite():
+    client = TestClient(create_chat_app())
+
+    sid_a = client.post(&quot;/api/v1/sessions&quot;, json={&quot;title&quot;: &quot;HR休假&quot;}).json()[&quot;session_id&quot;]
+    sid_b = client.post(&quot;/api/v1/sessions&quot;, json={&quot;title&quot;: &quot;运维排障&quot;, &quot;department&quot;: &quot;rd&quot;}).json()[&quot;session_id&quot;]
+
+    # Session A 第一轮聊年假
+    r_a1 = client.post(&quot;/api/v1/chat/ask&quot;, json={&quot;session_id&quot;: sid_a, &quot;question&quot;: &quot;入职满一年年假有几天？&quot;})
+    assert r_a1.status_code == 200
+    assert &quot;5天&quot; in r_a1.json()[&quot;answer&quot;]
+
+    # Session B 第一轮聊 ERR-5042
+    r_b1 = client.post(
+        &quot;/api/v1/chat/ask&quot;,
+        json={&quot;session_id&quot;: sid_b, &quot;question&quot;: &quot;ERR-5042 报错原因是什么？&quot;, &quot;department&quot;: &quot;rd&quot;},
+    )
+    assert &quot;超时&quot; in r_b1.json()[&quot;answer&quot;]
+
+    # Session A 第二轮追问使用指代词「它」，应准确锚定到「年假」而非 Session B 的 ERR-5042
+    r_a2 = client.post(&quot;/api/v1/chat/ask&quot;, json={&quot;session_id&quot;: sid_a, &quot;question&quot;: &quot;它需要提前几天OA申请？&quot;})
+    body_a2 = r_a2.json()
+    assert &quot;年假&quot; in body_a2[&quot;rewritten_query&quot;]
+    assert &quot;ERR-5042&quot; not in body_a2[&quot;rewritten_query&quot;]
+    assert &quot;&lt;mark&gt;&quot; in body_a2[&quot;citations&quot;][0][&quot;highlighted_snippet&quot;]
+
+    # 验证历史隔离：A 与 B 各自只有自己的记录
+    hist_a = client.get(f&quot;/api/v1/sessions/{sid_a}/history&quot;).json()[&quot;history&quot;]
+    hist_b = client.get(f&quot;/api/v1/sessions/{sid_b}/history&quot;).json()[&quot;history&quot;]
+    assert len(hist_a) == 4  # 2 turns * 2 messages
+    assert len(hist_b) == 2  # 1 turn * 2 messages
+
+
+def test_sse_streaming_endpoint_full_protocol():
+    client = TestClient(create_chat_app())
+    sid = client.post(&quot;/api/v1/sessions&quot;, json={&quot;title&quot;: &quot;差旅SSE测试&quot;}).json()[&quot;session_id&quot;]
+
+    # 第一轮同步建立上下文
+    client.post(&quot;/api/v1/chat/ask&quot;, json={&quot;session_id&quot;: sid, &quot;question&quot;: &quot;北京出差住酒店上限是多少？&quot;})
+
+    # 第二轮走 SSE 流式接口追问
+    resp = client.post(&quot;/api/v1/chat/stream&quot;, json={&quot;session_id&quot;: sid, &quot;question&quot;: &quot;那餐饮补助是多少？&quot;})
+    assert resp.status_code == 200
+    assert &quot;text/event-stream&quot; in resp.headers[&quot;content-type&quot;]
+    assert resp.headers.get(&quot;x-accel-buffering&quot;) == &quot;no&quot;
+
+    frames = _parse_sse_frames(resp.text)
+    event_types = [ev for ev, _ in frames]
+    assert event_types[0] == &quot;meta&quot;
+    assert &quot;citation&quot; in event_types
+    assert &quot;token&quot; in event_types
+    assert event_types[-1] == &quot;done&quot;
+
+    meta = frames[0][1]
+    assert &quot;出差&quot; in meta[&quot;rewritten_query&quot;]
+
+    reconstructed = &quot;&quot;.join(payload[&quot;delta&quot;] for ev, payload in frames if ev == &quot;token&quot;)
+    assert &quot;100元&quot; in reconstructed
+
+    # 确认流式回答已持久化进入历史
+    hist = client.get(f&quot;/api/v1/sessions/{sid}/history&quot;).json()[&quot;history&quot;]
+    assert len(hist) == 4
+    assert hist[-1][&quot;content&quot;] == reconstructed
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-037</code>，承接自 Day 36 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day37-project2-multiturn-sse-e2e</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day37-project2-multiturn-sse-e2e）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day37-project2-multiturn-sse-e2e
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day37.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-037）
+git add src/day37_session_highlight.py src/day37_sse_api.py tests/test_day37.py
+git commit -m &quot;feat(day37): 完成多会话管理、多轮指代消解改写、引用高亮与SSE流式问答API全链路联调
+
+Refs: STARMIND-037
+- 完成 阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day37-project2-multiturn-sse-e2e</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-037 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-037 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day37_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day37_session_highlight.py src/day37_sse_api.py
+    - echo &quot;Day 37 语法编译检查通过&quot;
+
+day37_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day37/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day37/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>先 <code>html.escape()</code> 再插 <code>&lt;mark&gt;</code> 这个防 XSS 细节加分！顺手把单元测试也覆盖上了 <code>&lt;script&gt;</code> 注入，非常规范。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品</span><span>状态：Approved</span></div><p>SSE 里先推 <code>meta</code> 和 <code>citation</code> 再推 <code>token</code> 体验太好了！用户点发送 50ms 就能先看到右侧亮起依据文档，完全不会觉得卡顿。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-037 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-037（阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：项目二后端单轮问答 API 已就绪，现需补齐企业级聊天产品的核心交互闭环：多会话并发隔离、多轮追问上下文改写、引用片段关键词高亮溯源，以及降低用户首字等待焦虑的 SSE 流式传输。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）多轮追问（如「那病假呢？」「它怎么申请？」）直接送去检索会导致召回完全偏航。；（2）用户看到 150 字的引用原文仍需肉眼扫读寻找核心数字与条款，信任建立慢。；（3）同步接口需等待完整答案生成才返回，首字节时间（TTFT）体验差。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现 <code>SessionManager</code>：支持多会话创建、列表、滑动窗口历史查询、删除与状态隔离。；（2）实现 <code>MultiTurnQueryRewriter</code>：结合会话历史自动识别指代词与短追问，输出带上下文锚点的规范化检索 Query。；（3）实现 <code>CitationHighlighter</code>：自动提取查询关键词并在引用片段中插入 <code>&lt;mark&gt;...&lt;/mark&gt;</code> 高亮标签。；（4）实现 FastAPI SSE 流式端点 <code>POST /api/v1/chat/stream</code>，按标准 SSE 帧协议依次推送 <code>meta</code>、<code>citation</code>、<code>token</code>、<code>done</code> 事件。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day37/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 为什么大模型流式问答首选 SSE 而不是 WebSocket？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：AI 问答天然是「客户端发一次请求 -&gt; 服务端单向流式吐字」的半双工模式：<br/>- **SSE 优势**：纯标准 HTTP/1.1 或 HTTP/2 协议，天然穿透企业防火墙和代理，支持 <code>POST</code> 携带 JSON Body 与 JWT Header，服务端无状态扩展成本远低于 WebSocket；<br/>- **WebSocket 适用场景**：需要实时全双工语音打断（如实时语音助手）或多人协同白板时才需要上 WebSocket。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：很多同学在本地测 SSE 打字机丝滑流畅，一上测试环境经过 Nginx 反向代理就变成「卡住 5 秒然后瞬间全吐出来」！原因就是 Nginx 默认开启了 <code>proxy_buffering on</code>。务必在 FastAPI 响应头加上 <code>X-Accel-Buffering: no</code> 并在 Nginx 配 <code>proxy_buffering off;</code>！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 为什么大模型流式问答首选 SSE 而不是 WebSocket？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 引用高亮防 XSS 安全红线】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：前端渲染后端返回的 <code>&lt;mark&gt;关键词&lt;/mark&gt;</code> 时通常需要 <code>v-html</code> 或 <code>dangerouslySetInnerHTML</code>。因此后端在插入 <code>&lt;mark&gt;</code> 标签**之前**，必须先对原始文档内容执行 <code>html.escape()</code> 转义掉 <code>&lt;script&gt;</code> 等恶意标签，确保只有后端生成的 <code>&lt;mark&gt;</code> 标签是真实 HTML，彻底杜绝存储型 XSS 漏洞！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：先 <code>html.escape(snippet)</code>，再对转义后的安全文本做 <code>&lt;mark&gt;</code> 包裹，顺序千万别写反！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 引用高亮防 XSS 安全红线」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 37 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day37/</code> 中亲手编写了 <code>src/day37_session_highlight.py</code>、<code>src/day37_sse_api.py</code> 以及对应的自动化测试 <code>tests/test_day37.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day37_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 37 / STARMIND-037）：1. 已在分支 <code>feat/day37-project2-multiturn-sse-e2e</code> 完成 阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 38）：明天（Day 38）我们将迎来第三阶段收官大战——**项目二答辩与代码评审**：准备 10 分钟技术答辩架构讲稿、执行 GitLab Code Review 评分表、并对项目二进行并发压测瓶颈定位与重构优化实战！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 37 掌握的「阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-037 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day37.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 37 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day37/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day37_session_highlight.py, src/day37_sse_api.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>两个不同 `session_id` 的并发对话历史 100% 隔离，互不干扰。；在「年假规定」之后的追问「它需要提前几天申请？」能被正确改写包含「年假」并精准命中年假审批条款。；返回的引用片段包含有效的 `&lt;mark&gt;...&lt;/mark&gt;` 高亮标签且不破坏原文完整性。；SSE 接口响应头包含 `text/event-stream`，客户端解析全部 `token` 帧后可无损还原完整回答，且本轮对话自动持久化至会话历史。</td><td>运行 `pytest versions/day37/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day37/day37_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day37-project2-multiturn-sse-e2e` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-037 需求时，我们的核心业务目标是：实现 <code>SessionManager</code>：支持多会话创建、列表、滑动窗口历史查询、删除与状态隔离。；实现 <code>MultiTurnQueryRewriter</code>：结合会话历史自动识别指代词与短追问，输出带上下文锚点的规范化检索 Query。；实现 <code>CitationHighlighter</code>：自动提取查询关键词并在引用片段中插入 <code>&lt;mark&gt;...&lt;/mark&gt;</code> 高亮标签。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 为什么大模型流式问答首选 SSE 而不是 WebSocket？、2. 引用高亮防 XSS 安全红线 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「阶段项目二(下)：企业级知识库问答系统——多轮改写、引用高亮、SSE流式与全链路联调」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 37 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day37_session_highlight.py、src/day37_sse_api.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>绝了！从多会话创建、第一轮提问、第二轮追问自动改写、证据 <code>&lt;mark&gt;</code> 高亮，到 SSE 打字机逐帧推送与历史落库，整个 StarMind-KB v2.0 全链路已经 100% 闭环通过！今晚大家早点休息，明天（Day 38）上台做项目二技术答辩与并发性能压测重构！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现客户端 SSE 流式帧解析器（parse_sse_stream）</strong><span class="badge">基础巩固</span></div><p>编写通用 <code>parse_sse_lines(lines)</code> 函数，将多行 SSE 文本流解析为 <code>List[Dict]</code>（每条包含 <code>event</code> 和 <code>data</code> 字典），并兼容空行与注释心跳行（以 <code>:</code> 开头的 <code>: ping</code> 保活帧）。</p><p><strong>💡 思路提示：</strong>逐行扫描：跳过以 `:` 开头的注释行；遇到空行时提交当前缓冲的事件对象并重置。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-37-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-37-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 37 作业一参考答案：兼容心跳帧的 SSE 客户端解析器&quot;&quot;&quot;
+import json
+from typing import Any, Dict, Iterable, List
+
+
+def parse_sse_lines(lines: Iterable[str]) -&gt; List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    cur_event = &quot;message&quot;
+    cur_data: List[str] = []
+
+    for raw in lines:
+        line = raw.rstrip(&quot;\r\n&quot;)
+        if line.startswith(&quot;:&quot;):
+            continue  # 跳过 SSE 心跳保活注释帧
+        if line == &quot;&quot;:
+            if cur_data:
+                events.append({&quot;event&quot;: cur_event, &quot;data&quot;: json.loads(&quot;\n&quot;.join(cur_data))})
+                cur_event = &quot;message&quot;
+                cur_data = []
+            continue
+        if line.startswith(&quot;event:&quot;):
+            cur_event = line.split(&quot;:&quot;, 1)[1].strip()
+        elif line.startswith(&quot;data:&quot;):
+            cur_data.append(line.split(&quot;:&quot;, 1)[1].strip())
+
+    if cur_data:
+        events.append({&quot;event&quot;: cur_event, &quot;data&quot;: json.loads(&quot;\n&quot;.join(cur_data))})
+    return events
+
+
+if __name__ == &quot;__main__&quot;:
+    sample = [
+        &quot;: keep-alive&quot;,
+        &quot;event: token&quot;,
+        &#x27;data: {&quot;delta&quot;: &quot;你好&quot;}&#x27;,
+        &quot;&quot;,
+        &quot;event: done&quot;,
+        &#x27;data: {&quot;ok&quot;: true}&#x27;,
+        &quot;&quot;,
+    ]
+    parsed = parse_sse_lines(sample)
+    print(parsed)
+    assert len(parsed) == 2 and parsed[0][&quot;data&quot;][&quot;delta&quot;] == &quot;你好&quot;
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>生产网关通常每 15~30 秒发一次 <code>: ping</code> SSE 注释帧防止连接超时断开，客户端解析器必须优雅忽略注释帧。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现基于滑动 Token 预算的对话历史裁剪器</strong><span class="badge">企业实战</span></div><p>相比按轮数截断，真实 LLM 更关心字符/Token 预算。编写 <code>trim_history_by_budget(turns, max_chars=80)</code>，从最新一轮倒序保留对话记录，确保总字符数不超过 <code>max_chars</code> 且保持原有正序。</p><p><strong>💡 思路提示：</strong>逆序遍历 `reversed(turns)` 累加字符数，超限时 `break`，最后再 `reverse()` 恢复时间顺序。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-37-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-37-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 37 作业二参考答案：基于字符/Token 预算的滑动历史裁剪器&quot;&quot;&quot;
+from typing import Dict, List, Sequence
+
+
+def trim_history_by_budget(turns: Sequence[Dict[str, str]], max_chars: int = 80) -&gt; List[Dict[str, str]]:
+    kept: List[Dict[str, str]] = []
+    used = 0
+    for item in reversed(turns):
+        size = len(item[&quot;content&quot;])
+        if used + size &gt; max_chars and kept:
+            break
+        kept.append(item)
+        used += size
+    kept.reverse()
+    return kept
+
+
+if __name__ == &quot;__main__&quot;:
+    hist = [
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;第一轮很长的历史提问内容&quot; * 3},
+        {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;第一轮很长的历史回答内容&quot; * 3},
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;北京住宿上限多少？&quot;},
+        {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;每晚600元。&quot;},
+    ]
+    trimmed = trim_history_by_budget(hist, max_chars=30)
+    print(&quot;裁剪后保留:&quot;, trimmed)
+    assert len(trimmed) == 2 and trimmed[0][&quot;content&quot;] == &quot;北京住宿上限多少？&quot;
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>按 Token 预算裁剪比固定按轮数裁剪更安全，避免某一条超长日志粘贴瞬间撑爆 LLM 上下文窗口。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现前端引用角标 `[1][2]` 自动校验与死链清理器</strong><span class="badge">架构进阶</span></div><p>大模型偶尔会产生「幽灵引用」（例如只给了 2 条引用，回答里却瞎写了个 <code>[3]</code>）。请实现 <code>sanitize_citation_markers(answer, max_index)</code>：自动移除所有超过 <code>max_index</code> 或等于 <code>0</code> 的非法角标，仅保留合法引用角标。</p><p><strong>💡 思路提示：</strong>用 `re.sub(r&#x27;\[(\d+)\]&#x27;, repl, answer)` 检查捕获数字是否在 `1 &lt;= num &lt;= max_index`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-37-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-37-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 37 作业三参考答案：大模型幽灵引用角标校验与清理器&quot;&quot;&quot;
+import re
+
+
+def sanitize_citation_markers(answer: str, max_index: int) -&gt; str:
+    def _repl(match: re.Match) -&gt; str:
+        idx = int(match.group(1))
+        return match.group(0) if 1 &lt;= idx &lt;= max_index else &quot;&quot;
+
+    return re.sub(r&quot;\[(\d+)\]&quot;, _repl, answer)
+
+
+if __name__ == &quot;__main__&quot;:
+    raw = &quot;北京住宿上限600元[1]，餐补100元[2]，且周末发红包[5][0]。&quot;
+    clean = sanitize_citation_markers(raw, max_index=2)
+    print(&quot;清理后:&quot;, clean)
+    assert &quot;[1]&quot; in clean and &quot;[2]&quot; in clean
+    assert &quot;[5]&quot; not in clean and &quot;[0]&quot; not in clean
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>幽灵角标会导致前端点击引用跳转直接报错或 404，加上这一行正则兜底能彻底守住产品体验底线。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day36/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day38/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

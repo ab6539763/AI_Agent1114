@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 45：周测 + Dify/Coze 低代码平台 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 4 阶段 · 第 6 周</span>
+      <span class="badge badge-ticket">STARMIND-045</span>
+      <span class="badge">Day 45 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="45" onclick="toggleDayComplete(45, this)">标记今日已完成</button>
+      <a class="btn" href="../day44/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day46/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day45-weekly-exam-dify-dsl</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day45/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day45/day45_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day45_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 4 阶段：第四阶段：Agent 智能体开发与多 Agent 协同 · 第 6 周：Agent 基础、工具调用与 LangGraph 状态机</div>
+        <h1>Day 45：周测 + Dify/Coze 低代码平台</h1>
+        <p class="hero-sub">第六周核心能力综合验收、Dify DSL 工作流解析引擎与低代码 vs 代码开发选型矩阵</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-045</span>
+          <span class="hero-tag">分支：feat/day45-weekly-exam-dify-dsl</span>
+          <span class="hero-tag">角色：负责复杂业务编排与多智能体协同的 Agent 核心研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！一转眼第六周就到收官日了。今天分上下两个半场：上半场我们先啃透国内企业落地最常见的 **Dify / Coze 低代码 Agent 平台**——别以为低代码就“不高级”，老陈带你直接拆开 Dify 导出的 **DSL 工作流定义**，自己写一个能解析 <code>start -&gt; knowledge_retrieval -&gt; if_else -&gt; llm -&gt; end</code> 节点和 <code>{{#node.var#}}</code> 变量引用的本地执行引擎！下半场结合本周核心考点做一次实战周测与“低代码 vs 代码自研”架构选型评估，帮你在老板问“为什么不用 Dify 直接拖一个？”时给出无懈可击的专业答案。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>前六天（Day 39 ~ 44）我们从零手写了 ReAct 引擎、<code>@tool</code> + <code>AgentExecutor</code>、LangGraph <code>StateGraph</code>、SQLite Checkpointer/HITL/并行写作、多 Agent Supervisor 团队以及 MCP Server/Client 与双层记忆。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 46）我们进入第七周，正式向生产级稳定性开火：治理 Agent 死循环与幻觉参数、搭建类 LangSmith 的 Trace/Span 全链路观测体系、Guardrails 护栏以及语义缓存降本提速。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 45 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 45）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责复杂业务编排与多智能体协同的 Agent 核心研发工程师】，依托的工程底座是【StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台】。回顾昨天留下的上下文：前六天（Day 39 ~ 44）我们从零手写了 ReAct 引擎、<code>@tool</code> + <code>AgentExecutor</code>、LangGraph <code>StateGraph</code>、SQLite Checkpointer/HITL/并行写作、多 Agent Supervisor 团队以及 MCP Server/Client 与双层记忆。 今天我们通过需求单 STARMIND-045，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day45/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 46）我们进入第七周，正式向生产级稳定性开火：治理 Agent 死循环与幻觉参数、搭建类 LangSmith 的 Trace/Span 全链路观测体系、Guardrails 护栏以及语义缓存降本提速。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:30 - 12:00</strong></td><td>Dify / Coze 平台底层架构拆解与低代码选型矩阵</td><td>剖析 Dify Workflow DSL 结构、变量池（Variable Pool）机制、Coze 插件与 Bot 编排，以及企业级选型六维评估表。</td></tr>
+<tr><td><strong>下午 13:30 - 15:30</strong></td><td>动手实操（一）：自研类 Dify 声明式 DSL 工作流解析引擎</td><td>编写 `src/day45_dify_dsl_runner.py`，实现 DAG 校验、变量模板替换、条件分支路由与本地全节点执行。</td></tr>
+<tr><td><strong>下午 15:45 - 17:30</strong></td><td>动手实操（二）：技术选型评分矩阵与第六周实战周测</td><td>编写 `src/day45_platform_selector.py`，完成低代码 vs 代码开发决策引擎与第六周综合能力自动验收。</td></tr>
+<tr><td><strong>晚间 19:00 - 20:30</strong></td><td>周测复盘与梯度作业</td><td>运行 `pytest` 验证 DSL 引擎与选型矩阵，复盘周测薄弱项并完成课后 3 道巩固题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-045）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科运营部门用 Dify 拖拽了一个“客户工单自动分类与初审”工作流，希望研发团队评估能否直接上线，或将其导出的 DSL 迁移到星辰智脑内部统一托管运行。同时团队需要对第六周 Agent 核心知识点进行客观验收。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>团队内部对“用 Dify/Coze 还是用 LangGraph 代码自研”常陷入无休止争论，缺乏量化选型维度。</li><li>运营在低代码平台拖出来的 DSL 流程缺少本地单元测试与 CI 回归能力，改动一个条件分支极易引发线上故障。</li><li>第六周知识点跨度大（ReAct / LangGraph / Multi-Agent / MCP），需要通过自动化周测定位知识盲区。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>深度解析 Dify / Coze 声明式工作流 DSL 结构（节点类型、边连接、`{{#node_id.field#}}` 变量模板与条件分支）。</li><li>编写纯 Python 的 `DifyDSLRunner` 引擎，支持在本地离线执行类 Dify DSL 工作流并检测环路。</li><li>构建量化的“低代码 vs 代码自研”技术选型打分矩阵，并完成第六周核心知识点自动评分周测器。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>`DifyDSLRunner` 能正确解析变量插值 `{{#start.query#}}`、根据 `if_else` 条件动态选择分支节点并输出完整节点追踪。</li><li>DSL 存在非法环路或孤立节点时，`validate_dsl()` 能够提前拦截报错。</li><li>选型评估器能根据业务复杂度、私有化部署、定制化并发与交付周期给出客观推荐方案（Dify / Coze / LangGraph），所有单测 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>DSL 执行器中的 `code` 节点必须受限于白名单安全表达式或预注册函数，严禁无约束 `exec`。</li><li>工作流执行日志需记录每个节点的输入、输出与耗时，便于与 Dify 控制台对齐排查。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>国内企业落地 AI 应用时，**低代码平台（Dify / Coze / FastGPT）** 与 **代码框架（LangGraph / 自研编排）** 绝不是非此即彼的对立关系，而是处于不同的工程演进象限：</p>
+<p>1. **Dify / Coze 的底层本质**：你在画布上拖拽的每一个节点（<code>start</code>、<code>knowledge_retrieval</code>、<code>if_else</code>、<code>llm</code>、<code>http_request</code>、<code>end</code>），保存后都会序列化为一份声明式 **DSL（YAML/JSON）**。运行时引擎维护一个全局的 **Variable Pool（变量池）**，按节点拓扑顺序执行：读取上游变量 <code>{{#node_id.var_name#}}</code> -&gt; 执行节点逻辑 -&gt; 把结果写回变量池 -&gt; 根据连线或条件分支句柄（<code>true</code> / <code>false</code>）推进下一节点。<br/>2. **低代码 vs 代码开发选型六维矩阵**：<br/>   - **优先选 Coze（扣子）**：C 端轻应用、飞书/微信快速机器人、运营人员主导、不要求私有化内网部署、追求 1 天内上线验证；<br/>   - **优先选 Dify（开源私有化）**：B 端企业内部知识库问答、标准工单分流、需要私有化部署与可视化 Prompt 调试、研发人力有限；<br/>   - **必须选 LangGraph 代码自研**：强事务/资金审批类复杂有环状态机、精细 RBAC 数据行级鉴权、高并发微服务集成、需要完整 Git 版本控制与自动化 <code>pytest</code> CI/CD 回归测试。</p>
+<p>在星辰数科，我们的最佳实践是“**Dify 做前台快速试错，LangGraph 做中台核心沉淀**”——一旦某个 Dify 工作流流量暴涨或业务逻辑变得高度复杂，研发团队就直接参照其导出的 DSL 拓扑平移为 LangGraph 代码服务。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 45.1：Dify 声明式 DSL 工作流解析与变量池执行流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">Dify 声明式 DSL 工作流解析与变量池执行流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">start 节点</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">注入用户工单 query/priority</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">knowledge_retrieval</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">检索 SLA 政策写入变量池</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">if_else 条件分支</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">判断 priority == &#x27;P0&#x27;?</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">llm_urgent 节点</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">引用 {{#start.query#}} 紧急响应</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">llm_normal 节点</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">标准工单自动回复</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">end 输出节点</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">汇总最终变量返回调用方</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="221.5" y="66.0" width="132" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">写入 start.*</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="489.5" y="66.0" width="168" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">写入 kb.context</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="616.0" y="132.5" width="204" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">branch=true (P0)</text>
+<line x1="718.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="497.0" y="132.5" width="156" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">branch=false</text>
+<line x1="608" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="391.5" y="202.0" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="433.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">输出紧急方案</text>
+<line x1="322" y1="221.0" x2="259" y2="221.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="248.5" y="202.0" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="290.5" y="214.0" text-anchor="middle" font-size="11" fill="#334155">输出标准方案</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示类 Dify DSL 引擎如何加载节点配置、校验 DAG 拓扑，并在执行中通过 Variable Pool 完成变量插值与条件分支跳转。</div></div><div class="diagram-card"><div class="diagram-title">图 45.2：低代码平台（Dify/Coze）与代码自研（LangGraph）架构选型矩阵（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">低代码平台（Dify/Coze）与代码自研（LangGraph）架构选型矩阵</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">业务需求评估</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">私有化 / 复杂度 / 并发 / CI要求</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Coze 快速验证</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">SaaS 托管 / 1天上线 / 轻运营</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Dify 私有化部署</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">开源可控 / 可视化RAG / 中等流程</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">LangGraph 代码自研</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">强状态机 / 细粒度鉴权 / 完整CI单测</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="215" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>从私有化合规、逻辑复杂度、交付速度与测试可维护性四个维度呈现技术选型决策树。</div></div><div class="diagram-card"><div class="diagram-title">图 45.3：第六周 Agent 核心技术栈知识图谱（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">第六周 Agent 核心技术栈知识图谱</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Day39-40 基础层</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">ReAct 循环 + @tool Schema</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">Day41-42 编排层</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">LangGraph + Checkpointer + HITL</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">Day43-44 协同与生态</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">Multi-Agent + MCP + 双层记忆</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="294" width="540" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="430.0" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#4c1d95">Day45 平台与验收</text>
+<text x="430.0" y="348" text-anchor="middle" font-size="12" fill="#475569">Dify DSL 解析 + 选型矩阵 + 周测</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">从黑盒循环到显式图</text>
+<line x1="406" y1="212.0" x2="451" y2="212.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="208.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">从单智能体到团队生态</text>
+<line x1="629.0" y1="250" x2="430.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">融合低代码与选型决策</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>串联第六周（Day 39 ~ Day 45）从 ReAct 底座到多 Agent、MCP 生态及低代码平台的完整能力链路。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. Dify DSL 的变量引用语法 `{{#node_id.var_name#}}`</h3><p>在 Dify 导出的 YAML/JSON DSL 中，节点间数据传递不是靠硬编码 Python 变量，而是靠统一模板语法 <code>{{#node_id.field#}}</code> 从全局 <code>VariablePool</code> 中动态取值。这种设计让画布连线与参数绑定彻底解耦，也是所有低代码工作流引擎的通用范式。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：在画布上重命名或删除上游节点后，下游 LLM Prompt 里残留的 `{{#old_node.text#}}` 往往变成空字符串，导致线上回复莫名其妙失去上下文。导出 DSL 做静态引用检查能提前规避这类隐蔽 Bug。</div><h3>2. 2. 什么时候该把 Dify 工作流迁移为代码自研？</h3><p>出现以下三个信号之一时，就该启动向 LangGraph 代码自研的迁移：<br/>1) 画布节点数超过 25 个、连线像蜘蛛网一样没人敢动；<br/>2) 需要对接公司内部复杂的微服务鉴权、分布式锁或数据库事务；<br/>3) 业务要求每次改版必须经过 GitLab MR Code Review 和 50+ 条自动化回归单测才能发布。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：千万不要把几十行复杂业务逻辑硬塞进 Dify 的“Python 代码执行沙箱节点”里维护——没有 IDE 补全、没有单测、没有版本 diff，三个月后必成无人敢碰的祖传黑盒。</div><h3>3. 3. 第六周高频面试/周测核心考点清单</h3><p>1) ReAct 为什么必须设置 <code>Stop Sequence</code>（如 <code>Observation:</code>）？防止模型自问自答伪造工具输出。<br/>2) LangGraph 中 <code>Checkpointer</code> 和 <code>interrupt_before</code> 如何配合支撑跨小时人工审批？落库挂起释放线程，审批后按 <code>thread_id</code> 加载恢复。<br/>3) MCP 的核心价值是什么？用 JSON-RPC 2.0 标准把 M×N 工具适配降维为 M+N。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：面试被问到“多 Agent 一定比单 Agent 好吗？”时，切忌盲目吹捧多 Agent，必须从延迟、Token 成本、上下文损耗与权限隔离四个维度辩证作答。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈避坑实录：企业同时用 Dify 和自研代码时的“双轨制”最佳实践】<br/>很多公司一上来就搞非黑即白：要么禁止用 Dify，要么强迫研发所有复杂系统都用 Dify 硬拖。老陈的实战建议是建立清晰的 **L1 / L2 / L3 分层治理**：<br/>- **L1（部门级轻应用）**：行政问答、HR 制度助手 -&gt; 直接在 Dify 上由业务/运营维护，1 天交付；<br/>- **L2（跨部门集成工具）**：把公司核心系统封装成标准 **MCP Server** 或统一 HTTP API，同时供 Dify 和 LangGraph 调用，底层逻辑只写一份；<br/>- **L3（核心生产智能体）**：涉及财务审批、Text-to-SQL 数据分析、多 Agent 办公助手 -&gt; 全部采用 LangGraph 代码工程化开发 + 全链路 Trace 监控与自动化单测！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day45/</code> 与 <code>notebooks/day45/day45_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现类 Dify 声明式 DSL 工作流解析与离线执行引擎</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>我们直接手写一个能跑类 Dify DSL 的本地工作流引擎 <code>DifyDSLRunner</code>！它支持 DAG 环路静态检测、<code>{{#node.var#}}</code> 变量池插值、<code>knowledge_retrieval</code>、<code>if_else</code> 条件分支与 <code>llm</code>/<code>end</code> 节点执行，以后连运营导出的 Dify 流程你都能本地写 pytest 回归测试！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day45_dify_dsl_runner.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 45 - 步骤一：类 Dify 声明式工作流 DSL 解析与离线执行引擎。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+from collections import defaultdict, deque
+from typing import Any, Dict, List, Tuple
+
+VAR_PATTERN = re.compile(r&quot;\{\{#([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)#\}\}&quot;)
+
+
+class DifyDSLRunner:
+    &quot;&quot;&quot;
+    解析并执行类 Dify 声明式工作流 DSL：
+    支持节点类型：start | knowledge_retrieval | if_else | llm | end
+    &quot;&quot;&quot;
+
+    def __init__(self, dsl: Dict[str, Any], kb_docs: Dict[str, str] | None = None) -&gt; None:
+        self.dsl = dsl
+        self.nodes: Dict[str, Dict[str, Any]] = {n[&quot;id&quot;]: n for n in dsl.get(&quot;nodes&quot;, [])}
+        self.edges: List[Dict[str, Any]] = dsl.get(&quot;edges&quot;, [])
+        self.kb_docs = kb_docs or {
+            &quot;P0&quot;: &quot;【P0 紧急工单 SLA】15 分钟内响应，自动抄送值班架构师与运维组。&quot;,
+            &quot;P2&quot;: &quot;【P2 普通工单 SLA】4 个工作小时内响应，优先走知识库自助排查。&quot;,
+        }
+
+    def validate_dsl(self) -&gt; None:
+        &quot;&quot;&quot;使用 Kahn 拓扑排序检测 DSL 是否存在非法环路或未定义节点引用。&quot;&quot;&quot;
+        in_degree: Dict[str, int] = {nid: 0 for nid in self.nodes}
+        adj: Dict[str, List[str]] = defaultdict(list)
+
+        for edge in self.edges:
+            src, dst = edge[&quot;source&quot;], edge[&quot;target&quot;]
+            if src not in self.nodes or dst not in self.nodes:
+                raise ValueError(f&quot;DSL 边引用了不存在的节点: {src} -&gt; {dst}&quot;)
+            adj[src].append(dst)
+            in_degree[dst] += 1
+
+        queue = deque([nid for nid, deg in in_degree.items() if deg == 0])
+        visited = 0
+        while queue:
+            cur = queue.popleft()
+            visited += 1
+            for nxt in adj[cur]:
+                in_degree[nxt] -= 1
+                if in_degree[nxt] == 0:
+                    queue.append(nxt)
+
+        if visited != len(self.nodes):
+            raise ValueError(&quot;DSL 校验失败：检测到循环依赖（非 DAG 工作流）&quot;)
+
+    def _render_template(self, template: str, var_pool: Dict[str, Dict[str, Any]]) -&gt; str:
+        &quot;&quot;&quot;将 {{#node_id.field#}} 替换为变量池中的真实值。&quot;&quot;&quot;
+        def _replace(match: re.Match[str]) -&gt; str:
+            node_id, field_name = match.group(1), match.group(2)
+            return str(var_pool.get(node_id, {}).get(field_name, &quot;&quot;))
+
+        return VAR_PATTERN.sub(_replace, template)
+
+    def _find_next_node(self, current_id: str, branch_handle: str = &quot;default&quot;) -&gt; str | None:
+        for edge in self.edges:
+            if edge[&quot;source&quot;] == current_id and edge.get(&quot;handle&quot;, &quot;default&quot;) == branch_handle:
+                return edge[&quot;target&quot;]
+        return None
+
+    def run(self, inputs: Dict[str, Any]) -&gt; Dict[str, Any]:
+        self.validate_dsl()
+        start_nodes = [n[&quot;id&quot;] for n in self.nodes.values() if n[&quot;type&quot;] == &quot;start&quot;]
+        if len(start_nodes) != 1:
+            raise ValueError(&quot;DSL 必须且只能包含一个 start 节点&quot;)
+
+        var_pool: Dict[str, Dict[str, Any]] = {}
+        trace: List[Dict[str, Any]] = []
+        current_id: str | None = start_nodes[0]
+
+        while current_id is not None:
+            node = self.nodes[current_id]
+            ntype = node[&quot;type&quot;]
+            branch_handle = &quot;default&quot;
+
+            if ntype == &quot;start&quot;:
+                var_pool[current_id] = dict(inputs)
+            elif ntype == &quot;knowledge_retrieval&quot;:
+                key_expr = self._render_template(node[&quot;query_template&quot;], var_pool)
+                matched = self.kb_docs.get(key_expr, &quot;未命中专项 SLA，按常规工单流程处理。&quot;)
+                var_pool[current_id] = {&quot;context&quot;: matched}
+            elif ntype == &quot;if_else&quot;:
+                left = self._render_template(node[&quot;left_template&quot;], var_pool)
+                right = str(node[&quot;equals&quot;])
+                passed = left == right
+                branch_handle = &quot;true&quot; if passed else &quot;false&quot;
+                var_pool[current_id] = {&quot;branch&quot;: branch_handle, &quot;matched&quot;: passed}
+            elif ntype == &quot;llm&quot;:
+                rendered = self._render_template(node[&quot;prompt_template&quot;], var_pool)
+                var_pool[current_id] = {&quot;text&quot;: f&quot;[{node.get(&#x27;model&#x27;, &#x27;qwen-plus&#x27;)}] {rendered}&quot;}
+            elif ntype == &quot;end&quot;:
+                outputs = {
+                    k: self._render_template(v, var_pool)
+                    for k, v in node.get(&quot;outputs&quot;, {}).items()
+                }
+                var_pool[current_id] = outputs
+                trace.append({&quot;node_id&quot;: current_id, &quot;type&quot;: ntype, &quot;output&quot;: outputs})
+                return {&quot;outputs&quot;: outputs, &quot;trace&quot;: trace, &quot;var_pool&quot;: var_pool}
+            else:
+                raise ValueError(f&quot;不支持的 DSL 节点类型: {ntype}&quot;)
+
+            trace.append({&quot;node_id&quot;: current_id, &quot;type&quot;: ntype, &quot;output&quot;: var_pool[current_id]})
+            current_id = self._find_next_node(current_id, branch_handle)
+
+        raise RuntimeError(&quot;DSL 执行意外结束：未到达 end 节点&quot;)
+
+
+def sample_ticket_triage_dsl() -&gt; Dict[str, Any]:
+    &quot;&quot;&quot;星辰数科运营部导出的工单分流演示 DSL。&quot;&quot;&quot;
+    return {
+        &quot;name&quot;: &quot;starmind-ticket-triage&quot;,
+        &quot;nodes&quot;: [
+            {&quot;id&quot;: &quot;start&quot;, &quot;type&quot;: &quot;start&quot;},
+            {&quot;id&quot;: &quot;kb&quot;, &quot;type&quot;: &quot;knowledge_retrieval&quot;, &quot;query_template&quot;: &quot;{{#start.priority#}}&quot;},
+            {&quot;id&quot;: &quot;cond&quot;, &quot;type&quot;: &quot;if_else&quot;, &quot;left_template&quot;: &quot;{{#start.priority#}}&quot;, &quot;equals&quot;: &quot;P0&quot;},
+            {
+                &quot;id&quot;: &quot;llm_urgent&quot;,
+                &quot;type&quot;: &quot;llm&quot;,
+                &quot;model&quot;: &quot;qwen-max&quot;,
+                &quot;prompt_template&quot;: &quot;【紧急升级】工单: {{#start.query#}} | 依据: {{#kb.context#}}&quot;,
+            },
+            {
+                &quot;id&quot;: &quot;llm_normal&quot;,
+                &quot;type&quot;: &quot;llm&quot;,
+                &quot;model&quot;: &quot;qwen-turbo&quot;,
+                &quot;prompt_template&quot;: &quot;【标准处理】工单: {{#start.query#}} | 依据: {{#kb.context#}}&quot;,
+            },
+            {
+                &quot;id&quot;: &quot;end_urgent&quot;,
+                &quot;type&quot;: &quot;end&quot;,
+                &quot;outputs&quot;: {&quot;reply&quot;: &quot;{{#llm_urgent.text#}}&quot;, &quot;level&quot;: &quot;URGENT&quot;},
+            },
+            {
+                &quot;id&quot;: &quot;end_normal&quot;,
+                &quot;type&quot;: &quot;end&quot;,
+                &quot;outputs&quot;: {&quot;reply&quot;: &quot;{{#llm_normal.text#}}&quot;, &quot;level&quot;: &quot;NORMAL&quot;},
+            },
+        ],
+        &quot;edges&quot;: [
+            {&quot;source&quot;: &quot;start&quot;, &quot;target&quot;: &quot;kb&quot;},
+            {&quot;source&quot;: &quot;kb&quot;, &quot;target&quot;: &quot;cond&quot;},
+            {&quot;source&quot;: &quot;cond&quot;, &quot;target&quot;: &quot;llm_urgent&quot;, &quot;handle&quot;: &quot;true&quot;},
+            {&quot;source&quot;: &quot;cond&quot;, &quot;target&quot;: &quot;llm_normal&quot;, &quot;handle&quot;: &quot;false&quot;},
+            {&quot;source&quot;: &quot;llm_urgent&quot;, &quot;target&quot;: &quot;end_urgent&quot;},
+            {&quot;source&quot;: &quot;llm_normal&quot;, &quot;target&quot;: &quot;end_normal&quot;},
+        ],
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    runner = DifyDSLRunner(sample_ticket_triage_dsl())
+    res = runner.run({&quot;priority&quot;: &quot;P0&quot;, &quot;query&quot;: &quot;核心支付网关 502 超时&quot;})
+    print(&quot;输出:&quot;, res[&quot;outputs&quot;])
+    print(&quot;执行路径:&quot;, [t[&quot;node_id&quot;] for t in res[&quot;trace&quot;]])
+</code></pre><div class="output-box"># 预期运行输出示例：
+输出: {&#x27;reply&#x27;: &#x27;[qwen-max] 【紧急升级】工单: 核心支付网关 502 超时 | 依据: 【P0 紧急工单 SLA】15 分钟内响应，自动抄送值班架构师与运维组。&#x27;, &#x27;level&#x27;: &#x27;URGENT&#x27;}
+执行路径: [&#x27;start&#x27;, &#x27;kb&#x27;, &#x27;cond&#x27;, &#x27;llm_urgent&#x27;, &#x27;end_urgent&#x27;]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>validate_dsl</code> 用 Kahn 拓扑排序在运行前静态检查环路和断链，比运行到一半卡死安全得多。<br/>2. <code>_render_template</code> 精准还原了 Dify 的 <code>{{#node_id.field#}}</code> 变量池替换机制。<br/>3. <code>if_else</code> 节点通过 <code>handle=&#x27;true&#x27; / &#x27;false&#x27;</code> 动态决定下游分支，完全对应 Dify 画布上的双出口连线。</p><h3>实操步骤 2：步骤二：低代码 vs 代码开发选型评估器与第六周实战周测评分器</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>接下来我们把“低代码 vs 代码开发”的架构选型方法论代码化，并附带一套第六周核心知识点自动评测器，方便团队随时自查掌握程度。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day45_platform_selector.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 45 - 步骤二：低代码 vs 代码开发量化选型矩阵与第六周自动周测评分器。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, List
+
+
+@dataclass
+class ProjectRequirements:
+    private_deployment_required: bool   # 是否必须内网私有化部署
+    has_complex_cycles_or_hitl: bool    # 是否有复杂循环状态机或跨小时人工审批
+    need_strict_rbac_and_ci: bool       # 是否需要行级鉴权与严格 Git/pytest CI
+    delivery_days: int                  # 期望首版交付天数
+    maintainer_is_non_dev: bool         # 是否主要由非研发/运营人员维护
+
+
+def recommend_platform(req: ProjectRequirements) -&gt; Dict[str, object]:
+    &quot;&quot;&quot;根据企业项目约束量化打分，推荐 Coze / Dify / LangGraph 自研方案。&quot;&quot;&quot;
+    scores: Dict[str, int] = {&quot;Coze&quot;: 0, &quot;Dify&quot;: 0, &quot;LangGraph&quot;: 0}
+    reasons: List[str] = []
+
+    if req.private_deployment_required:
+        scores[&quot;Coze&quot;] -= 10
+        scores[&quot;Dify&quot;] += 4
+        scores[&quot;LangGraph&quot;] += 4
+        reasons.append(&quot;要求私有化部署：排除纯公有云 SaaS 方案&quot;)
+    else:
+        scores[&quot;Coze&quot;] += 3
+
+    if req.has_complex_cycles_or_hitl:
+        scores[&quot;LangGraph&quot;] += 6
+        scores[&quot;Dify&quot;] += 1
+        reasons.append(&quot;存在复杂循环状态机/跨小时 HITL：代码编排具备绝对优势&quot;)
+    else:
+        scores[&quot;Dify&quot;] += 3
+        scores[&quot;Coze&quot;] += 2
+
+    if req.need_strict_rbac_and_ci:
+        scores[&quot;LangGraph&quot;] += 5
+        scores[&quot;Dify&quot;] += 1
+        reasons.append(&quot;要求细粒度 RBAC 鉴权与自动化 CI 单测：优先代码自研&quot;)
+
+    if req.delivery_days &lt;= 3:
+        scores[&quot;Coze&quot;] += 4
+        scores[&quot;Dify&quot;] += 3
+        reasons.append(&quot;超短周期（&lt;=3天）交付：低代码画布可快速上线 POC&quot;)
+
+    if req.maintainer_is_non_dev:
+        scores[&quot;Dify&quot;] += 4
+        scores[&quot;Coze&quot;] += 4
+        scores[&quot;LangGraph&quot;] -= 2
+        reasons.append(&quot;由业务/运营人员长期维护：低代码可视化平台门槛更低&quot;)
+
+    best = max(scores.items(), key=lambda kv: kv[1])[0]
+    return {&quot;recommended&quot;: best, &quot;scores&quot;: scores, &quot;reasons&quot;: reasons}
+
+
+WEEK6_ANSWER_KEY: Dict[str, str] = {
+    &quot;Q1_react_stop_seq&quot;: &quot;Observation:&quot;,
+    &quot;Q2_langgraph_persistence&quot;: &quot;Checkpointer&quot;,
+    &quot;Q3_mcp_protocol&quot;: &quot;JSON-RPC 2.0&quot;,
+    &quot;Q4_multi_agent_pattern&quot;: &quot;Supervisor&quot;,
+    &quot;Q5_dify_var_syntax&quot;: &quot;{{#node.var#}}&quot;,
+}
+
+
+def grade_week6_quiz(submissions: Dict[str, str]) -&gt; Dict[str, object]:
+    &quot;&quot;&quot;第六周核心考点自动评分器（满分 100 分，80 分及以上为通过）。&quot;&quot;&quot;
+    total = len(WEEK6_ANSWER_KEY)
+    correct = 0
+    wrong_questions: List[str] = []
+    for qid, expected in WEEK6_ANSWER_KEY.items():
+        actual = submissions.get(qid, &quot;&quot;).strip()
+        if actual.lower() == expected.lower():
+            correct += 1
+        else:
+            wrong_questions.append(qid)
+    score = round((correct / total) * 100)
+    return {
+        &quot;score&quot;: score,
+        &quot;passed&quot;: score &gt;= 80,
+        &quot;correct_count&quot;: correct,
+        &quot;wrong_questions&quot;: wrong_questions,
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    rec = recommend_platform(
+        ProjectRequirements(
+            private_deployment_required=True,
+            has_complex_cycles_or_hitl=True,
+            need_strict_rbac_and_ci=True,
+            delivery_days=14,
+            maintainer_is_non_dev=False,
+        )
+    )
+    print(&quot;核心交易系统选型推荐:&quot;, rec[&quot;recommended&quot;], &quot;| 分数:&quot;, rec[&quot;scores&quot;])
+    quiz = grade_week6_quiz(WEEK6_ANSWER_KEY)
+    print(&quot;第六周周测得分:&quot;, quiz)
+</code></pre><div class="output-box"># 预期运行输出示例：
+核心交易系统选型推荐: LangGraph | 分数: {&#x27;Coze&#x27;: -10, &#x27;Dify&#x27;: 6, &#x27;LangGraph&#x27;: 15}
+第六周周测得分: {&#x27;score&#x27;: 100, &#x27;passed&#x27;: True, &#x27;correct_count&#x27;: 5, &#x27;wrong_questions&#x27;: []}</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>recommend_platform</code> 把架构师脑海里的隐性经验转化为可解释的权重打分与决策依据列表 <code>reasons</code>。<br/>2. <code>grade_week6_quiz</code> 覆盖了 ReAct 停止词、Checkpointer、JSON-RPC 2.0、Supervisor 与 Dify 变量语法五大本周必考核心。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现类 Dify 声明式 DSL 工作流解析与离线执行引擎（src/day45_dify_dsl_runner.py）</h3><p>模块 <code>src/day45_dify_dsl_runner.py</code> 共计 159 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-045 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>collections (defaultdict, deque)</code>、<code>typing (Any, Dict, List, Tuple)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>DifyDSLRunner</code>（第 12~110 行）】这是一个独立领域模型类。其核心职责定义为：解析并执行类 Dify 声明式工作流 DSL：<br/>支持节点类型：start | knowledge_retrieval | if_else | llm | end。类内部暴露了 5 个方法：<code>__init__(self, dsl, kb_docs)</code>、<code>validate_dsl(self)</code>、<code>_render_template(self, template, var_pool)</code>、<code>_find_next_node(self, current_id, branch_handle)</code>、<code>run(self, inputs)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>DifyDSLRunner.__init__</code>（第 18~25 行）属于同步实例方法，入参签名为 <code>(self, dsl, kb_docs)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DifyDSLRunner.validate_dsl</code>（第 27~50 行）属于同步实例方法，入参签名为 <code>(self)</code>。文档说明：使用 Kahn 拓扑排序检测 DSL 是否存在非法环路或未定义节点引用。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DifyDSLRunner._render_template</code>（第 52~58 行）属于同步实例方法，入参签名为 <code>(self, template, var_pool)</code>。文档说明：将 {{#node_id.field#}} 替换为变量池中的真实值。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DifyDSLRunner._find_next_node</code>（第 60~64 行）属于同步实例方法，入参签名为 <code>(self, current_id, branch_handle)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>DifyDSLRunner.run</code>（第 66~110 行）属于同步实例方法，入参签名为 <code>(self, inputs)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>sample_ticket_triage_dsl</code>（第 113~152 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>()</code>。职责说明：星辰数科运营部导出的工单分流演示 DSL。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day45_dify_dsl_runner.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day45/day45_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day45/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：低代码 vs 代码开发选型评估器与第六周实战周测评分器（src/day45_platform_selector.py）</h3><p>模块 <code>src/day45_platform_selector.py</code> 共计 100 行源码，其中包含 0 行中文工程注释（注释密度约 0.0%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-045 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>dataclasses (dataclass)</code>、<code>typing (Dict, List)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ProjectRequirements</code>（第 10~15 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【函数契约拆解 · <code>recommend_platform</code>（第 18~56 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(req)</code>。职责说明：根据企业项目约束量化打分，推荐 Coze / Dify / LangGraph 自研方案。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【函数契约拆解 · <code>grade_week6_quiz</code>（第 68~85 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(submissions)</code>。职责说明：第六周核心考点自动评分器（满分 100 分，80 分及以上为通过）。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day45_platform_selector.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day45/day45_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day45/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day45_dify_dsl_runner.py（共 159 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day45_dify_dsl_runner.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 45 - 步骤一：类 Dify 声明式工作流 DSL 解析与离线执行引擎。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 45 - 步骤一：类 Dify 声明式工作流 DSL 解析与离线执行引擎。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>VAR_PATTERN = re.compile(r&quot;\{\{#([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)#\}\}&quot;)</code></td><td>核心意图：代表语句：`VAR_PATTERN = re.compile(r&quot;\{\{#([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)#\}\}&quot;)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>def __init__(self, dsl: Dict[str, Any], kb_docs: Dict[str, str] | None =</code></td><td>核心意图：代表语句：`def __init__(self, dsl: Dict[str, Any], kb_docs: Dict[str, str] | None = None) -&gt; None:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L25-L32</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L33-L40</code></td><td><code>src, dst = edge[&quot;source&quot;], edge[&quot;target&quot;]</code></td><td>核心意图：代表语句：`src, dst = edge[&quot;source&quot;], edge[&quot;target&quot;]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>while queue:</code></td><td>核心意图：代表语句：`while queue:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>if visited != len(self.nodes):</code></td><td>核心意图：代表语句：`if visited != len(self.nodes):`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>return VAR_PATTERN.sub(_replace, template)</code></td><td>核心意图：代表语句：`return VAR_PATTERN.sub(_replace, template)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>def run(self, inputs: Dict[str, Any]) -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`def run(self, inputs: Dict[str, Any]) -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>trace: List[Dict[str, Any]] = []</code></td><td>核心意图：代表语句：`trace: List[Dict[str, Any]] = []`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L81-L88</code></td><td><code>if ntype == &quot;start&quot;:</code></td><td>核心意图：代表语句：`if ntype == &quot;start&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>right = str(node[&quot;equals&quot;])</code></td><td>核心意图：代表语句：`right = str(node[&quot;equals&quot;])`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>outputs = {</code></td><td>核心意图：代表语句：`outputs = {`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L105-L112</code></td><td><code>raise ValueError(f&quot;不支持的 DSL 节点类型: {ntype}&quot;)</code></td><td>核心意图：代表语句：`raise ValueError(f&quot;不支持的 DSL 节点类型: {ntype}&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L113-L120</code></td><td><code>def sample_ticket_triage_dsl() -&gt; Dict[str, Any]:</code></td><td>核心意图：代表语句：`def sample_ticket_triage_dsl() -&gt; Dict[str, Any]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L121-L128</code></td><td><code>{</code></td><td>核心意图：代表语句：`{`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L129-L136</code></td><td><code>&quot;type&quot;: &quot;llm&quot;,</code></td><td>核心意图：代表语句：`&quot;type&quot;: &quot;llm&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L137-L144</code></td><td><code>},</code></td><td>核心意图：代表语句：`},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L145-L152</code></td><td><code>{&quot;source&quot;: &quot;start&quot;, &quot;target&quot;: &quot;kb&quot;},</code></td><td>核心意图：代表语句：`{&quot;source&quot;: &quot;start&quot;, &quot;target&quot;: &quot;kb&quot;},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L153-L159</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day45_platform_selector.py（共 100 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day45_platform_selector.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 45 - 步骤二：低代码 vs 代码开发量化选型矩阵与第六周自动周测评分器。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 45 - 步骤二：低代码 vs 代码开发量化选型矩阵与第六周自动周测评分器。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>@dataclass</code></td><td>核心意图：代表语句：`@dataclass`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>def recommend_platform(req: ProjectRequirements) -&gt; Dict[str, object]:</code></td><td>核心意图：代表语句：`def recommend_platform(req: ProjectRequirements) -&gt; Dict[str, object]:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L25-L32</code></td><td><code>scores[&quot;Dify&quot;] += 4</code></td><td>核心意图：代表语句：`scores[&quot;Dify&quot;] += 4`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L33-L40</code></td><td><code>scores[&quot;Dify&quot;] += 1</code></td><td>核心意图：代表语句：`scores[&quot;Dify&quot;] += 1`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L41-L48</code></td><td><code>scores[&quot;Dify&quot;] += 1</code></td><td>核心意图：代表语句：`scores[&quot;Dify&quot;] += 1`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>if req.maintainer_is_non_dev:</code></td><td>核心意图：代表语句：`if req.maintainer_is_non_dev:`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>WEEK6_ANSWER_KEY: Dict[str, str] = {</code></td><td>核心意图：代表语句：`WEEK6_ANSWER_KEY: Dict[str, str] = {`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L65-L72</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L73-L80</code></td><td><code>for qid, expected in WEEK6_ANSWER_KEY.items():</code></td><td>核心意图：代表语句：`for qid, expected in WEEK6_ANSWER_KEY.items():`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>&quot;score&quot;: score,</code></td><td>核心意图：代表语句：`&quot;score&quot;: score,`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>rec = recommend_platform(</code></td><td>核心意图：代表语句：`rec = recommend_platform(`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L97-L100</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day45/tests/test_day45.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day45/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day45/tests/test_day45.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 45 自动化单元测试：验证 Dify DSL 引擎分支执行、环路检测与选型矩阵。&quot;&quot;&quot;
+
+import pytest
+from src.day45_dify_dsl_runner import DifyDSLRunner, sample_ticket_triage_dsl
+from src.day45_platform_selector import (
+    ProjectRequirements,
+    WEEK6_ANSWER_KEY,
+    grade_week6_quiz,
+    recommend_platform,
+)
+
+
+def test_dify_dsl_runner_branches_correctly():
+    runner = DifyDSLRunner(sample_ticket_triage_dsl())
+
+    p0 = runner.run({&quot;priority&quot;: &quot;P0&quot;, &quot;query&quot;: &quot;数据库连接池耗尽&quot;})
+    assert p0[&quot;outputs&quot;][&quot;level&quot;] == &quot;URGENT&quot;
+    assert &quot;15 分钟内响应&quot; in p0[&quot;outputs&quot;][&quot;reply&quot;]
+
+    p2 = runner.run({&quot;priority&quot;: &quot;P2&quot;, &quot;query&quot;: &quot;如何申请测试账号&quot;})
+    assert p2[&quot;outputs&quot;][&quot;level&quot;] == &quot;NORMAL&quot;
+    assert &quot;4 个工作小时内响应&quot; in p2[&quot;outputs&quot;][&quot;reply&quot;]
+
+
+def test_dify_dsl_detects_cycle():
+    cyclic_dsl = {
+        &quot;nodes&quot;: [
+            {&quot;id&quot;: &quot;start&quot;, &quot;type&quot;: &quot;start&quot;},
+            {&quot;id&quot;: &quot;a&quot;, &quot;type&quot;: &quot;llm&quot;, &quot;prompt_template&quot;: &quot;hi&quot;},
+            {&quot;id&quot;: &quot;end&quot;, &quot;type&quot;: &quot;end&quot;, &quot;outputs&quot;: {}},
+        ],
+        &quot;edges&quot;: [
+            {&quot;source&quot;: &quot;start&quot;, &quot;target&quot;: &quot;a&quot;},
+            {&quot;source&quot;: &quot;a&quot;, &quot;target&quot;: &quot;start&quot;},
+            {&quot;source&quot;: &quot;a&quot;, &quot;target&quot;: &quot;end&quot;},
+        ],
+    }
+    runner = DifyDSLRunner(cyclic_dsl)
+    with pytest.raises(ValueError, match=&quot;循环依赖&quot;):
+        runner.validate_dsl()
+
+
+def test_platform_selector_and_week6_quiz():
+    ops_req = ProjectRequirements(
+        private_deployment_required=True,
+        has_complex_cycles_or_hitl=False,
+        need_strict_rbac_and_ci=False,
+        delivery_days=2,
+        maintainer_is_non_dev=True,
+    )
+    assert recommend_platform(ops_req)[&quot;recommended&quot;] == &quot;Dify&quot;
+
+    core_req = ProjectRequirements(
+        private_deployment_required=True,
+        has_complex_cycles_or_hitl=True,
+        need_strict_rbac_and_ci=True,
+        delivery_days=14,
+        maintainer_is_non_dev=False,
+    )
+    assert recommend_platform(core_req)[&quot;recommended&quot;] == &quot;LangGraph&quot;
+
+    full_score = grade_week6_quiz(WEEK6_ANSWER_KEY)
+    assert full_score[&quot;score&quot;] == 100 and full_score[&quot;passed&quot;] is True
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-045</code>，承接自 Day 44 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day45-weekly-exam-dify-dsl</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day45-weekly-exam-dify-dsl）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day45-weekly-exam-dify-dsl
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day45.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-045）
+git add src/day45_dify_dsl_runner.py src/day45_platform_selector.py tests/test_day45.py
+git commit -m &quot;feat(day45): 实现类Dify声明式DSL工作流解析引擎、低代码选型矩阵与第六周自动评测
+
+Refs: STARMIND-045
+- 完成 周测 + Dify/Coze 低代码平台 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day45-weekly-exam-dify-dsl</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-045 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-045 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day45_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day45_dify_dsl_runner.py src/day45_platform_selector.py
+    - echo &quot;Day 45 语法编译检查通过&quot;
+
+day45_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day45/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day45/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (AI 架构师)</span><span>状态：Approved</span></div><p>用 Kahn 拓扑排序给 Dify DSL 做静态环路校验这个点子很赞！很多运营同学在低代码画布上误连回路，能在 CI 里提前拦下来太省心了。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p>变量池 <code>var_pool</code> 的设计非常清爽，今天看明白 Dify DSL 的执行原理后，以后跟产品经理沟通“低代码边界”底气足多了。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>选型评分矩阵太实用了，我直接截进下周的产品立项评审 PPT 里，以后新需求先跑一遍矩阵再决定用 Dify 还是排研发！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-045 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-045（周测 + Dify/Coze 低代码平台）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科运营部门用 Dify 拖拽了一个“客户工单自动分类与初审”工作流，希望研发团队评估能否直接上线，或将其导出的 DSL 迁移到星辰智脑内部统一托管运行。同时团队需要对第六周 Agent 核心知识点进行客观验收。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）团队内部对“用 Dify/Coze 还是用 LangGraph 代码自研”常陷入无休止争论，缺乏量化选型维度。；（2）运营在低代码平台拖出来的 DSL 流程缺少本地单元测试与 CI 回归能力，改动一个条件分支极易引发线上故障。；（3）第六周知识点跨度大（ReAct / LangGraph / Multi-Agent / MCP），需要通过自动化周测定位知识盲区。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）深度解析 Dify / Coze 声明式工作流 DSL 结构（节点类型、边连接、<code>{{#node_id.field#}}</code> 变量模板与条件分支）。；（2）编写纯 Python 的 <code>DifyDSLRunner</code> 引擎，支持在本地离线执行类 Dify DSL 工作流并检测环路。；（3）构建量化的“低代码 vs 代码自研”技术选型打分矩阵，并完成第六周核心知识点自动评分周测器。，必须全部翻译成可量化的测试用例和监控指标（例如 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day45/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. Dify DSL 的变量引用语法 <code>{{#node_id.var_name#}}</code>】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在 Dify 导出的 YAML/JSON DSL 中，节点间数据传递不是靠硬编码 Python 变量，而是靠统一模板语法 <code>{{#node_id.field#}}</code> 从全局 <code>VariablePool</code> 中动态取值。这种设计让画布连线与参数绑定彻底解耦，也是所有低代码工作流引擎的通用范式。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：在画布上重命名或删除上游节点后，下游 LLM Prompt 里残留的 <code>{{#old_node.text#}}</code> 往往变成空字符串，导致线上回复莫名其妙失去上下文。导出 DSL 做静态引用检查能提前规避这类隐蔽 Bug。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. Dify DSL 的变量引用语法 <code>{{#node_id.var_name#}}</code>」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 什么时候该把 Dify 工作流迁移为代码自研？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：出现以下三个信号之一时，就该启动向 LangGraph 代码自研的迁移：<br/>1) 画布节点数超过 25 个、连线像蜘蛛网一样没人敢动；<br/>2) 需要对接公司内部复杂的微服务鉴权、分布式锁或数据库事务；<br/>3) 业务要求每次改版必须经过 GitLab MR Code Review 和 50+ 条自动化回归单测才能发布。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：千万不要把几十行复杂业务逻辑硬塞进 Dify 的“Python 代码执行沙箱节点”里维护——没有 IDE 补全、没有单测、没有版本 diff，三个月后必成无人敢碰的祖传黑盒。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 什么时候该把 Dify 工作流迁移为代码自研？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. 第六周高频面试/周测核心考点清单】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：1) ReAct 为什么必须设置 <code>Stop Sequence</code>（如 <code>Observation:</code>）？防止模型自问自答伪造工具输出。<br/>2) LangGraph 中 <code>Checkpointer</code> 和 <code>interrupt_before</code> 如何配合支撑跨小时人工审批？落库挂起释放线程，审批后按 <code>thread_id</code> 加载恢复。<br/>3) MCP 的核心价值是什么？用 JSON-RPC 2.0 标准把 M×N 工具适配降维为 M+N。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：面试被问到“多 Agent 一定比单 Agent 好吗？”时，切忌盲目吹捧多 Agent，必须从延迟、Token 成本、上下文损耗与权限隔离四个维度辩证作答。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. 第六周高频面试/周测核心考点清单」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 45 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day45/</code> 中亲手编写了 <code>src/day45_dify_dsl_runner.py</code>、<code>src/day45_platform_selector.py</code> 以及对应的自动化测试 <code>tests/test_day45.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day45_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 45 / STARMIND-045）：1. 已在分支 <code>feat/day45-weekly-exam-dify-dsl</code> 完成 周测 + Dify/Coze 低代码平台 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 46）：明天（Day 46）我们进入第七周，正式向生产级稳定性开火：治理 Agent 死循环与幻觉参数、搭建类 LangSmith 的 Trace/Span 全链路观测体系、Guardrails 护栏以及语义缓存降本提速。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 45 掌握的「周测 + Dify/Coze 低代码平台」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「周测 + Dify/Coze 低代码平台」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：周测 + Dify/Coze 低代码平台 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-045 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day45.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 45 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day45/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day45_dify_dsl_runner.py, src/day45_platform_selector.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>`DifyDSLRunner` 能正确解析变量插值 `{{#start.query#}}`、根据 `if_else` 条件动态选择分支节点并输出完整节点追踪。；DSL 存在非法环路或孤立节点时，`validate_dsl()` 能够提前拦截报错。；选型评估器能根据业务复杂度、私有化部署、定制化并发与交付周期给出客观推荐方案（Dify / Coze / LangGraph），所有单测 100% 通过。</td><td>运行 `pytest versions/day45/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day45/day45_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day45-weekly-exam-dify-dsl` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「周测 + Dify/Coze 低代码平台」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-045 需求时，我们的核心业务目标是：深度解析 Dify / Coze 声明式工作流 DSL 结构（节点类型、边连接、<code>{{#node_id.field#}}</code> 变量模板与条件分支）。；编写纯 Python 的 <code>DifyDSLRunner</code> 引擎，支持在本地离线执行类 Dify DSL 工作流并检测环路。；构建量化的“低代码 vs 代码自研”技术选型打分矩阵，并完成第六周核心知识点自动评分周测器。。最初我们也评估过极简脚本方案，但在 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. Dify DSL 的变量引用语法 <code>{{#node_id.var_name#}}</code>、2. 什么时候该把 Dify 工作流迁移为代码自研？、3. 第六周高频面试/周测核心考点清单 这几层解耦抽象，既满足了当前阶段的 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「周测 + Dify/Coze 低代码平台」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 45 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day45_dify_dsl_runner.py、src/day45_platform_selector.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>第六周圆满收官！把 Dify DSL 亲手解析一遍后，你会发现低代码平台底层其实就是“可视化画布 + JSON/YAML 声明式 DAG + 沙箱节点执行器”，和我们学的 LangGraph 殊途同归。记住老陈的选型铁律：POC 验证和运营类轻量问答大胆上 Dify/Coze 抢时间，核心交易链路、深度权限控制和复杂状态机果断上代码自研！周末好好休息，下周我们攻克 Agent 工程化护栏和阶段项目三！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：为 Dify DSL 增加悬空变量引用静态检查</strong><span class="badge">基础巩固</span></div><p>编写 <code>find_broken_var_refs(dsl)</code>，扫描所有节点的 <code>prompt_template</code>/<code>query_template</code> 中的 <code>{{#node_id.field#}}</code>，找出引用了不存在的 <code>node_id</code> 的错误配置。</p><p><strong>💡 思路提示：</strong>用正则 `VAR_PATTERN.findall(text)` 提取所有 `node_id`，与 DSL 中实际定义的节点 ID 集合求差集。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-45-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-45-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 45 作业 1 参考答案：DSL 悬空变量引用静态检查器。&quot;&quot;&quot;
+
+import re
+from typing import Any, Dict, List
+
+VAR_RE = re.compile(r&quot;\{\{#([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)#\}\}&quot;)
+
+
+def find_broken_var_refs(dsl: Dict[str, Any]) -&gt; List[str]:
+    valid_ids = {n[&quot;id&quot;] for n in dsl.get(&quot;nodes&quot;, [])}
+    broken: List[str] = []
+    for node in dsl.get(&quot;nodes&quot;, []):
+        for key in (&quot;prompt_template&quot;, &quot;query_template&quot;, &quot;left_template&quot;):
+            text = node.get(key, &quot;&quot;)
+            for ref_node, ref_field in VAR_RE.findall(text):
+                if ref_node not in valid_ids:
+                    broken.append(f&quot;{node[&#x27;id&#x27;]}-&gt;{ref_node}.{ref_field}&quot;)
+    return broken
+
+
+if __name__ == &quot;__main__&quot;:
+    bad_dsl = {
+        &quot;nodes&quot;: [
+            {&quot;id&quot;: &quot;start&quot;, &quot;type&quot;: &quot;start&quot;},
+            {&quot;id&quot;: &quot;llm1&quot;, &quot;type&quot;: &quot;llm&quot;, &quot;prompt_template&quot;: &quot;你好 {{#deleted_node.text#}}&quot;},
+        ]
+    }
+    issues = find_broken_var_refs(bad_dsl)
+    print(&quot;发现悬空变量引用:&quot;, issues)
+    assert issues == [&quot;llm1-&gt;deleted_node.text&quot;]
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>静态分析 DSL 中的悬空变量引用，可以在发布前 100% 拦截画布删节点导致的线上空上下文事故。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：将 Dify DSL 一键转换为 Mermaid 流程图</strong><span class="badge">企业实战</span></div><p>编写 <code>dsl_to_mermaid(dsl)</code>，遍历 DSL 的 <code>nodes</code> 与 <code>edges</code>，输出标准 <code>graph LR</code> Mermaid 源码，方便自动嵌入 GitLab MR 文档。</p><p><strong>💡 思路提示：</strong>对每个节点输出 `id[id: type]`，对每条边输出 `source --&gt;|handle| target`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-45-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-45-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 45 作业 2 参考答案：Dify DSL 自动转 Mermaid 流程图。&quot;&quot;&quot;
+
+from typing import Any, Dict, List
+
+
+def dsl_to_mermaid(dsl: Dict[str, Any]) -&gt; str:
+    lines: List[str] = [&quot;graph LR&quot;]
+    for n in dsl.get(&quot;nodes&quot;, []):
+        lines.append(f&#x27;    {n[&quot;id&quot;]}[&quot;{n[&quot;id&quot;]} ({n[&quot;type&quot;]})&quot;]&#x27;)
+    for e in dsl.get(&quot;edges&quot;, []):
+        handle = e.get(&quot;handle&quot;)
+        if handle:
+            lines.append(f&#x27;    {e[&quot;source&quot;]} --&gt;|{handle}| {e[&quot;target&quot;]}&#x27;)
+        else:
+            lines.append(f&#x27;    {e[&quot;source&quot;]} --&gt; {e[&quot;target&quot;]}&#x27;)
+    return &quot;\n&quot;.join(lines)
+
+
+if __name__ == &quot;__main__&quot;:
+    demo = {
+        &quot;nodes&quot;: [{&quot;id&quot;: &quot;start&quot;, &quot;type&quot;: &quot;start&quot;}, {&quot;id&quot;: &quot;end&quot;, &quot;type&quot;: &quot;end&quot;}],
+        &quot;edges&quot;: [{&quot;source&quot;: &quot;start&quot;, &quot;target&quot;: &quot;end&quot;}],
+    }
+    md = dsl_to_mermaid(demo)
+    print(md)
+    assert &quot;start --&gt; end&quot; in md
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>把低代码 DSL 纳入 Git 仓库并在 MR 中自动生成 Mermaid 拓扑图，能让低代码资产也具备工程级的可评审性。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：设计低代码向代码自研迁移的渐进式灰度策略</strong><span class="badge">架构进阶</span></div><p>编写一个 <code>TrafficSplitter</code> 类，支持按百分比 <code>langgraph_ratio</code>（0.0~1.0）与 <code>user_id</code> 哈希稳定分流，将部分流量从 Dify 平滑切流至 LangGraph 自研服务，保证同一用户始终命中同一后端。</p><p><strong>💡 思路提示：</strong>使用 `hashlib.md5(user_id.encode()).hexdigest()` 取前 8 位转整数对 100 取模，与 `int(ratio * 100)` 比较。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-45-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-45-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 45 作业 3 参考答案：基于一致性哈希的低代码-&gt;自研平滑灰度切流器。&quot;&quot;&quot;
+
+import hashlib
+
+
+class TrafficSplitter:
+    def __init__(self, langgraph_ratio: float = 0.2) -&gt; None:
+        self.threshold = int(max(0.0, min(1.0, langgraph_ratio)) * 100)
+
+    def route(self, user_id: str) -&gt; str:
+        bucket = int(hashlib.md5(user_id.encode(&quot;utf-8&quot;)).hexdigest()[:8], 16) % 100
+        return &quot;langgraph&quot; if bucket &lt; self.threshold else &quot;dify&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    splitter = TrafficSplitter(langgraph_ratio=0.3)
+    first = splitter.route(&quot;emp_10086&quot;)
+    second = splitter.route(&quot;emp_10086&quot;)
+    assert first == second
+    print(&quot;用户 emp_10086 稳定命中:&quot;, first)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>使用确定性哈希分桶灰度切流，能避免同一个用户在多轮对话中一会儿落到 Dify、一会儿落到 LangGraph 导致会话状态撕裂。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day44/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day46/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

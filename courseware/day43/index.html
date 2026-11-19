@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 43：多 Agent 系统 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 4 阶段 · 第 6 周</span>
+      <span class="badge badge-ticket">STARMIND-043</span>
+      <span class="badge">Day 43 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="43" onclick="toggleDayComplete(43, this)">标记今日已完成</button>
+      <a class="btn" href="../day42/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day44/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day43-multi-agent-supervisor-team</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day43/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day43/day43_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day43_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 4 阶段：第四阶段：Agent 智能体开发与多 Agent 协同 · 第 6 周：Agent 基础、工具调用与 LangGraph 状态机</div>
+        <h1>Day 43：多 Agent 系统</h1>
+        <p class="hero-sub">Supervisor / 协作 / 层级模式对比与星辰行业研究团队多 Agent 协同实战</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-043</span>
+          <span class="hero-tag">分支：feat/day43-multi-agent-supervisor-team</span>
+          <span class="hero-tag">角色：负责复杂业务编排与多智能体协同的 Agent 核心研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊各位！最近大家写单个 Agent 越写越顺手，但也一定发现了新瓶颈：当你把 20 个工具、3 份长达两千字的专业规范全都塞进同一个 System Prompt 时，大模型立刻开始“注意力稀释”，不是调错工具就是忘了输出格式。怎么办？软件工程里有微服务，人类社会有项目组——在 AI 里就是 **Multi-Agent（多 Agent 协同）**！今天老陈带大家对比 Supervisor、去中心化协作、层级团队三大经典架构，并亲手组建星辰数科的「行业研究三人组」：搜索员搜集情报、分析师算指标画结论、撰写员成文并接受主管质检打回。</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 42）我们攻克了 LangGraph 的 Checkpointer 断点持久化、HITL 中断恢复、节点重试与并行章节写作 Agent，单个复杂 Agent 的工程底座已经非常扎实。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 44）我们将把视野拓展到跨系统生态协议——Model Context Protocol（MCP），手写符合 JSON-RPC 2.0 规范的 MCP Server/Client，并构建 Agent 短期与长期双层记忆架构。</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 43 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 43）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责复杂业务编排与多智能体协同的 Agent 核心研发工程师】，依托的工程底座是【StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台】。回顾昨天留下的上下文：昨天（Day 42）我们攻克了 LangGraph 的 Checkpointer 断点持久化、HITL 中断恢复、节点重试与并行章节写作 Agent，单个复杂 Agent 的工程底座已经非常扎实。 今天我们通过需求单 STARMIND-043，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day43/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 44）我们将把视野拓展到跨系统生态协议——Model Context Protocol（MCP），手写符合 JSON-RPC 2.0 规范的 MCP Server/Client，并构建 Agent 短期与长期双层记忆架构。 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:30 - 12:00</strong></td><td>多 Agent 三大架构模式与上下文隔离原则</td><td>深度对比 Supervisor、Handoff（协作交接）、Hierarchical（层级团队）架构；剖析共享状态黑板与防 Ping-Pong 熔断设计。</td></tr>
+<tr><td><strong>下午 13:30 - 15:30</strong></td><td>动手实操（一）：Supervisor 路由状态机内核</td><td>编写 `src/day43_multi_agent_patterns.py`，实现专家角色注册、上下文视图裁剪、路由决策与最大轮次熔断。</td></tr>
+<tr><td><strong>下午 15:45 - 17:30</strong></td><td>动手实操（二）：星辰行业研究团队多 Agent 实战</td><td>编写 `src/day43_research_team.py`，组装搜索员、分析师、撰写员与质检主管，跑通自动打回与终稿交付闭环。</td></tr>
+<tr><td><strong>晚间 19:00 - 20:30</strong></td><td>自动化单元测试与 MR 评审</td><td>运行 `pytest` 验证多 Agent 路由、打回重写和熔断机制，完成 3 道梯度课后题。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-043）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>星辰数科战略发展部每周需要针对目标行业（如新能源、企业级 SaaS、工业视觉）输出一份包含竞品动态、财务估算与落地建议的深度研报。单 Agent 同时承担搜索、量化计算和公文排版时，经常出现数据引用错位或遗漏关键章节。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>单 Agent 挂载过多工具与角色指令后，Prompt 膨胀导致推理准确率断崖式下降。</li><li>不同专家任务需要不同上下文视图（分析师只需结构化数据，撰写员只需结论与论据），全量广播历史消息极度浪费 Token。</li><li>多 Agent 之间若缺少统一调度与轮次限制，极易在“打回修改 -&gt; 重新分析 -&gt; 再次打回”中陷入无限踢皮球。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>对比 Supervisor（主管集中式）、Peer-to-Peer（去中心化交接）与 Hierarchical（层级树状）三种多 Agent 编排模式的适用边界。</li><li>实现通用的 `SupervisorOrchestrator` 状态机，支持共享黑板（Blackboard State）、按角色裁剪上下文视图与防踢皮球熔断。</li><li>落地星辰行业研究团队：`ResearcherAgent`（情报搜索员）+ `AnalystAgent`（数据分析师）+ `WriterAgent`（报告撰写员），支持主管质检打回重写。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>给定行业研究主题后，Supervisor 能按「搜索 -&gt; 分析 -&gt; 撰写 -&gt; 质检」顺序动态路由各专家节点。</li><li>当撰写员初稿缺少“风险提示”关键章节时，Supervisor 能将其打回重写并在下一轮通过验收。</li><li>设置 `max_rounds` 上限，模拟死循环路由时能触发安全熔断并返回降级报告，所有单测本地 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>每个专家 Agent 拥有独立的 `allowed_tools` 权限边界，禁止撰写员直接越权调用原始搜索或写库工具。</li><li>完整记录每次路由决策的 `routing_history`（轮次、目标角色、路由原因），便于线上复盘。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>多 Agent 系统（Multi-Agent System, MAS）的核心价值在于**关注点分离（Separation of Concerns）**与**最小权限隔离**。工业界最主流的三种编排模式各有取舍：</p>
+<p>1. **Supervisor（主管集中式）**：由一个中心化的 <code>Supervisor</code> 节点读取全局状态（Blackboard），每轮决定派发给哪位专家 Worker（或宣布 <code>FINISH</code>）。优点是全局可控、审计清晰、极易在主管层统一做质检和熔断；缺点是主管节点本身会成为调用热点。**星辰数科 80% 的企业多 Agent 业务首选此模式**。<br/>2. **Collaborative / Handoff（去中心化协作交接）**：各 Agent 之间直接通过 <code>Command(goto=&#x27;next_agent&#x27;)</code> 移交控制权（如 OpenAI Swarm 模式）。优点是延迟低、少一次主管路由调用；缺点是 Agent 数量超过 4 个后跳转拓扑迅速网状化，极难维护。<br/>3. **Hierarchical（层级团队模式）**：将多个 Supervisor 嵌套为 Subgraph（例如“总编主管”下辖“调研小组主管”和“法务审校主管”），适合超大型复杂流水线。</p>
+<p>在工程落地时，多 Agent 最关键的三个设计原则是：① **共享黑板 + 局部视图**：用结构化字典保存 <code>facts</code>、<code>metrics</code>、<code>draft</code> 等工件，每个专家只读自己关心的字段，不把原始冗余日志塞进所有人的上下文；② **明确的交接契约（Artifact Contract）**：搜索员必须产出带来源的条目列表，分析师必须产出可验证的数值指标；③ **硬性轮次熔断与踢皮球检测**：限制总轮次 <code>max_rounds</code> 与单角色最大返工次数 <code>max_revisions</code>，防止两个 Agent 互相指责死循环烧光预算。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 43.1：多 Agent Supervisor 集中式编排架构图（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 432" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="432" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">多 Agent Supervisor 集中式编排架构图</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">ResearchSupervisor</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">路由决策 + 质检 + 熔断</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">ResearcherAgent</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">情报检索与来源归档</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">AnalystAgent</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">趋势量化与同比测算</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">WriterAgent</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">研报撰写与定向修订</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">FINISH 终稿交付</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">输出结构化 Markdown 研报</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">缺原始情报</text>
+<line x1="231.0" y1="250" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入 facts</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">缺量化结论</text>
+<line x1="629.0" y1="250" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入 analysis</text>
+<line x1="430.0" y1="130" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">起草 / 质检打回</text>
+<line x1="231.0" y1="370" x2="430.0" y2="51" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">写入 draft</text>
+<line x1="430.0" y1="130" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">质检通过</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示研究主管如何基于共享黑板状态动态调度搜索员、分析师与撰写员，并在质检不通过时触发定向返工。</div></div><div class="diagram-card"><div class="diagram-title">图 43.2：三种多 Agent 编排模式拓扑对比示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">三种多 Agent 编排模式拓扑对比示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Supervisor 模式</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">星型拓扑：主管统一分发与回收</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Handoff 协作模式</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">网状拓扑：Agent 直接移交控制权</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Hierarchical 层级模式</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">树状拓扑：总管调度多个子团队 Subgraph</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">选型建议</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">2~5人选Supervisor；超大业务选层级</text>
+<line x1="215" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>直观对比 Supervisor 集中式、Peer-to-Peer 去中心化交接与 Hierarchical 层级嵌套的控制流差异。</div></div><div class="diagram-card"><div class="diagram-title">图 43.3：防踢皮球（Ping-Pong）与轮次熔断流程图（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">防踢皮球（Ping-Pong）与轮次熔断流程图</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">进入 Supervisor 决策</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">round_no += 1</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">round_no &gt; max_rounds?</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">全局步数上限检查</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">质检是否全部通过?</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">检查必填章节与数据引用</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">派发目标专家 Agent</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">注入定向反馈意见</text>
+<rect x="322" y="184" width="220" height="74" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="432.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">正常 FINISH</text>
+<text x="432.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">返回高质量研报</text>
+<rect x="36" y="184" width="220" height="74" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="146.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">触发降级熔断</text>
+<text x="146.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">标记 truncated=True 止损</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="257.5" y="66.0" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">校验预算</text>
+<line x1="432.0" y1="122" x2="146.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="259.0" y="132.5" width="60" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="289.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">超限熔断</text>
+<line x1="542" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="549.5" y="66.0" width="48" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="573.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">未超限</text>
+<line x1="718.0" y1="122" x2="432.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="557.0" y="132.5" width="36" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="575.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">通过</text>
+<line x1="718.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="670.0" y="132.5" width="96" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="718.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">未通过/待补充</text>
+<line x1="718.0" y1="258" x2="146.0" y2="45" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="390.0" y="132.5" width="84" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">执行完毕回传</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>展示 Supervisor 在每次路由前如何检查总步数上限与单角色返工配额，避免无限循环。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. 什么时候真正需要 Multi-Agent？</h3><p>不要一上来就把简单任务拆成 5 个 Agent！老陈总结的三条黄金判断标准：<br/>1) **工具数量超过 8~10 个**，且分属不同业务域（如财务审批 vs 代码检索），单模型选择准确率开始抖动；<br/>2) **需要角色对抗与交叉校验**（如“撰写员”与“法务审核员”互相独立，避免自己夸自己写得好）；<br/>3) **安全权限隔离**：不同专家绑定不同的工具白名单，防止低权限问答链路越权触发写库操作。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：把原本一个 Prompt 就能搞定的翻译+总结拆成 3 个 Agent，结果延迟翻了 3 倍、Token 费翻了 4 倍，效果反而因为信息传递损耗变差。</div><h3>2. 2. 共享黑板（Blackboard）与上下文视图裁剪</h3><p>在多 Agent 通信中，最忌讳把所有 Agent 的原始对话历史（包含几千字的网页抓取原文）原封不动广播给所有人。正确做法是维护一个结构化的 <code>TeamState</code> 黑板：每个专家只接收自己职责所需的 <code>context_view</code>（例如分析师只看 <code>facts</code>，撰写员只看 <code>analysis</code> 和 <code>review_feedback</code>），产出结构化工件后写回黑板。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：如果允许所有专家随意覆写同一个 `messages` 字符串字段，很容易发生“后一个 Agent 覆盖前一个 Agent 关键证据”的脏写问题。</div><h3>3. 3. LangGraph 中的真实 Multi-Agent 写法（Supervisor &amp; Command）</h3><p>在官方 LangGraph 中，主管路由通常利用结构化输出返回 <code>next: Literal[&#x27;researcher&#x27;, &#x27;analyst&#x27;, &#x27;writer&#x27;, &#x27;FINISH&#x27;]</code>，或者使用 <code>Command(goto=&#x27;analyst&#x27;, update={&#x27;facts&#x27;: ...})</code> 在节点内部直接完成状态更新与路由跳转，代码结构与我们今天手写的 <code>SupervisorOrchestrator</code> 高度一致。</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>坑点：生产环境务必给 Supervisor 的路由输出加上白名单校验，防止大模型偶发幻觉输出一个不存在的 Agent 名字导致图引擎 `KeyError` 崩溃。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈架构笔记：多 Agent 里的“异构模型混搭”省钱大法】<br/>拆分出多 Agent 后，一个巨大的隐藏红利是**不同专家可以绑定不同档次的模型**：<br/>- <code>Supervisor</code>（路由决策）：逻辑清晰但输出极短，适合用轻量高性价比模型（如 Qwen-Turbo / GPT-4o-mini）配合 JSON Mode；<br/>- <code>Analyst</code>（复杂推理与量化）：对严谨度要求最高，分配强推理模型（如 DeepSeek-R1 / Claude Sonnet）；<br/>- <code>Writer</code>（公文润色与排版）：分配中文文风自然的大模型。<br/>通过按角色异构路由，星辰数科曾把一套 4 Agent 研报流水线的单次运行成本从 0.85 元压到了 0.19 元，同时端到端延迟缩短了 35%。</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day43/</code> 与 <code>notebooks/day43/day43_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现通用 Supervisor 多 Agent 路由状态机与权限隔离底座</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>先搭底座！我们先写一个干净、可复用的 <code>SupervisorOrchestrator</code>：支持注册多个拥有独立 <code>allowed_tools</code> 的专家 Agent，通过 <code>RouterFunc</code> 动态决定下一跳，并内置非法路由拦截与 <code>max_rounds</code> 防死循环熔断。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day43_multi_agent_patterns.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 43 - 步骤一：通用 Supervisor 多 Agent 路由状态机与上下文隔离底座。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Protocol
+
+FINISH = &quot;FINISH&quot;
+
+
+class WorkerAgent(Protocol):
+    &quot;&quot;&quot;专家 Agent 统一协议：只读取裁剪后的上下文视图，返回结构化状态补丁。&quot;&quot;&quot;
+
+    name: str
+    role_desc: str
+    allowed_tools: List[str]
+
+    def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+        ...
+
+
+@dataclass
+class RouteDecision:
+    next_agent: str
+    reason: str
+    feedback: str = &quot;&quot;
+
+
+@dataclass
+class MultiAgentResult:
+    final_state: Dict[str, Any]
+    routing_history: List[Dict[str, Any]] = field(default_factory=list)
+    completed: bool = True
+    truncated: bool = False
+    rounds: int = 0
+
+
+class SupervisorOrchestrator:
+    &quot;&quot;&quot;
+    Supervisor 集中式多 Agent 编排器：
+    - 维护共享黑板状态 (Blackboard State)
+    - 每轮由 router_fn 决定派发给哪位专家或 FINISH
+    - 内置路由白名单校验与 max_rounds 防踢皮球熔断
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        router_fn: Callable[[Dict[str, Any], List[str]], RouteDecision],
+        max_rounds: int = 8,
+    ) -&gt; None:
+        self.router_fn = router_fn
+        self.max_rounds = max_rounds
+        self._workers: Dict[str, WorkerAgent] = {}
+
+    def register_worker(self, worker: WorkerAgent) -&gt; &quot;SupervisorOrchestrator&quot;:
+        if worker.name == FINISH:
+            raise ValueError(&quot;专家名称不能与保留关键字 FINISH 冲突&quot;)
+        self._workers[worker.name] = worker
+        return self
+
+    @property
+    def worker_names(self) -&gt; List[str]:
+        return list(self._workers.keys())
+
+    def invoke(self, initial_state: Dict[str, Any]) -&gt; MultiAgentResult:
+        state: Dict[str, Any] = dict(initial_state)
+        history: List[Dict[str, Any]] = []
+
+        for round_no in range(1, self.max_rounds + 1):
+            decision = self.router_fn(state, self.worker_names)
+            history.append(
+                {
+                    &quot;round&quot;: round_no,
+                    &quot;next_agent&quot;: decision.next_agent,
+                    &quot;reason&quot;: decision.reason,
+                    &quot;feedback&quot;: decision.feedback,
+                }
+            )
+
+            if decision.next_agent == FINISH:
+                return MultiAgentResult(
+                    final_state=state,
+                    routing_history=history,
+                    completed=True,
+                    truncated=False,
+                    rounds=round_no,
+                )
+
+            if decision.next_agent not in self._workers:
+                raise ValueError(
+                    f&quot;Supervisor 路由目标非法: &#x27;{decision.next_agent}&#x27;，合法专家: {self.worker_names}&quot;
+                )
+
+            worker = self._workers[decision.next_agent]
+            patch = worker.run(state, feedback=decision.feedback)
+            state.update(patch)
+
+        # 超出最大轮次，触发防踢皮球安全熔断
+        return MultiAgentResult(
+            final_state=state,
+            routing_history=history,
+            completed=False,
+            truncated=True,
+            rounds=self.max_rounds,
+        )
+
+
+if __name__ == &quot;__main__&quot;:
+    class EchoWorker:
+        def __init__(self, name: str, role_desc: str, allowed_tools: List[str]) -&gt; None:
+            self.name = name
+            self.role_desc = role_desc
+            self.allowed_tools = allowed_tools
+
+        def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+            done = list(state.get(&quot;done&quot;, []))
+            done.append(f&quot;{self.name}:{feedback or &#x27;ok&#x27;}&quot;)
+            return {&quot;done&quot;: done}
+
+    def demo_router(state: Dict[str, Any], workers: List[str]) -&gt; RouteDecision:
+        done = state.get(&quot;done&quot;, [])
+        if len(done) == 0:
+            return RouteDecision(next_agent=workers[0], reason=&quot;先执行第一步采集&quot;)
+        return RouteDecision(next_agent=FINISH, reason=&quot;采集已完成，结束流程&quot;)
+
+    orch = SupervisorOrchestrator(router_fn=demo_router, max_rounds=4)
+    orch.register_worker(EchoWorker(&quot;collector&quot;, &quot;采集员&quot;, [&quot;search&quot;]))
+    res = orch.invoke({&quot;topic&quot;: &quot;AI Agent 行业趋势&quot;})
+    print(&quot;完成状态:&quot;, res.completed, &quot;| 轮次:&quot;, res.rounds, &quot;| 轨迹:&quot;, res.routing_history)
+</code></pre><div class="output-box"># 预期运行输出示例：
+完成状态: True | 轮次: 2 | 轨迹: [{&#x27;round&#x27;: 1, &#x27;next_agent&#x27;: &#x27;collector&#x27;, &#x27;reason&#x27;: &#x27;先执行第一步采集&#x27;, &#x27;feedback&#x27;: &#x27;&#x27;}, {&#x27;round&#x27;: 2, &#x27;next_agent&#x27;: &#x27;FINISH&#x27;, &#x27;reason&#x27;: &#x27;采集已完成，结束流程&#x27;, &#x27;feedback&#x27;: &#x27;&#x27;}]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>WorkerAgent</code> 协议约束所有专家只需实现 <code>run(state, feedback) -&gt; dict</code>，不直接修改全局状态，保证状态流转清晰可测。<br/>2. <code>SupervisorOrchestrator.invoke</code> 每次先校验 <code>decision.next_agent</code> 是否在注册白名单内，防止模型幻觉输出未知角色。<br/>3. 循环到达 <code>max_rounds</code> 后自动返回 <code>truncated=True</code>，为线上多 Agent 团队兜住成本和死循环底线。</p><h3>实操步骤 2：步骤二：组建星辰行业研究团队（搜索员 + 分析师 + 撰写员 + 质检打回闭环）</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>底座搭好了，现在我们正式把星辰数科的“行业研究三人组”装进 <code>SupervisorOrchestrator</code>！特别注意看撰写员第一次故意漏掉「风险提示」时，主管是如何精准质检打回、并由撰写员在第二轮定向补齐后顺利交付终稿的。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day43_research_team.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;Day 43 - 步骤二：星辰行业研究多 Agent 团队（搜索员 + 分析师 + 撰写员）。&quot;&quot;&quot;
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from src.day43_multi_agent_patterns import (
+    FINISH,
+    MultiAgentResult,
+    RouteDecision,
+    SupervisorOrchestrator,
+)
+
+# 本地模拟企业行业情报库（保证 100% 离线确定性运行）
+MOCK_INDUSTRY_DB: Dict[str, List[Dict[str, Any]]] = {
+    &quot;企业级Agent&quot;: [
+        {&quot;source&quot;: &quot;2025中国AI应用白皮书&quot;, &quot;metric&quot;: &quot;市场规模(亿元)&quot;, &quot;y2024&quot;: 180.0, &quot;y2025&quot;: 315.0},
+        {&quot;source&quot;: &quot;星辰客户调研库&quot;, &quot;metric&quot;: &quot;头部企业落地率(%)&quot;, &quot;y2024&quot;: 22.0, &quot;y2025&quot;: 48.0},
+        {&quot;source&quot;: &quot;运维成本报告&quot;, &quot;metric&quot;: &quot;平均人效提升(%)&quot;, &quot;y2024&quot;: 18.0, &quot;y2025&quot;: 36.0},
+    ],
+    &quot;工业视觉&quot;: [
+        {&quot;source&quot;: &quot;智能制造年鉴&quot;, &quot;metric&quot;: &quot;市场规模(亿元)&quot;, &quot;y2024&quot;: 120.0, &quot;y2025&quot;: 156.0},
+        {&quot;source&quot;: &quot;产线质检基准&quot;, &quot;metric&quot;: &quot;缺陷漏检率下降(%)&quot;, &quot;y2024&quot;: 25.0, &quot;y2025&quot;: 40.0},
+    ],
+}
+
+
+class ResearcherAgent:
+    &quot;&quot;&quot;搜索员：只拥有情报检索权限，负责收集带出处的结构化事实。&quot;&quot;&quot;
+
+    name = &quot;researcher&quot;
+    role_desc = &quot;行业情报搜索员，负责检索权威数据与来源&quot;
+    allowed_tools = [&quot;industry_search&quot;]
+
+    def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+        topic = state[&quot;topic&quot;]
+        records = MOCK_INDUSTRY_DB.get(
+            topic,
+            [{&quot;source&quot;: &quot;公开研报库&quot;, &quot;metric&quot;: &quot;行业指数&quot;, &quot;y2024&quot;: 100.0, &quot;y2025&quot;: 125.0}],
+        )
+        return {&quot;facts&quot;: records, &quot;fact_count&quot;: len(records)}
+
+
+class AnalystAgent:
+    &quot;&quot;&quot;分析师：不触网，仅基于黑板上的 facts 进行同比增速与关键洞察测算。&quot;&quot;&quot;
+
+    name = &quot;analyst&quot;
+    role_desc = &quot;量化数据分析师，负责计算同比增速并提炼核心趋势&quot;
+    allowed_tools = [&quot;metric_calculator&quot;]
+
+    def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+        facts = state.get(&quot;facts&quot;, [])
+        insights: List[Dict[str, Any]] = []
+        for item in facts:
+            base = item[&quot;y2024&quot;]
+            curr = item[&quot;y2025&quot;]
+            yoy_pct = round(((curr - base) / base) * 100.0, 2) if base else 0.0
+            insights.append(
+                {
+                    &quot;metric&quot;: item[&quot;metric&quot;],
+                    &quot;source&quot;: item[&quot;source&quot;],
+                    &quot;y2024&quot;: base,
+                    &quot;y2025&quot;: curr,
+                    &quot;yoy_growth_pct&quot;: yoy_pct,
+                }
+            )
+        avg_growth = round(sum(x[&quot;yoy_growth_pct&quot;] for x in insights) / max(len(insights), 1), 2)
+        return {
+            &quot;analysis&quot;: {
+                &quot;metrics&quot;: insights,
+                &quot;avg_yoy_growth_pct&quot;: avg_growth,
+                &quot;verdict&quot;: &quot;高速扩张期&quot; if avg_growth &gt;= 50.0 else &quot;稳健增长期&quot;,
+            }
+        }
+
+
+class WriterAgent:
+    &quot;&quot;&quot;撰写员：基于分析师结论撰写研报，并响应主管的质检打回意见定向修订。&quot;&quot;&quot;
+
+    name = &quot;writer&quot;
+    role_desc = &quot;资深行业研报撰写员，负责结构化公文排版与修订&quot;
+    allowed_tools = [&quot;markdown_formatter&quot;]
+
+    def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+        topic = state[&quot;topic&quot;]
+        analysis = state[&quot;analysis&quot;]
+        revisions = int(state.get(&quot;writer_revisions&quot;, 0)) + 1
+
+        lines = [
+            f&quot;# 《{topic}》行业深度研究报告&quot;,
+            &quot;&quot;,
+            f&quot;## 一、核心结论（阶段判定：{analysis[&#x27;verdict&#x27;]}）&quot;,
+            f&quot;综合各核心维度测算，该赛道平均同比增速达到 **{analysis[&#x27;avg_yoy_growth_pct&#x27;]}%**。&quot;,
+            &quot;&quot;,
+            &quot;## 二、关键量化指标&quot;,
+        ]
+        for m in analysis[&quot;metrics&quot;]:
+            lines.append(
+                f&quot;- {m[&#x27;metric&#x27;]}：2024年 {m[&#x27;y2024&#x27;]} -&gt; 2025年 {m[&#x27;y2025&#x27;]}（同比 +{m[&#x27;yoy_growth_pct&#x27;]}%，来源：{m[&#x27;source&#x27;]}）&quot;
+            )
+
+        # 演示真实质检闭环：首版未包含风险提示，待主管打回并给出 feedback 后补齐
+        if &quot;风险提示&quot; in feedback or revisions &gt;= 2:
+            lines.extend(
+                [
+                    &quot;&quot;,
+                    &quot;## 三、风险提示与落地建议&quot;,
+                    &quot;- 需重点防范模型幻觉引发的合规风险，建议引入 Human-in-the-loop 审批护栏。&quot;,
+                    &quot;- 建议优先从高 ROI 内部提效场景切入，控制 Token 推理成本。&quot;,
+                ]
+            )
+
+        return {&quot;draft&quot;: &quot;\n&quot;.join(lines), &quot;writer_revisions&quot;: revisions}
+
+
+def research_supervisor_router(state: Dict[str, Any], _workers: List[str]) -&gt; RouteDecision:
+    &quot;&quot;&quot;主管路由决策函数：按 情报 -&gt; 分析 -&gt; 撰写 -&gt; 质检验收 的状态推进。&quot;&quot;&quot;
+    if not state.get(&quot;facts&quot;):
+        return RouteDecision(next_agent=&quot;researcher&quot;, reason=&quot;缺少行业原始情报，派发搜索员&quot;)
+    if not state.get(&quot;analysis&quot;):
+        return RouteDecision(next_agent=&quot;analyst&quot;, reason=&quot;已有原始事实，派发分析师测算同比增速&quot;)
+    draft = state.get(&quot;draft&quot;, &quot;&quot;)
+    if not draft:
+        return RouteDecision(next_agent=&quot;writer&quot;, reason=&quot;量化分析完成，派发撰写员起草初稿&quot;)
+    if &quot;风险提示&quot; not in draft:
+        return RouteDecision(
+            next_agent=&quot;writer&quot;,
+            reason=&quot;质检未通过：研报缺少合规与风险提示章节，打回重写&quot;,
+            feedback=&quot;请补充「风险提示」章节，说明模型幻觉与成本控制建议。&quot;,
+        )
+    return RouteDecision(next_agent=FINISH, reason=&quot;研报数据完整且通过风险提示质检，准予发布&quot;)
+
+
+def build_research_team(max_rounds: int = 8) -&gt; SupervisorOrchestrator:
+    orch = SupervisorOrchestrator(router_fn=research_supervisor_router, max_rounds=max_rounds)
+    orch.register_worker(ResearcherAgent())
+    orch.register_worker(AnalystAgent())
+    orch.register_worker(WriterAgent())
+    return orch
+
+
+if __name__ == &quot;__main__&quot;:
+    team = build_research_team()
+    result: MultiAgentResult = team.invoke({&quot;topic&quot;: &quot;企业级Agent&quot;})
+    print(f&quot;协作完成: {result.completed} | 总调度轮次: {result.rounds}&quot;)
+    for step in result.routing_history:
+        print(f&quot;  Round {step[&#x27;round&#x27;]}: -&gt; {step[&#x27;next_agent&#x27;]} ({step[&#x27;reason&#x27;]})&quot;)
+    print(&quot;\n&quot; + result.final_state[&quot;draft&quot;])
+</code></pre><div class="output-box"># 预期运行输出示例：
+协作完成: True | 总调度轮次: 5
+  Round 1: -&gt; researcher (缺少行业原始情报，派发搜索员)
+  Round 2: -&gt; analyst (已有原始事实，派发分析师测算同比增速)
+  Round 3: -&gt; writer (量化分析完成，派发撰写员起草初稿)
+  Round 4: -&gt; writer (质检未通过：研报缺少合规与风险提示章节，打回重写)
+  Round 5: -&gt; FINISH (研报数据完整且通过风险提示质检，准予发布)
+
+# 《企业级Agent》行业深度研究报告
+...</div></div><h4>深度代码解析与工程要点</h4><p>1. 三名专家各司其职且严格隔离：<code>ResearcherAgent</code> 只搜事实，<code>AnalystAgent</code> 只算增速，<code>WriterAgent</code> 只管成文。<br/>2. <code>research_supervisor_router</code> 在发现初稿缺少 <code>风险提示</code> 后，自动附带 <code>feedback</code> 将任务打回给 <code>writer</code>，体现了多 Agent 独有的“生成-质检-修订”闭环优势。<br/>3. 整个流程完全基于本地确定性数据运行，方便写入 CI 自动化回归测试。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现通用 Supervisor 多 Agent 路由状态机与权限隔离底座（src/day43_multi_agent_patterns.py）</h3><p>模块 <code>src/day43_multi_agent_patterns.py</code> 共计 129 行源码，其中包含 1 行中文工程注释（注释密度约 0.8%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-043 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>dataclasses (dataclass, field)</code>、<code>typing (Any, Callable, Dict, List, Protocol)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>WorkerAgent</code>（第 11~19 行）】这是一个继承自 Protocol。其核心职责定义为：专家 Agent 统一协议：只读取裁剪后的上下文视图，返回结构化状态补丁。。类内部暴露了 1 个方法：<code>run(self, state, feedback)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>WorkerAgent.run</code>（第 18~19 行）属于同步实例方法，入参签名为 <code>(self, state, feedback)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>RouteDecision</code>（第 23~26 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>MultiAgentResult</code>（第 30~35 行）】这是一个独立领域模型类。类内部暴露了 0 个方法：（数据结构定义）。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>【类结构拆解 · <code>SupervisorOrchestrator</code>（第 38~105 行）】这是一个独立领域模型类。其核心职责定义为：Supervisor 集中式多 Agent 编排器：<br/>- 维护共享黑板状态 (Blackboard State)<br/>- 每轮由 router_fn 决定派发给哪位专家或 FINISH<br/>- 内置路由白名单校验与 max_rounds 防踢皮球熔断。类内部暴露了 4 个方法：<code>__init__(self, router_fn, max_rounds)</code>、<code>register_worker(self, worker)</code>、<code>worker_names(self)</code>、<code>invoke(self, initial_state)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>SupervisorOrchestrator.__init__</code>（第 46~53 行）属于同步实例方法，入参签名为 <code>(self, router_fn, max_rounds)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SupervisorOrchestrator.register_worker</code>（第 55~59 行）属于同步实例方法，入参签名为 <code>(self, worker)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SupervisorOrchestrator.worker_names</code>（第 62~63 行）属于同步实例方法，入参签名为 <code>(self)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>SupervisorOrchestrator.invoke</code>（第 65~105 行）属于同步实例方法，入参签名为 <code>(self, initial_state)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day43_multi_agent_patterns.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day43/day43_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day43/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：组建星辰行业研究团队（搜索员 + 分析师 + 撰写员 + 质检打回闭环）（src/day43_research_team.py）</h3><p>模块 <code>src/day43_research_team.py</code> 共计 148 行源码，其中包含 2 行中文工程注释（注释密度约 1.4%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-043 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>typing (Any, Dict, List)</code>、<code>src.day43_multi_agent_patterns (FINISH, MultiAgentResult, RouteDecision, SupervisorOrchestrator)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ResearcherAgent</code>（第 28~41 行）】这是一个独立领域模型类。其核心职责定义为：搜索员：只拥有情报检索权限，负责收集带出处的结构化事实。。类内部暴露了 1 个方法：<code>run(self, state, feedback)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ResearcherAgent.run</code>（第 35~41 行）属于同步实例方法，入参签名为 <code>(self, state, feedback)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>AnalystAgent</code>（第 44~74 行）】这是一个独立领域模型类。其核心职责定义为：分析师：不触网，仅基于黑板上的 facts 进行同比增速与关键洞察测算。。类内部暴露了 1 个方法：<code>run(self, state, feedback)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>AnalystAgent.run</code>（第 51~74 行）属于同步实例方法，入参签名为 <code>(self, state, feedback)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>WriterAgent</code>（第 77~113 行）】这是一个独立领域模型类。其核心职责定义为：撰写员：基于分析师结论撰写研报，并响应主管的质检打回意见定向修订。。类内部暴露了 1 个方法：<code>run(self, state, feedback)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>WriterAgent.run</code>（第 84~113 行）属于同步实例方法，入参签名为 <code>(self, state, feedback)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>research_supervisor_router</code>（第 116~131 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(state, _workers)</code>。职责说明：主管路由决策函数：按 情报 -&gt; 分析 -&gt; 撰写 -&gt; 质检验收 的状态推进。。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【函数契约拆解 · <code>build_research_team</code>（第 134~139 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(max_rounds)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day43_research_team.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day43/day43_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day43/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day43_multi_agent_patterns.py（共 129 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day43_multi_agent_patterns.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 43 - 步骤一：通用 Supervisor 多 Agent 路由状态机与上下文隔离底座。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 43 - 步骤一：通用 Supervisor 多 Agent 路由状态机与上下文隔离底座。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>class WorkerAgent(Protocol):</code></td><td>核心意图：代表语句：`class WorkerAgent(Protocol):`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L17-L24</code></td><td><code>def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, An</code></td><td>核心意图：代表语句：`def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L25-L32</code></td><td><code>reason: str</code></td><td>核心意图：代表语句：`reason: str`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>completed: bool = True</code></td><td>核心意图：代表语句：`completed: bool = True`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L41-L48</code></td><td><code>- 维护共享黑板状态 (Blackboard State)</code></td><td>核心意图：代表语句：`- 维护共享黑板状态 (Blackboard State)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L49-L56</code></td><td><code>max_rounds: int = 8,</code></td><td>核心意图：代表语句：`max_rounds: int = 8,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>raise ValueError(&quot;专家名称不能与保留关键字 FINISH 冲突&quot;)</code></td><td>核心意图：代表语句：`raise ValueError(&quot;专家名称不能与保留关键字 FINISH 冲突&quot;)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L65-L72</code></td><td><code>def invoke(self, initial_state: Dict[str, Any]) -&gt; MultiAgentResult:</code></td><td>核心意图：代表语句：`def invoke(self, initial_state: Dict[str, Any]) -&gt; MultiAgentResult:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>&quot;round&quot;: round_no,</code></td><td>核心意图：代表语句：`&quot;round&quot;: round_no,`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>return MultiAgentResult(</code></td><td>核心意图：代表语句：`return MultiAgentResult(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L89-L96</code></td><td><code>if decision.next_agent not in self._workers:</code></td><td>核心意图：代表语句：`if decision.next_agent not in self._workers:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L97-L104</code></td><td><code>return MultiAgentResult(</code></td><td>核心意图：超出最大轮次，触发防踢皮球安全熔断。代表语句：`return MultiAgentResult(`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L105-L112</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>self.allowed_tools = allowed_tools</code></td><td>核心意图：代表语句：`self.allowed_tools = allowed_tools`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L121-L128</code></td><td><code>done = state.get(&quot;done&quot;, [])</code></td><td>核心意图：代表语句：`done = state.get(&quot;done&quot;, [])`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L129</code></td><td><code>print(&quot;完成状态:&quot;, res.completed, &quot;| 轮次:&quot;, res.rounds, &quot;| 轨迹:&quot;, res.routing_</code></td><td>核心意图：代表语句：`print(&quot;完成状态:&quot;, res.completed, &quot;| 轮次:&quot;, res.rounds, &quot;| 轨迹:&quot;, res.routing_history)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day43_research_team.py（共 148 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day43_research_team.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;Day 43 - 步骤二：星辰行业研究多 Agent 团队（搜索员 + 分析师 + 撰写员）。&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;Day 43 - 步骤二：星辰行业研究多 Agent 团队（搜索员 + 分析师 + 撰写员）。&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>MultiAgentResult,</code></td><td>核心意图：本地模拟企业行业情报库（保证 100% 离线确定性运行）。代表语句：`MultiAgentResult,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L17-L24</code></td><td><code>{&quot;source&quot;: &quot;2025中国AI应用白皮书&quot;, &quot;metric&quot;: &quot;市场规模(亿元)&quot;, &quot;y2024&quot;: 180.0, &quot;y2025</code></td><td>核心意图：代表语句：`{&quot;source&quot;: &quot;2025中国AI应用白皮书&quot;, &quot;metric&quot;: &quot;市场规模(亿元)&quot;, &quot;y2024&quot;: 180.0, &quot;y2025&quot;: 315.0},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L25-L32</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L33-L40</code></td><td><code>allowed_tools = [&quot;industry_search&quot;]</code></td><td>核心意图：代表语句：`allowed_tools = [&quot;industry_search&quot;]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>return {&quot;facts&quot;: records, &quot;fact_count&quot;: len(records)}</code></td><td>核心意图：代表语句：`return {&quot;facts&quot;: records, &quot;fact_count&quot;: len(records)}`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L49-L56</code></td><td><code>allowed_tools = [&quot;metric_calculator&quot;]</code></td><td>核心意图：代表语句：`allowed_tools = [&quot;metric_calculator&quot;]`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L57-L64</code></td><td><code>yoy_pct = round(((curr - base) / base) * 100.0, 2) if base else 0.0</code></td><td>核心意图：代表语句：`yoy_pct = round(((curr - base) / base) * 100.0, 2) if base else 0.0`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L81-L88</code></td><td><code>role_desc = &quot;资深行业研报撰写员，负责结构化公文排版与修订&quot;</code></td><td>核心意图：代表语句：`role_desc = &quot;资深行业研报撰写员，负责结构化公文排版与修订&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>lines = [</code></td><td>核心意图：代表语句：`lines = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L97-L104</code></td><td><code>for m in analysis[&quot;metrics&quot;]:</code></td><td>核心意图：演示真实质检闭环：首版未包含风险提示，待主管打回并给出 feedback 后补齐。代表语句：`for m in analysis[&quot;metrics&quot;]:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>[</code></td><td>核心意图：代表语句：`[`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L113-L120</code></td><td><code>return {&quot;draft&quot;: &quot;\n&quot;.join(lines), &quot;writer_revisions&quot;: revisions}</code></td><td>核心意图：代表语句：`return {&quot;draft&quot;: &quot;\n&quot;.join(lines), &quot;writer_revisions&quot;: revisions}`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>return RouteDecision(next_agent=&quot;analyst&quot;, reason=&quot;已有原始事实，派发分析师测算同比增速&quot;)</code></td><td>核心意图：代表语句：`return RouteDecision(next_agent=&quot;analyst&quot;, reason=&quot;已有原始事实，派发分析师测算同比增速&quot;)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L129-L136</code></td><td><code>feedback=&quot;请补充「风险提示」章节，说明模型幻觉与成本控制建议。&quot;,</code></td><td>核心意图：代表语句：`feedback=&quot;请补充「风险提示」章节，说明模型幻觉与成本控制建议。&quot;,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L137-L144</code></td><td><code>orch.register_worker(AnalystAgent())</code></td><td>核心意图：代表语句：`orch.register_worker(AnalystAgent())`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L145-L148</code></td><td><code>print(f&quot;协作完成: {result.completed} | 总调度轮次: {result.rounds}&quot;)</code></td><td>核心意图：代表语句：`print(f&quot;协作完成: {result.completed} | 总调度轮次: {result.rounds}&quot;)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day43/tests/test_day43.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day43/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day43/tests/test_day43.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 43 自动化单元测试：验证 Supervisor 路由状态机、研究团队质检打回与防死循环熔断。&quot;&quot;&quot;
+
+import pytest
+from src.day43_multi_agent_patterns import (
+    FINISH,
+    RouteDecision,
+    SupervisorOrchestrator,
+)
+from src.day43_research_team import build_research_team
+
+
+def test_research_team_full_collaboration_with_revision():
+    team = build_research_team(max_rounds=8)
+    res = team.invoke({&quot;topic&quot;: &quot;企业级Agent&quot;})
+    assert res.completed is True
+    assert res.truncated is False
+    assert res.rounds == 5
+    routed_order = [item[&quot;next_agent&quot;] for item in res.routing_history]
+    assert routed_order == [&quot;researcher&quot;, &quot;analyst&quot;, &quot;writer&quot;, &quot;writer&quot;, FINISH]
+    assert res.final_state[&quot;writer_revisions&quot;] == 2
+    assert &quot;风险提示&quot; in res.final_state[&quot;draft&quot;]
+    assert res.final_state[&quot;analysis&quot;][&quot;verdict&quot;] == &quot;高速扩张期&quot;
+
+
+def test_supervisor_truncates_on_ping_pong_loop():
+    class DummyWorker:
+        name = &quot;loop_worker&quot;
+        role_desc = &quot;测试死循环&quot;
+        allowed_tools = []
+
+        def run(self, state, feedback=&quot;&quot;):
+            return {&quot;count&quot;: state.get(&quot;count&quot;, 0) + 1}
+
+    orch = SupervisorOrchestrator(
+        router_fn=lambda _s, _w: RouteDecision(next_agent=&quot;loop_worker&quot;, reason=&quot;永远打回&quot;),
+        max_rounds=3,
+    )
+    orch.register_worker(DummyWorker())
+    res = orch.invoke({})
+    assert res.completed is False
+    assert res.truncated is True
+    assert res.rounds == 3
+    assert res.final_state[&quot;count&quot;] == 3
+
+
+def test_supervisor_rejects_unknown_worker_route():
+    orch = SupervisorOrchestrator(
+        router_fn=lambda _s, _w: RouteDecision(next_agent=&quot;ghost_agent&quot;, reason=&quot;幻觉角色&quot;),
+        max_rounds=3,
+    )
+    with pytest.raises(ValueError, match=&quot;路由目标非法&quot;):
+        orch.invoke({})
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-043</code>，承接自 Day 42 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day43-multi-agent-supervisor-team</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day43-multi-agent-supervisor-team）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day43-multi-agent-supervisor-team
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day43.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-043）
+git add src/day43_multi_agent_patterns.py src/day43_research_team.py tests/test_day43.py
+git commit -m &quot;feat(day43): 实现Supervisor路由状态机与搜索员/分析师/撰写员多Agent研究团队
+
+Refs: STARMIND-043
+- 完成 多 Agent 系统 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day43-multi-agent-supervisor-team</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-043 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-043 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day43_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day43_multi_agent_patterns.py src/day43_research_team.py
+    - echo &quot;Day 43 语法编译检查通过&quot;
+
+day43_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day43/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day43/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈 (AI 架构师)</span><span>状态：Approved</span></div><p>路由轨迹 <code>routing_history</code> 记录得非常清楚，配合 <code>truncated</code> 熔断标志，线上排查多 Agent 死循环一目了然。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰 (后端工程师)</span><span>状态：Approved</span></div><p>赞一个 <code>WorkerAgent</code> 的 Protocol 设计，把分析师和搜索员解耦之后，以后给分析师单独换一个擅长数学推理的模型（比如 DeepSeek-R1）也只需改它自己。</p></div><div class="review-item"><div class="review-meta"><span>👤 林产品 (产品经理)</span><span>状态：Approved</span></div><p>质检不通过自动打回补齐“风险提示”这个效果太直观了，战略部总监看了演示直接说要拿去试跑下周的行业周报！</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-043 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-043（多 Agent 系统）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：星辰数科战略发展部每周需要针对目标行业（如新能源、企业级 SaaS、工业视觉）输出一份包含竞品动态、财务估算与落地建议的深度研报。单 Agent 同时承担搜索、量化计算和公文排版时，经常出现数据引用错位或遗漏关键章节。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）单 Agent 挂载过多工具与角色指令后，Prompt 膨胀导致推理准确率断崖式下降。；（2）不同专家任务需要不同上下文视图（分析师只需结构化数据，撰写员只需结论与论据），全量广播历史消息极度浪费 Token。；（3）多 Agent 之间若缺少统一调度与轮次限制，极易在“打回修改 -&gt; 重新分析 -&gt; 再次打回”中陷入无限踢皮球。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）对比 Supervisor（主管集中式）、Peer-to-Peer（去中心化交接）与 Hierarchical（层级树状）三种多 Agent 编排模式的适用边界。；（2）实现通用的 <code>SupervisorOrchestrator</code> 状态机，支持共享黑板（Blackboard State）、按角色裁剪上下文视图与防踢皮球熔断。；（3）落地星辰行业研究团队：<code>ResearcherAgent</code>（情报搜索员）+ <code>AnalystAgent</code>（数据分析师）+ <code>WriterAgent</code>（报告撰写员），支持主管质检打回重写。，必须全部翻译成可量化的测试用例和监控指标（例如 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day43/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. 什么时候真正需要 Multi-Agent？】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：不要一上来就把简单任务拆成 5 个 Agent！老陈总结的三条黄金判断标准：<br/>1) **工具数量超过 8~10 个**，且分属不同业务域（如财务审批 vs 代码检索），单模型选择准确率开始抖动；<br/>2) **需要角色对抗与交叉校验**（如“撰写员”与“法务审核员”互相独立，避免自己夸自己写得好）；<br/>3) **安全权限隔离**：不同专家绑定不同的工具白名单，防止低权限问答链路越权触发写库操作。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：把原本一个 Prompt 就能搞定的翻译+总结拆成 3 个 Agent，结果延迟翻了 3 倍、Token 费翻了 4 倍，效果反而因为信息传递损耗变差。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. 什么时候真正需要 Multi-Agent？」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 共享黑板（Blackboard）与上下文视图裁剪】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在多 Agent 通信中，最忌讳把所有 Agent 的原始对话历史（包含几千字的网页抓取原文）原封不动广播给所有人。正确做法是维护一个结构化的 <code>TeamState</code> 黑板：每个专家只接收自己职责所需的 <code>context_view</code>（例如分析师只看 <code>facts</code>，撰写员只看 <code>analysis</code> 和 <code>review_feedback</code>），产出结构化工件后写回黑板。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：如果允许所有专家随意覆写同一个 <code>messages</code> 字符串字段，很容易发生“后一个 Agent 覆盖前一个 Agent 关键证据”的脏写问题。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 共享黑板（Blackboard）与上下文视图裁剪」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 3 深度复盘：3. LangGraph 中的真实 Multi-Agent 写法（Supervisor &amp; Command）】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在官方 LangGraph 中，主管路由通常利用结构化输出返回 <code>next: Literal[&#x27;researcher&#x27;, &#x27;analyst&#x27;, &#x27;writer&#x27;, &#x27;FINISH&#x27;]</code>，或者使用 <code>Command(goto=&#x27;analyst&#x27;, update={&#x27;facts&#x27;: ...})</code> 在节点内部直接完成状态更新与路由跳转，代码结构与我们今天手写的 <code>SupervisorOrchestrator</code> 高度一致。…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：坑点：生产环境务必给 Supervisor 的路由输出加上白名单校验，防止大模型偶发幻觉输出一个不存在的 Agent 名字导致图引擎 <code>KeyError</code> 崩溃。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「3. LangGraph 中的真实 Multi-Agent 写法（Supervisor &amp; Command）」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 43 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day43/</code> 中亲手编写了 <code>src/day43_multi_agent_patterns.py</code>、<code>src/day43_research_team.py</code> 以及对应的自动化测试 <code>tests/test_day43.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day43_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 43 / STARMIND-043）：1. 已在分支 <code>feat/day43-multi-agent-supervisor-team</code> 完成 多 Agent 系统 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 44）：明天（Day 44）我们将把视野拓展到跨系统生态协议——Model Context Protocol（MCP），手写符合 JSON-RPC 2.0 规范的 MCP Server/Client，并构建 Agent 短期与长期双层记忆架构。」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 43 掌握的「多 Agent 系统」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（StateGraph 状态机引擎 + Checkpointer 断点库 + MCP JSON-RPC 2.0 服务端 + SQLite 只读业务库 + Trace 可观测平台），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「多 Agent 系统」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：多 Agent 系统 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-043 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day43.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 43 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day43/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day43_multi_agent_patterns.py, src/day43_research_team.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>给定行业研究主题后，Supervisor 能按「搜索 -&gt; 分析 -&gt; 撰写 -&gt; 质检」顺序动态路由各专家节点。；当撰写员初稿缺少“风险提示”关键章节时，Supervisor 能将其打回重写并在下一轮通过验收。；设置 `max_rounds` 上限，模拟死循环路由时能触发安全熔断并返回降级报告，所有单测本地 100% 通过。</td><td>运行 `pytest versions/day43/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day43/day43_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day43-multi-agent-supervisor-team` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「多 Agent 系统」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-043 需求时，我们的核心业务目标是：对比 Supervisor（主管集中式）、Peer-to-Peer（去中心化交接）与 Hierarchical（层级树状）三种多 Agent 编排模式的适用边界。；实现通用的 <code>SupervisorOrchestrator</code> 状态机，支持共享黑板（Blackboard State）、按角色裁剪上下文视图与防踢皮球熔断。；落地星辰行业研究团队：<code>ResearcherAgent</code>（情报搜索员）+ <code>AnalystAgent</code>（数据分析师）+ <code>WriterAgent</code>（报告撰写员），支持主管质检打回重写。。最初我们也评估过极简脚本方案，但在 Agent 陷入工具调用死循环、幻觉虚构工具参数、Text-to-SQL 恶意写库注入、多 Agent 互相踢皮球导致 Token 账单暴涨 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. 什么时候真正需要 Multi-Agent？、2. 共享黑板（Blackboard）与上下文视图裁剪、3. LangGraph 中的真实 Multi-Agent 写法（Supervisor &amp; Command） 这几层解耦抽象，既满足了当前阶段的 单任务最大步数熔断 &lt;= 10 步，高危写操作 100% 触发人工审批中断，只读 SQL 拦截率 100%，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「多 Agent 系统」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 ReAct 推理循环、Tool Schema 注册、LangGraph 状态图与条件边、Checkpointer 持久化与人工审批中断恢复、Supervisor 多 Agent 协作、MCP 协议与 Text-to-SQL 安全执行 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 43 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day43_multi_agent_patterns.py、src/day43_research_team.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天这一课含金量极高！大家不仅跑通了 Supervisor 调度三名专家 Agent 的完整闭环，还亲手解决了多 Agent 生产落地最头疼的“互相踢皮球死循环”和“上下文爆炸”问题。记住：不要为了炫技拆分 Agent，只有当角色职责、工具权限或 Prompt 专长明显隔离时，Multi-Agent 才会带来正收益。明天我们进军 MCP 协议与长短期记忆！</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：为研究团队新增法务合规审核员（ReviewerAgent）</strong><span class="badge">基础巩固</span></div><p>编写一个 <code>ComplianceReviewerAgent</code>，扫描研报 <code>draft</code> 中是否包含“绝对第一”“稳赚不赔”等违规广告词，若命中则返回 <code>compliance_passed=False</code> 与违规词列表。</p><p><strong>💡 思路提示：</strong>遍历违禁词列表检查 `word in draft`，并将命中的词收集到 `violations` 字段返回。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-43-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-43-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 43 作业 1 参考答案：法务合规审核员 Agent。&quot;&quot;&quot;
+
+from typing import Any, Dict, List
+
+
+class ComplianceReviewerAgent:
+    name = &quot;compliance_reviewer&quot;
+    BANNED_WORDS = [&quot;绝对第一&quot;, &quot;稳赚不赔&quot;, &quot;100%保本&quot;]
+
+    def run(self, state: Dict[str, Any], feedback: str = &quot;&quot;) -&gt; Dict[str, Any]:
+        draft = state.get(&quot;draft&quot;, &quot;&quot;)
+        hits: List[str] = [w for w in self.BANNED_WORDS if w in draft]
+        return {&quot;compliance_passed&quot;: len(hits) == 0, &quot;violations&quot;: hits}
+
+
+if __name__ == &quot;__main__&quot;:
+    agent = ComplianceReviewerAgent()
+    r1 = agent.run({&quot;draft&quot;: &quot;本方案行业绝对第一，建议采纳。&quot;})
+    r2 = agent.run({&quot;draft&quot;: &quot;本方案在基准测试中表现优异，附风险提示。&quot;})
+    print(&quot;违规检测:&quot;, r1, &quot;| 合规检测:&quot;, r2)
+    assert r1[&quot;compliance_passed&quot;] is False and r1[&quot;violations&quot;] == [&quot;绝对第一&quot;]
+    assert r2[&quot;compliance_passed&quot;] is True
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>把合规校验抽离成独立的审核 Agent（或确定性规则节点），比在撰写员 Prompt 里写十遍“不要用违禁词”可靠得多。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：实现单角色最大返工次数限制器</strong><span class="badge">企业实战</span></div><p>统计路由历史中每个角色被连续调用的次数，编写 <code>detect_excessive_rework(history, limit=2)</code>，当同一角色连续返工超过 <code>limit</code> 次时返回 <code>True</code> 触发人工介入。</p><p><strong>💡 思路提示：</strong>遍历 `routing_history` 中的 `next_agent`，维护当前连续计数 `streak`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-43-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-43-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 43 作业 2 参考答案：单角色连续返工熔断检测。&quot;&quot;&quot;
+
+from typing import Any, Dict, List
+
+
+def detect_excessive_rework(history: List[Dict[str, Any]], limit: int = 2) -&gt; bool:
+    last_agent = None
+    streak = 0
+    for item in history:
+        agent = item[&quot;next_agent&quot;]
+        if agent == last_agent:
+            streak += 1
+        else:
+            last_agent = agent
+            streak = 1
+        if streak &gt; limit:
+            return True
+    return False
+
+
+if __name__ == &quot;__main__&quot;:
+    ok_hist = [{&quot;next_agent&quot;: &quot;writer&quot;}, {&quot;next_agent&quot;: &quot;writer&quot;}]
+    bad_hist = [{&quot;next_agent&quot;: &quot;writer&quot;}, {&quot;next_agent&quot;: &quot;writer&quot;}, {&quot;next_agent&quot;: &quot;writer&quot;}]
+    assert detect_excessive_rework(ok_hist, limit=2) is False
+    assert detect_excessive_rework(bad_hist, limit=2) is True
+    print(&quot;连续返工熔断检测通过&quot;)
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>区分全局 <code>max_rounds</code> 与单角色连续返工上限，可以更早发现某位专家“卡壳”并及时降级或转人工。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：按角色生成最小化上下文视图（Context Projection）</strong><span class="badge">架构进阶</span></div><p>编写 <code>project_context(state, role)</code> 函数：只把 <code>researcher</code> 需要的 <code>topic</code>、<code>analyst</code> 需要的 <code>facts</code>、<code>writer</code> 需要的 <code>topic/analysis</code> 投影出来，避免无关大字段泄露或浪费 Token。</p><p><strong>💡 思路提示：</strong>定义一个 `ROLE_FIELDS` 白名单映射字典，按角色过滤 `state` 键值。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-43-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-43-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 43 作业 3 参考答案：多 Agent 最小化上下文视图投影。&quot;&quot;&quot;
+
+from typing import Any, Dict, Set
+
+ROLE_FIELDS: Dict[str, Set[str]] = {
+    &quot;researcher&quot;: {&quot;topic&quot;},
+    &quot;analyst&quot;: {&quot;topic&quot;, &quot;facts&quot;},
+    &quot;writer&quot;: {&quot;topic&quot;, &quot;analysis&quot;, &quot;writer_revisions&quot;},
+}
+
+
+def project_context(state: Dict[str, Any], role: str) -&gt; Dict[str, Any]:
+    allowed = ROLE_FIELDS.get(role, set())
+    return {k: v for k, v in state.items() if k in allowed}
+
+
+if __name__ == &quot;__main__&quot;:
+    full_state = {&quot;topic&quot;: &quot;企业级Agent&quot;, &quot;facts&quot;: [1, 2], &quot;raw_html&quot;: &quot;&lt;html&gt;超长噪音&lt;/html&gt;&quot;, &quot;analysis&quot;: {&quot;ok&quot;: True}}
+    w_view = project_context(full_state, &quot;writer&quot;)
+    print(&quot;Writer 视图:&quot;, w_view)
+    assert &quot;raw_html&quot; not in w_view and &quot;facts&quot; not in w_view and &quot;analysis&quot; in w_view
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>上下文投影（Context Projection）是多 Agent 生产省钱提质的秘密武器，通常可减少 40%~60% 的冗余输入 Token。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day42/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day44/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>

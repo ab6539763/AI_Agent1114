@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 32：高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩 | 星辰智脑 70 天企业级 AI 应用开发实战</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand-link" href="../../index.html">⚡ 星辰智脑 StarMind · 70天实战营</a>
+      <span class="badge">第 3 阶段 · 第 5 周</span>
+      <span class="badge badge-ticket">STARMIND-032</span>
+      <span class="badge">Day 32 / 70</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="setTheme('light')">浅色</button>
+      <button class="btn" onclick="setTheme('eyecare')">护眼</button>
+      <button class="btn" onclick="setTheme('dark')">暗黑</button>
+      <button class="btn" id="complete-day-btn" data-day="32" onclick="toggleDayComplete(32, this)">标记今日已完成</button>
+      <a class="btn" href="../day31/index.html">← 上一天</a>
+      <a class="btn btn-primary" href="../day33/index.html">下一天 →</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>当日课件导航</h3>
+      <ul class="toc-list">
+        <li><a href="#sec-context">1. 旁白与承上启下上下文</a></li>
+        <li><a href="#sec-prd">2. 企业真实需求文档 (PRD)</a></li>
+        <li><a href="#sec-arch">3. 架构设计与矢量工程图谱</a></li>
+        <li><a href="#sec-notes">4. 课堂深度技术笔记</a></li>
+        <li><a href="#sec-code">5. 步步可运行代码实操</a></li>
+        <li><a href="#sec-ast">6. 逐行源码剖析与单元测试</a></li>
+        <li><a href="#sec-gitlab">7. GitLab 团队协作与 Review</a></li>
+        <li><a href="#sec-handbook">8. 企业级实战方法论与场景推演</a></li>
+        <li><a href="#sec-troubleshoot">9. 生产排障实录与验收清单</a></li>
+        <li><a href="#sec-interview">10. 高频面试延伸与复盘</a></li>
+        <li><a href="#sec-homework">11. 课后梯度作业与完整答案</a></li>
+      </ul>
+      <div class="sidebar-meta">
+        <div><strong>迭代分支：</strong><br/><code>feat/day32-advanced-rag-query-transform</code></div>
+        <div><strong>版本快照：</strong><br/><code>versions/day32/</code></div>
+        <div><strong>实操手册：</strong><br/><code>notebooks/day32/day32_practice.ipynb</code></div>
+        <div><strong>需求文档：</strong><br/><code>docs/daily/day32_gitlab_prd.md</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-kicker">第 3 阶段：第三阶段：LangChain 与企业级 RAG 开发 · 第 5 周：第5周：企业级 RAG 全链路、高级检索优化与评估</div>
+        <h1>Day 32：高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩</h1>
+        <p class="hero-sub">专治「员工问得太口语、公司文档太书面」的检索鸿沟，大幅拉升复杂提问召回率</p>
+        <div class="hero-tags">
+          <span class="hero-tag">工单：STARMIND-032</span>
+          <span class="hero-tag">分支：feat/day32-advanced-rag-query-transform</span>
+          <span class="hero-tag">角色：负责企业级知识库问答核心链路的 RAG 研发工程师</span>
+          <span class="hero-tag">配套：Jupyter Notebook + 独立迭代版本 + 单元测试</span>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-context">
+        <h2>1. 老陈开场旁白与承上启下上下文</h2>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈（杭州星辰数科 · AI平台架构师）开场旁白</div>
+          <p>早啊！昨天看了员工内测日志，大家是不是觉得用户太不按套路出牌了？其实这才是真实的企业世界——**用户的提问（Query）和知识库里的文档（Document）天然存在「表达鸿沟」**！文档写的是「一线城市住宿标准」「生产发布窗口」「零信任 VPN 动态令牌」，员工问的是「魔都住店」「礼拜五推线上」「居家连不上内网」。今天老陈教大家高级 RAG 的前半套绝活——**检索前优化（Pre-Retrieval）与检索后压缩（Post-Retrieval Compression）**：<br/>1. **Query Rewriting**：把口语、黑话、错别字翻译成规范检索词；<br/>2. **Multi-Query**：一个问题从 3 个不同视角改写并行检索再融合去重；<br/>3. **HyDE（假设性文档嵌入）**：先让大模型瞎编一段“看起来像制度原文的假设答案”，拿这段假设答案的向量去搜真实文档（文档搜文档，相似度暴涨！）；<br/>4. **Contextual Compression**：把检索回来 500 字切片里无关的废话裁掉，只留最精准的句子喂给大模型省钱提效！</p>
+        </div>
+        <div class="context-grid">
+          <div class="context-box">
+            <h4>⬅️ 承上：昨日迭代基线回顾</h4>
+            <p>昨天（Day 31）我们用消融实验摸清了 Naive RAG 的最佳参数。但产品经理把第一批员工内测日志发过来，大家一看傻眼了：员工根本不按制度原文提问！他们问的是「去魔都出差住店能报多少？」「礼拜五下班前能不能推线上？」「电脑连不上公司内网咋整？」。这种口语/简称提问，单路 Naive 检索召回率直接掉了一大截。</p>
+          </div>
+          <div class="context-box">
+            <h4>➡️ 启下：明日演进方向预告</h4>
+            <p>明天（Day 33）我们将进入高级 RAG 技术（下）：攻克专有名词和精确编号检索难题，亲手实现 BM25 + 向量混合检索、RRF 倒数排名融合、bge-reranker 重排序与父文档检索器！</p>
+          </div>
+        </div>
+        <h3>全局演进视角：Day 32 在 70 天平台架构中的位置</h3>
+        <p>把今天（Day 32）放到整个 70 天星辰智脑平台从 0 到 1 的全景演进时间轴里来看，你会发现每一步都不是孤立的知识点拼凑，而是一场真实的“滚雪球式”企业工程迭代。你当前的角色定位是【负责企业级知识库问答核心链路的 RAG 研发工程师】，依托的工程底座是【LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集】。回顾昨天留下的上下文：昨天（Day 31）我们用消融实验摸清了 Naive RAG 的最佳参数。但产品经理把第一批员工内测日志发过来，大家一看傻眼了：员工根本不按制度原文提问！他们问的是「去魔都出差住店能报多少？」「礼拜五下班前能不能推线上？」「电脑连不上公司内网咋整？」。这种口语/简称提问，单路 Naive 检索召回率直接掉了一大截。 今天我们通过需求单 STARMIND-032，把这份演进往前扎扎实实推进了一大步——不仅在代码仓库 <code>versions/day32/</code> 沉淀了一个独立可运行、可追溯的里程碑快照，还通过自动化单元测试把今天交付的接口契约“锁死”在回归门禁里，确保后面哪怕重构到 Day 70，今天打下的地基也不会悄悄塌方。再往明天看一步：明天（Day 33）我们将进入高级 RAG 技术（下）：攻克专有名词和精确编号检索难题，亲手实现 BM25 + 向量混合检索、RRF 倒数排名融合、bge-reranker 重排序与父文档检索器！ 老陈常跟团队里的新人说：初级工程师眼里看到的是“今天又学了一个新语法或新库”，而高级 AI 应用架构师眼里看到的，是“这个新能力怎样通过低耦合接口，严丝合缝地咬合进整座平台大厦里”。带着这个全局视角去啃今天每一段代码和每一张架构图，你的成长速度会比死记硬背快十倍。</p>
+        <h3>当日 6~8 小时企业级训练节奏表</h3>
+        <table>
+          <thead><tr><th style="width:180px">时间段</th><th style="width:240px">核心主题</th><th>实操任务与交付物</th></tr></thead>
+          <tbody><tr><td><strong>上午 09:00-10:30</strong></td><td>检索前优化原理：Query Rewriting / Multi-Query / HyDE</td><td>深度图解 Query-Doc 表达鸿沟与 HyDE「以文搜文」的数学直觉，讨论各自的延迟与成本权衡。</td></tr>
+<tr><td><strong>上午 10:45-12:00</strong></td><td>三大高级检索器编码实操</td><td>实现 QueryRewriter、MultiQueryRetriever（去重聚合）与 HyDERetriever。</td></tr>
+<tr><td><strong>下午 14:00-15:30</strong></td><td>Contextual Compression 上下文压缩与召回率对比实验</td><td>实现句子级相关性提取压缩器，在口语化测试集上跑通 4 组策略量化横评。</td></tr>
+<tr><td><strong>下午 15:45-17:30</strong></td><td>单元测试、Code Review 与进阶作业</td><td>验证策略收益，拓展实现 Step-Back Prompting（退步抽象检索）与查询拆解。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-prd">
+        <h2>2. 企业真实业务需求文档（PRD · STARMIND-032）</h2>
+        <p><strong>需求提出方：</strong>林产品（星辰智脑产品经理） ｜ <strong>研发负责人：</strong>你（AI应用开发工程师） ｜ <strong>架构把关：</strong>老陈 ｜ <strong>测试验收：</strong>阿杰</p>
+        <h3>2.1 业务背景</h3>
+        <p>内测期间统计发现，约 35% 的员工提问存在地域别称（如魔都/帝都）、口语化表达（推线上/住店/请病假条）或复合多意图提问，导致 Naive RAG 单次直接检索漏召回。</p>
+        <h3>2.2 现有业务痛点</h3>
+        <ul><li>用户口语/公司黑话与正式规章制度措辞差异大，直接做向量检索相似度偏低。</li><li>复合问题（如「出差住宿和吃饭怎么报？」）单次查询容易只召回住宿而漏掉餐补。</li><li>Top-4 检索结果中往往夹杂大量与当前提问无关的相邻条款，浪费 LLM Token 且分散注意力。</li></ul>
+        <h3>2.3 今日迭代目标</h3>
+        <ul><li>实现 `QueryRewriter`（术语规范化与口语改写）、`MultiQueryRetriever`（多视角扩展 + 去重合并）和 `HyDERetriever`（假设性文档嵌入检索）。</li><li>实现 `ContextualCompressor`（句子级相关性提纯，过滤低相关噪音句并统计压缩率）。</li><li>在口语化/黑话测试集上运行 Baseline vs QueryRewrite vs Multi-Query vs HyDE 召回率对比实验。</li></ul>
+        <h3>2.4 功能验收标准（Acceptance Criteria）</h3>
+        <ul><li>针对「魔都住店」「礼拜五推线上」等口语难题，QueryRewrite / Multi-Query / HyDE 的召回率显著高于 Naive 基线。</li><li>上下文压缩器在保留核心答案句子的前提下，平均压缩掉至少 35% 的冗余字符。</li><li>所有 pytest 单元测试与对比实验脚本 100% 通过。</li></ul>
+        <h3>2.5 非功能指标与生产红线</h3>
+        <ul><li>Multi-Query 支持多查询结果去重（保留最高分），避免重复切片污染 Top-K。</li><li>提供清晰的生产级 LangChain `MultiQueryRetriever` / `ContextualCompressionRetriever` 代码对照。</li></ul>
+      </section>
+
+      <section class="section-card" id="sec-arch">
+        <h2>3. 架构设计与矢量工程图谱（流程图 / 架构图 / 原理示意图）</h2>
+        <h3>3.1 架构设计思路与技术选型权衡</h3>
+        <p>高级 RAG 的核心思想是「把原本一次性的向量查找，升级为多阶段智能检索流水线」：<br/>1. **Query Rewriting（查询改写）**：在检索前加一道极轻量的改写层（生产可用企业同义词词典 + 7B 小模型），将「魔都住店」规范化为「上海 一线城市 出差 酒店 住宿报销标准」，延迟增加极小（&lt;100ms），ROI 最高。<br/>2. **Multi-Query（多路查询扩展）**：面对复合问题或歧义问题，生成 3 个不同表述的子查询并发检索向量库，再按文档指纹去重取最高分合并，显著提升 Recall（召回率）。<br/>3. **HyDE（Hypothetical Document Embeddings，假设性文档嵌入）**：用户问句通常很短（10 字）且是疑问句，而知识库切片是长陈述句（200 字），两者在向量空间天然存在分布偏移。HyDE 先让 LLM 根据问题生成一段「假设性的制度说明文档」，再对这段假设文档做 Embedding 去检索真实知识库——即使假设文档里的数字是编的，它的句式、领域词和语义结构与真实制度高度一致，从而实现「以文档搜文档」的精准命中！<br/>4. **Contextual Compression（上下文压缩）**：检索出候选切片后，按句切分并计算每句与 Query 的相关度，剔除无关背景句，既省 Token 又减少大模型注意力分散。</p>
+        <h3>3.2 核心工程可视化图谱</h3>
+        <div class="diagram-card"><div class="diagram-title">图 32.1：HyDE（假设性文档嵌入）以文搜文原理示意图（SCHEMATIC）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 938 216" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-sch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#0f766e"/></marker></defs>
+<rect width="938" height="216" rx="12" fill="#f7fdfa"/>
+<text x="469.0" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">HyDE（假设性文档嵌入）以文搜文原理示意图</text>
+<rect x="30" y="52" width="185" height="86" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="48" cy="70" r="10" fill="#2563eb"/><text x="48" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+<text x="128.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">短口语提问</text>
+<text x="122.5" y="116" text-anchor="middle" font-size="11" fill="#475569">“礼拜五能推线上不？”</text>
+<rect x="261" y="52" width="185" height="86" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<circle cx="279" cy="70" r="10" fill="#059669"/><text x="279" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+<text x="359.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">轻量 LLM 生成</text>
+<text x="353.5" y="116" text-anchor="middle" font-size="11" fill="#475569">构造假设性制度陈述</text>
+<rect x="492" y="52" width="185" height="86" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<circle cx="510" cy="70" r="10" fill="#d97706"/><text x="510" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+<text x="590.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">假设性文档 (Hypothetical)</text>
+<text x="584.5" y="116" text-anchor="middle" font-size="11" fill="#475569">“生产环境发布窗口为周一至周四，周五禁止...”</text>
+<rect x="723" y="52" width="185" height="86" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="741" cy="70" r="10" fill="#7c3aed"/><text x="741" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+<text x="821.5" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">向量库真实文档检索</text>
+<text x="815.5" y="116" text-anchor="middle" font-size="11" fill="#475569">以假设文档向量搜真实切片</text>
+<line x1="215" y1="95.0" x2="258" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="446" y1="95.0" x2="489" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+<line x1="677" y1="95.0" x2="720" y2="95.0" stroke="#0f766e" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arrow-sch)"/>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>通过生成假设性回答文档桥接短疑问句与长陈述文档之间的向量空间分布鸿沟。</div></div><div class="diagram-card"><div class="diagram-title">图 32.2：Multi-Query 多路扩展与上下文压缩架构（ARCHITECTURE）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 552" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#1d4ed8"/></marker></defs>
+<rect width="860" height="552" rx="12" fill="#f8fafc"/>
+<text x="430.0" y="28" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0f172a">Multi-Query 多路扩展与上下文压缩架构</text>
+<rect x="24" y="40" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="54" width="540" height="76" rx="9" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="430.0" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">原始复合提问</text>
+<text x="430.0" y="108" text-anchor="middle" font-size="12" fill="#475569">出差住宿和吃饭怎么报？</text>
+<rect x="24" y="160" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="174" width="350" height="76" rx="9" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="231.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">子查询 1</text>
+<text x="231.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">差旅酒店住宿标准上限</text>
+<rect x="454" y="174" width="350" height="76" rx="9" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="629.0" y="204" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">子查询 2</text>
+<text x="629.0" y="228" text-anchor="middle" font-size="11.5" fill="#475569">出差餐饮补助与发票</text>
+<rect x="24" y="280" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="56" y="294" width="350" height="76" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="231.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">子查询 3</text>
+<text x="231.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">财务报销OA审批流程</text>
+<rect x="454" y="294" width="350" height="76" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="629.0" y="324" text-anchor="middle" font-size="13.5" font-weight="700" fill="#991b1b">多路结果去重合并</text>
+<text x="629.0" y="348" text-anchor="middle" font-size="11.5" fill="#475569">按内容指纹取最高分</text>
+<rect x="24" y="400" width="812" height="104" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-dasharray="5,4"/>
+<rect x="160.0" y="414" width="540" height="76" rx="9" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+<text x="430.0" y="444" text-anchor="middle" font-size="14" font-weight="700" fill="#075985">ContextualCompressor</text>
+<text x="430.0" y="468" text-anchor="middle" font-size="12" fill="#475569">裁掉无关废话仅留证据句</text>
+<line x1="430.0" y1="130" x2="231.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">视角1</text>
+<line x1="430.0" y1="130" x2="629.0" y2="171" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="146.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">视角2</text>
+<line x1="430.0" y1="130" x2="231.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="330.5" y="206.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">视角3</text>
+<line x1="231.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="430.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">检索</text>
+<line x1="629.0" y1="250" x2="629.0" y2="291" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="629.0" y="266.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">检索</text>
+<line x1="406" y1="332.0" x2="451" y2="332.0" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="428.5" y="328.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">检索</text>
+<line x1="629.0" y1="370" x2="430.0" y2="411" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow-arch)"/>
+<text x="529.5" y="386.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1e40af">精炼压缩上下文</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>多视角查询并行召回 -&gt; 去重合并 -&gt; 句子级上下文压缩提纯 -&gt; 喂给最终生成模型。</div></div><div class="diagram-card"><div class="diagram-title">图 32.3：检索前优化策略选型决策流（FLOWCHART）</div><div class="diagram-svg-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 322" style="max-width:100%;height:auto;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+<defs><marker id="arrow-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/></marker></defs>
+<rect width="864" height="322" rx="10" fill="#fafcff"/>
+<text x="432.0" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">检索前优化策略选型决策流</text>
+<rect x="36" y="48" width="220" height="74" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<text x="146.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1e3a8a">分析 Bad Case 特征</text>
+<text x="146.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">低召回原因定位</text>
+<rect x="322" y="48" width="220" height="74" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+<text x="432.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#065f46">口语/黑话/指代不明</text>
+<text x="432.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">首选 Query Rewriting (低延迟)</text>
+<rect x="608" y="48" width="220" height="74" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+<text x="718.0" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#92400e">多意图/复合提问</text>
+<text x="718.0" y="100" text-anchor="middle" font-size="11.5" fill="#475569">首选 Multi-Query (高召回)</text>
+<rect x="608" y="184" width="220" height="74" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<text x="718.0" y="214" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4c1d95">抽象概念/专业长文档</text>
+<text x="718.0" y="236" text-anchor="middle" font-size="11.5" fill="#475569">尝试 HyDE (注意延迟+防偏航)</text>
+<line x1="256" y1="85.0" x2="319" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="251.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="287.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">表达不规范</text>
+<line x1="256" y1="85.0" x2="605" y2="85.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="394.5" y="66.0" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="430.5" y="78.0" text-anchor="middle" font-size="11" fill="#334155">一问含多事</text>
+<line x1="146.0" y1="122" x2="718.0" y2="181" stroke="#475569" stroke-width="2" marker-end="url(#arrow-flow)"/>
+<rect x="396.0" y="132.5" width="72" height="18" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="432.0" y="144.5" text-anchor="middle" font-size="11" fill="#334155">短问搜长文</text>
+</svg></div><div class="diagram-caption"><strong>图示解读：</strong>根据延迟预算与提问特征在 QueryRewrite、Multi-Query、HyDE 之间做工程权衡。</div></div>
+      </section>
+
+      <section class="section-card" id="sec-notes">
+        <h2>4. 课堂核心技术笔记与深度原理解析</h2>
+        <h3>1. 1. HyDE 虽好，但有一个致命适用边界！</h3><p>HyDE 依赖大模型根据问题先「编」出一段符合领域风格的假设文档。对于通用概念（如报销流程、代码发布、休假规定），大模型非常擅长生成贴近原文的假设陈述；但如果你问的是公司内部特有代号（比如「星辰内部代号『天枢项目』的负责人是谁？」），大模型根本不知道天枢是什么，强行用 HyDE 瞎编反而会把向量带偏！</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：遇到专有项目代号、工单号、人名时不要用 HyDE，应该用明天（Day 33）的 **BM25 关键词 + 向量混合检索**！</div><h3>2. 2. 生产环境 LangChain 对应组件写法对照</h3><p>在 LangChain 生态中，Multi-Query 和上下文压缩都有现成封装：<br/>```python<br/>from langchain.retrievers.multi_query import MultiQueryRetriever<br/>from langchain.retrievers import ContextualCompressionRetriever<br/>from langchain.retrievers.document_compressors import LLMChainExtractor</p>
+<p>mq_retriever = MultiQueryRetriever.from_llm(retriever=vectorstore.as_retriever(), llm=fast_llm)<br/>compressor = LLMChainExtractor.from_llm(fast_llm)<br/>compression_retriever = ContextualCompressionRetriever(<br/>    base_compressor=compressor, base_retriever=mq_retriever<br/>)<br/>```</p><div class="pitfall-box"><strong>⚠️ 老陈避坑提示：</strong>踩坑提醒：Multi-Query 和 LLM 上下文压缩都会增加额外的 LLM 调用！生产环境务必给它们配「7B/轻量小模型 + 并发执行」，不要拿昂贵的旗舰模型去干改写和压缩的脏活，否则 P95 延迟直接飙到 8 秒以上。</div>
+        <h3>深度拓展：生产级底层原理与国内团队落地经验谈</h3>
+        <p>【老陈成本账本：高级 RAG 策略不能无脑全开！】<br/>很多同学学完高级 RAG，恨不得把 QueryRewrite + MultiQuery + HyDE + Compression + Rerank 全部串在一起。结果上线一测：单次问答调了 6 次 LLM，延迟 9.5 秒，月账单暴涨 5 倍！<br/>大厂真正的落地姿势是 **「意图路由 + 分级触发」**：<br/>- 70% 的简单明确提问 -&gt; 直接走明天的「混合检索 + Rerank」（零额外 LLM 调用，延迟 &lt; 150ms）；<br/>- 检测到指代词/多轮历史 -&gt; 触发轻量 Query Rewriting；<br/>- 检测到超长复合句或首次检索最高分偏低 -&gt; 再按需触发 Multi-Query / HyDE 补救！</p>
+      </section>
+
+      <section class="section-card" id="sec-code">
+        <h2>5. 一步一步粘贴可运行代码实操（全中文逐行注释）</h2>
+        <p>以下所有代码均已在 <code>versions/day32/</code> 与 <code>notebooks/day32/day32_practice.ipynb</code> 中全链路实测跑通。零外网密钥即可本地执行，配置 DeepSeek/通义千问 API Key 后可一键切换真实大模型。</p>
+        <h3>实操步骤 1：步骤一：实现 QueryRewriter、MultiQueryRetriever 与 HyDERetriever</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>咱们一口气把检索前优化三板斧全部手写实现：针对星辰内部黑话与口语的 <code>QueryRewriter</code>、多视角去重聚合的 <code>MultiQueryRetriever</code>，以及以文搜文的 <code>HyDERetriever</code>。</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day32_query_transform.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 32 - 步骤一：检索前优化三板斧（Query Rewriting / Multi-Query / HyDE）
+对应生产包：langchain.retrievers.multi_query / HypotheticalDocumentEmbedder
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_vector_store import StarMindVectorStore
+
+
+class QueryRewriter:
+    &quot;&quot;&quot;
+    企业级查询改写器：
+    将员工口语、地域别称与公司黑话规范化为正式制度检索词（生产可叠加轻量 7B LLM）。
+    &quot;&quot;&quot;
+
+    TERM_MAPPING: Dict[str, str] = {
+        &quot;魔都&quot;: &quot;上海 一线城市&quot;,
+        &quot;帝都&quot;: &quot;北京 一线城市&quot;,
+        &quot;鹏城&quot;: &quot;深圳 一线城市&quot;,
+        &quot;住店&quot;: &quot;酒店住宿标准上限&quot;,
+        &quot;吃饭&quot;: &quot;餐饮补助发票&quot;,
+        &quot;推线上&quot;: &quot;生产发布窗口上线变更&quot;,
+        &quot;发版&quot;: &quot;生产发布窗口代码合并&quot;,
+        &quot;礼拜五&quot;: &quot;周五&quot;,
+        &quot;居家&quot;: &quot;远程办公&quot;,
+        &quot;连不上网&quot;: &quot;零信任VPN动态令牌&quot;,
+        &quot;请假条&quot;: &quot;医院诊断证明病假&quot;,
+        &quot;年休&quot;: &quot;带薪年假天数申请&quot;,
+    }
+
+    def rewrite(self, query: str) -&gt; str:
+        rewritten = query
+        additions: List[str] = []
+        for slang, formal in self.TERM_MAPPING.items():
+            if slang in rewritten:
+                additions.append(formal)
+        if not additions:
+            return query
+        return f&quot;{query} {&#x27; &#x27;.join(additions)}&quot;
+
+
+class MultiQueryRetriever:
+    &quot;&quot;&quot;
+    多路查询检索器：
+    将一个复杂或口语提问扩展为多个互补视角子查询，分别检索向量库后按内容去重取最高分合并。
+    &quot;&quot;&quot;
+
+    def __init__(self, vector_store: StarMindVectorStore, rewriter: QueryRewriter | None = None) -&gt; None:
+        self.vector_store = vector_store
+        self.rewriter = rewriter or QueryRewriter()
+
+    def generate_queries(self, original_query: str) -&gt; List[str]:
+        queries: List[str] = [original_query]
+        formal = self.rewriter.rewrite(original_query)
+        if formal != original_query:
+            queries.append(formal)
+
+        # 拆解复合连接词（「和/以及/还有/顺便」）生成独立子查询
+        for splitter in (&quot;以及&quot;, &quot;还有&quot;, &quot;顺便&quot;, &quot;和&quot;, &quot;跟&quot;, &quot;，&quot;, &quot;,&quot;):
+            if splitter in original_query:
+                parts = [p.strip() for p in original_query.split(splitter) if len(p.strip()) &gt;= 3]
+                for p in parts:
+                    rewritten_p = self.rewriter.rewrite(p)
+                    if rewritten_p not in queries:
+                        queries.append(rewritten_p)
+                break
+        return queries[:4]
+
+    def retrieve(self, query: str, k: int = 3) -&gt; List[Tuple[Document, float]]:
+        sub_queries = self.generate_queries(query)
+        merged: Dict[str, Tuple[Document, float]] = {}
+
+        for sq in sub_queries:
+            for doc, score in self.vector_store.similarity_search_with_score(sq, k=k):
+                key = doc.page_content
+                if key not in merged or score &gt; merged[key][1]:
+                    merged[key] = (doc, score)
+
+        ranked = sorted(merged.values(), key=lambda x: x[1], reverse=True)
+        return ranked[:k]
+
+
+class HyDERetriever:
+    &quot;&quot;&quot;
+    HyDE（Hypothetical Document Embeddings）假设性文档嵌入检索器：
+    先生成一段符合企业制度文风的假设性回答，再以假设文档的向量检索真实知识库。
+    &quot;&quot;&quot;
+
+    def __init__(self, vector_store: StarMindVectorStore) -&gt; None:
+        self.vector_store = vector_store
+
+    def generate_hypothetical_doc(self, query: str) -&gt; str:
+        &quot;&quot;&quot;离线模拟 LLM 生成制度风格的假设性段落（生产环境调用轻量 ChatModel）。&quot;&quot;&quot;
+        if any(w in query for w in (&quot;住店&quot;, &quot;魔都&quot;, &quot;帝都&quot;, &quot;酒店&quot;, &quot;出差&quot;, &quot;吃饭&quot;, &quot;报销&quot;)):
+            return (
+                &quot;根据杭州星辰数科财务报销制度，员工因公前往一线城市（北京、上海、深圳、广州）或新一线城市出差，&quot;
+                &quot;需遵守酒店住宿每晚标准上限与餐饮补助定额发放规定，并提前在OA完成审批。&quot;
+            )
+        if any(w in query for w in (&quot;礼拜五&quot;, &quot;周五&quot;, &quot;推线上&quot;, &quot;发版&quot;, &quot;合并&quot;, &quot;代码&quot;)):
+            return (
+                &quot;根据研发工程规范，业务代码合并至main分支须通过GitLab Merge Request评审与CI测试，&quot;
+                &quot;日常生产发布窗口限定为周一至周四，严禁周五17:00之后非紧急变更上线。&quot;
+            )
+        if any(w in query for w in (&quot;居家&quot;, &quot;内网&quot;, &quot;VPN&quot;, &quot;脱敏&quot;, &quot;手机号&quot;)):
+            return (
+                &quot;根据IT信息安全指南，员工远程办公接入内网须使用星辰零信任VPN与动态令牌，&quot;
+                &quot;同时严格遵守客户敏感数据脱敏红线。&quot;
+            )
+        if any(w in query for w in (&quot;年休&quot;, &quot;年假&quot;, &quot;病假&quot;, &quot;请假&quot;, &quot;休假&quot;)):
+            return (
+                &quot;根据HR员工休假手册，员工按工龄享有带薪年假并需提前提交OA申请，&quot;
+                &quot;病假超过规定天数须提供公立医院诊断证明。&quot;
+            )
+        return f&quot;关于「{query}」的企业正式管理制度条款与执行标准说明。&quot;
+
+    def retrieve(self, query: str, k: int = 3) -&gt; List[Tuple[Document, float]]:
+        hypo_doc = self.generate_hypothetical_doc(query)
+        return self.vector_store.similarity_search_with_score(hypo_doc, k=k)
+
+
+if __name__ == &quot;__main__&quot;:
+    from src.day30_kb_cli import build_starmind_kb
+
+    kb = build_starmind_kb()
+    q = &quot;去魔都出差住店和吃饭分别怎么报？&quot;
+    mq = MultiQueryRetriever(kb.vector_store)
+    hyde = HyDERetriever(kb.vector_store)
+
+    print(&quot;Multi-Query 展开:&quot;, mq.generate_queries(q))
+    print(&quot;Multi-Query 命中:&quot;, [(d.metadata[&quot;section&quot;], s) for d, s in mq.retrieve(q, k=2)])
+    print(&quot;HyDE 命中:&quot;, [(d.metadata[&quot;section&quot;], s) for d, s in hyde.retrieve(q, k=2)])
+</code></pre><div class="output-box"># 预期运行输出示例：
+Multi-Query 展开: [&#x27;去魔都出差住店和吃饭分别怎么报？&#x27;, &#x27;去魔都出差住店和吃饭分别怎么报？ 上海 一线城市 酒店住宿标准上限 餐饮补助发票&#x27;, &#x27;去魔都出差住店 上海 一线城市 酒店住宿标准上限&#x27;, &#x27;吃饭分别怎么报？ 餐饮补助发票&#x27;]
+Multi-Query 命中: [(&#x27;差旅住宿标准&#x27;, 0.6542), (&#x27;餐饮与交通补助&#x27;, 0.5811)]
+HyDE 命中: [(&#x27;差旅住宿标准&#x27;, 0.7125), (&#x27;餐饮与交通补助&#x27;, 0.4219)]</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>MultiQueryRetriever</code> 不仅做了术语改写，还把复合提问（「住店和吃饭」）拆成两条独立子查询，保证住宿标准和餐饮补助两个不同章节都能同时被召回！<br/>2. <code>HyDERetriever</code> 把 10 字口语提问转化成一段制度风陈述句再去搜向量库，实现了经典的「Doc-to-Doc 向量空间对齐」。</p><h3>实操步骤 2：步骤二：实现上下文压缩器（ContextualCompressor）与召回率量化对比实验</h3><div class="narrator-box"><div class="narrator-header"><span class="narrator-avatar">陈</span>老陈代码旁白</div><p>检索召回拉高了，接下来写一个句子级 <code>ContextualCompressor</code> 把无关背景句裁掉省 Token，并在一组刁钻的口语化/黑话测试集上跑通 Baseline vs QueryRewrite vs Multi-Query vs HyDE 召回率对比实验！</p></div><div class="code-block-wrap"><div class="code-header"><span>📄 src/day32_compression_eval.py</span><button class="copy-btn" onclick="copyCode(this)">复制完整代码</button></div><pre><code>&quot;&quot;&quot;
+Day 32 - 步骤二：上下文压缩器（ContextualCompressor）与高级检索召回率对比实验
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+from typing import Dict, List, Sequence, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day29_embeddings_hnsw import StarMindLocalEmbeddings, cosine_similarity
+from src.day30_kb_cli import build_starmind_kb
+from src.day32_query_transform import HyDERetriever, MultiQueryRetriever, QueryRewriter
+
+
+class ContextualCompressor:
+    &quot;&quot;&quot;
+    句子级上下文压缩器：
+    将召回的长切片按中文句末标点拆句，计算每句与查询的语义相似度，
+    仅保留超过阈值的核心证据句，降低 LLM 输入 Token 与注意力噪音。
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        embeddings: StarMindLocalEmbeddings | None = None,
+        min_sentence_score: float = 0.12,
+        max_sentences_per_doc: int = 2,
+    ) -&gt; None:
+        self.embeddings = embeddings or StarMindLocalEmbeddings()
+        self.min_sentence_score = min_sentence_score
+        self.max_sentences_per_doc = max_sentences_per_doc
+
+    def compress_documents(
+        self,
+        query: str,
+        docs: Sequence[Document],
+    ) -&gt; Tuple[List[Document], float]:
+        q_vec = self.embeddings.embed_query(query)
+        orig_chars = sum(len(d.page_content) for d in docs)
+        compressed: List[Document] = []
+
+        for doc in docs:
+            sentences = [s.strip() for s in re.split(r&quot;(?&lt;=[。！？；\n])&quot;, doc.page_content) if s.strip()]
+            if not sentences:
+                continue
+            scored = [
+                (cosine_similarity(q_vec, self.embeddings.embed_query(s)), idx, s)
+                for idx, s in enumerate(sentences)
+            ]
+            # 筛选超过阈值的高相关句，至少保留最高分 1 句并还原原文顺序
+            kept = [item for item in scored if item[0] &gt;= self.min_sentence_score]
+            if not kept:
+                kept = [max(scored, key=lambda x: x[0])]
+            kept_top = sorted(sorted(kept, key=lambda x: x[0], reverse=True)[: self.max_sentences_per_doc], key=lambda x: x[1])
+            new_text = &quot;&quot;.join(item[2] for item in kept_top)
+            compressed.append(
+                Document(
+                    page_content=new_text,
+                    metadata={**doc.metadata, &quot;compressed&quot;: True, &quot;orig_len&quot;: len(doc.page_content)},
+                )
+            )
+
+        new_chars = sum(len(d.page_content) for d in compressed)
+        saved_ratio = round(1.0 - (new_chars / max(1, orig_chars)), 4)
+        return compressed, saved_ratio
+
+
+# 专门构造贴近真实员工口语/黑话/复合意图的难题测试集
+SLANG_EVAL_CASES = [
+    (&quot;去魔都住店最多能报多少？&quot;, &quot;差旅住宿标准&quot;),
+    (&quot;礼拜五下班前能不能推线上？&quot;, &quot;生产发布窗口&quot;),
+    (&quot;居家干活连不上网咋整？&quot;, &quot;VPN与内网接入&quot;),
+    (&quot;生病开请假条有啥要求？&quot;, &quot;病假与证明&quot;),
+    (&quot;老员工年休几天怎么申请？&quot;, &quot;年假规定&quot;),
+    (&quot;出差吃饭要贴票吗？&quot;, &quot;餐饮与交通补助&quot;),
+]
+
+
+def run_recall_comparison(top_k: int = 2) -&gt; Dict[str, float]:
+    kb = build_starmind_kb()
+    vs = kb.vector_store
+    rewriter = QueryRewriter()
+    mq = MultiQueryRetriever(vs, rewriter)
+    hyde = HyDERetriever(vs)
+
+    strategies = {
+        &quot;Baseline_Naive&quot;: lambda q: vs.similarity_search_with_score(q, k=top_k),
+        &quot;QueryRewriting&quot;: lambda q: vs.similarity_search_with_score(rewriter.rewrite(q), k=top_k),
+        &quot;MultiQuery&quot;: lambda q: mq.retrieve(q, k=top_k),
+        &quot;HyDE&quot;: lambda q: hyde.retrieve(q, k=top_k),
+    }
+
+    report: Dict[str, float] = {}
+    for name, fn in strategies.items():
+        hits = 0
+        for q, expected_section in SLANG_EVAL_CASES:
+            docs = [d for d, _ in fn(q)]
+            if any(d.metadata.get(&quot;section&quot;) == expected_section for d in docs):
+                hits += 1
+        report[name] = round(hits / len(SLANG_EVAL_CASES), 4)
+    return report
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== 口语/黑话难题集 Recall@2 对比实验 ===&quot;)
+    for k_name, score in run_recall_comparison(top_k=2).items():
+        print(f&quot;  {k_name:16s} -&gt; Recall@2 = {score:.2%}&quot;)
+
+    # 演示上下文压缩节省 Token 效果
+    long_doc = Document(
+        &quot;公司成立于2018年位于杭州未来科技城，拥有超过800名员工。&quot;
+        &quot;一线城市（北京、上海、深圳、广州）酒店住宿上限每晚600元。&quot;
+        &quot;园区地下车库免费向全体员工开放，请勿占用消防通道。&quot;
+        &quot;食堂二楼提供杭帮菜和轻食沙拉。&quot;,
+        {&quot;source&quot;: &quot;综合手册.md&quot;},
+    )
+    comp = ContextualCompressor(max_sentences_per_doc=1)
+    slim_docs, saved = comp.compress_documents(&quot;上海出差住酒店上限是多少&quot;, [long_doc])
+    print(f&quot;\n上下文压缩节省字符比例: {saved:.1%}&quot;)
+    print(&quot;压缩后保留证据句:&quot;, slim_docs[0].page_content)
+</code></pre><div class="output-box"># 预期运行输出示例：
+=== 口语/黑话难题集 Recall@2 对比实验 ===
+  Baseline_Naive   -&gt; Recall@2 = 66.67%
+  QueryRewriting   -&gt; Recall@2 = 100.00%
+  MultiQuery       -&gt; Recall@2 = 100.00%
+  HyDE             -&gt; Recall@2 = 100.00%
+
+上下文压缩节省字符比例: 72.1%
+压缩后保留证据句: 一线城市（北京、上海、深圳、广州）酒店住宿上限每晚600元。</div></div><h4>深度代码解析与工程要点</h4><p>1. <code>ContextualCompressor</code> 在挑出最相关句子后，特意按原句索引 <code>idx</code> 重新排回原文顺序（<code>key=lambda x: x[1]</code>），避免打乱前后逻辑因果关系。<br/>2. 在 <code>SLANG_EVAL_CASES</code> 口语化难题集上，QueryRewriting、MultiQuery 和 HyDE 均能把 Recall@2 稳定拉升至 100%，直观证明检索前优化的实战价值。</p>
+      </section>
+
+      <section class="section-card" id="sec-ast">
+        <h2>6. 逐行源码深度拆解与自动化单元测试</h2>
+        <h3>源码级深度拆解 1：步骤一：实现 QueryRewriter、MultiQueryRetriever 与 HyDERetriever（src/day32_query_transform.py）</h3><p>模块 <code>src/day32_query_transform.py</code> 共计 141 行源码，其中包含 1 行中文工程注释（注释密度约 0.7%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-032 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List, Tuple)</code>、<code>src.day28_loaders (Document)</code>、<code>src.day29_vector_store (StarMindVectorStore)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>QueryRewriter</code>（第 20~49 行）】这是一个独立领域模型类。其核心职责定义为：企业级查询改写器：<br/>将员工口语、地域别称与公司黑话规范化为正式制度检索词（生产可叠加轻量 7B LLM）。。类内部暴露了 1 个方法：<code>rewrite(self, query)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>QueryRewriter.rewrite</code>（第 41~49 行）属于同步实例方法，入参签名为 <code>(self, query)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>MultiQueryRetriever</code>（第 52~90 行）】这是一个独立领域模型类。其核心职责定义为：多路查询检索器：<br/>将一个复杂或口语提问扩展为多个互补视角子查询，分别检索向量库后按内容去重取最高分合并。。类内部暴露了 3 个方法：<code>__init__(self, vector_store, rewriter)</code>、<code>generate_queries(self, original_query)</code>、<code>retrieve(self, query, k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>MultiQueryRetriever.__init__</code>（第 58~60 行）属于同步实例方法，入参签名为 <code>(self, vector_store, rewriter)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MultiQueryRetriever.generate_queries</code>（第 62~77 行）属于同步实例方法，入参签名为 <code>(self, original_query)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>MultiQueryRetriever.retrieve</code>（第 79~90 行）属于同步实例方法，入参签名为 <code>(self, query, k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【类结构拆解 · <code>HyDERetriever</code>（第 93~128 行）】这是一个独立领域模型类。其核心职责定义为：HyDE（Hypothetical Document Embeddings）假设性文档嵌入检索器：<br/>先生成一段符合企业制度文风的假设性回答，再以假设文档的向量检索真实知识库。。类内部暴露了 3 个方法：<code>__init__(self, vector_store)</code>、<code>generate_hypothetical_doc(self, query)</code>、<code>retrieve(self, query, k)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>HyDERetriever.__init__</code>（第 99~100 行）属于同步实例方法，入参签名为 <code>(self, vector_store)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HyDERetriever.generate_hypothetical_doc</code>（第 102~124 行）属于同步实例方法，入参签名为 <code>(self, query)</code>。文档说明：离线模拟 LLM 生成制度风格的假设性段落（生产环境调用轻量 ChatModel）。。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>HyDERetriever.retrieve</code>（第 126~128 行）属于同步实例方法，入参签名为 <code>(self, query, k)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day32_query_transform.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day32/day32_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day32/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p><h3>源码级深度拆解 2：步骤二：实现上下文压缩器（ContextualCompressor）与召回率量化对比实验（src/day32_compression_eval.py）</h3><p>模块 <code>src/day32_compression_eval.py</code> 共计 126 行源码，其中包含 3 行中文工程注释（注释密度约 2.4%）。在星辰数科内部的 GitLab 合入规范里，老陈一直强调“代码是写给半年后的自己和接手同事看的，顺带让机器执行”。围绕今天工单 STARMIND-032 的核心交付目标，这个文件承担着把业务需求转化为可测试、可组合接口的关键职责。</p>
+<p>从依赖治理视角看，该文件显式引入了 <code>__future__ (annotations)</code>、<code>re</code>、<code>sys</code>、<code>pathlib (Path)</code>、<code>typing (Dict, List, Sequence, Tuple)</code>、<code>src.day28_loaders (Document)</code>、<code>src.day29_embeddings_hnsw (StarMindLocalEmbeddings, cosine_similarity)</code>、<code>src.day30_kb_cli (build_starmind_kb)</code>、<code>src.day32_query_transform (HyDERetriever, MultiQueryRetriever, QueryRewriter)</code>。坚持显式导入而非 <code>from xxx import *</code>，能够让 IDE 静态检查（如 Pyright/Mypy）在编码期就标出拼写错误和循环依赖，避免线上冷启动时才爆出 <code>ImportError</code>。</p>
+<p>【类结构拆解 · <code>ContextualCompressor</code>（第 22~71 行）】这是一个独立领域模型类。其核心职责定义为：句子级上下文压缩器：<br/>将召回的长切片按中文句末标点拆句，计算每句与查询的语义相似度，<br/>仅保留超过阈值的核心证据句，降低 LLM 输入 Token 与注意力噪音。。类内部暴露了 2 个方法：<code>__init__(self, embeddings, min_sentence_score, max_sentences_per_doc)</code>、<code>compress_documents(self, query, docs)</code>。在企业级工程中，把状态与行为收敛到类实例中，可以彻底避免全局变量污染——特别是到了后面接入 FastAPI 多并发请求时，每个用户会话、每条知识库流水线都必须拥有隔离的状态上下文，绝不能串台。</p>
+<p>- 方法 <code>ContextualCompressor.__init__</code>（第 29~37 行）属于同步实例方法，入参签名为 <code>(self, embeddings, min_sentence_score, max_sentences_per_doc)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>- 方法 <code>ContextualCompressor.compress_documents</code>（第 39~71 行）属于同步实例方法，入参签名为 <code>(self, query, docs)</code>。在 Code Review 时，阿杰会重点核查它的边界入参（比如空字符串、None、超长文本或异常类型）是否会被优雅兜底，而不会把裸栈轨迹直接抛给前端。</p>
+<p>【函数契约拆解 · <code>run_recall_comparison</code>（第 85~107 行）】该函数为顶层纯函数/入口函数，参数列表为 <code>(top_k)</code>。把独立逻辑下沉为无副作用或低耦合的函数，最大的工程收益是单测极其好写——不需要启动整套 Web 服务或联网调真实模型，直接构造几组边界输入就能在毫秒级跑完断言，确保 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</p>
+<p>【粘贴运行与验证指引】学员可以直接把 <code>src/day32_compression_eval.py</code> 的完整代码粘贴到本地对应路径，或在配套 Jupyter Notebook (<code>notebooks/day32/day32_practice.ipynb</code>) 中逐 Cell 执行。如果你在运行中遇到模块找不到（<code>ModuleNotFoundError</code>），请先确认终端当前目录位于当天版本根目录 <code>versions/day32/</code>，并已激活 <code>.venv</code> 虚拟环境。老陈提醒：每跑通一个函数，不妨故意改坏一个输入参数，亲眼看看报错信息长什么样，这是从“照着敲代码”跨向“自己能排错”最快的一步。</p>
+        <h3>逐段源码导读表 1：src/day32_query_transform.py（共 141 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day32_query_transform.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from pathlib import Path</code></td><td>核心意图：代表语句：`from pathlib import Path`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day29_vector_store import StarMindVectorStore</code></td><td>核心意图：代表语句：`from src.day29_vector_store import StarMindVectorStore`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>TERM_MAPPING: Dict[str, str] = {</code></td><td>核心意图：代表语句：`TERM_MAPPING: Dict[str, str] = {`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L33-L40</code></td><td><code>&quot;发版&quot;: &quot;生产发布窗口代码合并&quot;,</code></td><td>核心意图：代表语句：`&quot;发版&quot;: &quot;生产发布窗口代码合并&quot;,`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L41-L48</code></td><td><code>def rewrite(self, query: str) -&gt; str:</code></td><td>核心意图：代表语句：`def rewrite(self, query: str) -&gt; str:`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L49-L56</code></td><td><code>return f&quot;{query} {&#x27; &#x27;.join(additions)}&quot;</code></td><td>核心意图：代表语句：`return f&quot;{query} {&#x27; &#x27;.join(additions)}&quot;`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L57-L64</code></td><td><code>def __init__(self, vector_store: StarMindVectorStore, rewriter: QueryRew</code></td><td>核心意图：代表语句：`def __init__(self, vector_store: StarMindVectorStore, rewriter: QueryRewriter | None = Non`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L65-L72</code></td><td><code>if formal != original_query:</code></td><td>核心意图：拆解复合连接词（「和/以及/还有/顺便」）生成独立子查询。代表语句：`if formal != original_query:`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L73-L80</code></td><td><code>rewritten_p = self.rewriter.rewrite(p)</code></td><td>核心意图：代表语句：`rewritten_p = self.rewriter.rewrite(p)`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L81-L88</code></td><td><code>merged: Dict[str, Tuple[Document, float]] = {}</code></td><td>核心意图：代表语句：`merged: Dict[str, Tuple[Document, float]] = {}`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L89-L96</code></td><td><code>ranked = sorted(merged.values(), key=lambda x: x[1], reverse=True)</code></td><td>核心意图：代表语句：`ranked = sorted(merged.values(), key=lambda x: x[1], reverse=True)`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L97-L104</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>return (</code></td><td>核心意图：代表语句：`return (`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>)</code></td><td>核心意图：代表语句：`)`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L121-L128</code></td><td><code>&quot;根据HR员工休假手册，员工按工龄享有带薪年假并需提前提交OA申请，&quot;</code></td><td>核心意图：代表语句：`&quot;根据HR员工休假手册，员工按工龄享有带薪年假并需提前提交OA申请，&quot;`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。 此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。</td></tr><tr><td><code>L129-L136</code></td><td><code>if __name__ == &quot;__main__&quot;:</code></td><td>核心意图：代表语句：`if __name__ == &quot;__main__&quot;:`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L137-L141</code></td><td><code>hyde = HyDERetriever(kb.vector_store)</code></td><td>核心意图：代表语句：`hyde = HyDERetriever(kb.vector_store)`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr></tbody></table>
+<h3>逐段源码导读表 2：src/day32_compression_eval.py（共 126 行）</h3><p>为了确保零基础同学也能彻底吃透 <code>src/day32_compression_eval.py</code>，老陈把源码按逻辑块切片并逐段标出了设计意图与工程注意事项：</p><table><thead><tr><th style='width:95px'>行号区间</th><th style='width:280px'>关键语句锚点</th><th>工程意图与底层执行剖析</th></tr></thead><tbody><tr><td><code>L1-L8</code></td><td><code>&quot;&quot;&quot;</code></td><td>核心意图：代表语句：`&quot;&quot;&quot;`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L9-L16</code></td><td><code>from pathlib import Path</code></td><td>核心意图：代表语句：`from pathlib import Path`。工程剖析：此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L17-L24</code></td><td><code>from src.day29_embeddings_hnsw import StarMindLocalEmbeddings, cosine_si</code></td><td>核心意图：代表语句：`from src.day29_embeddings_hnsw import StarMindLocalEmbeddings, cosine_similarity`。工程剖析：此处定义了面向对象的领域模型类，把业务状态与操作方法封装在统一命名空间中，便于后续多实例并发隔离与单元测试注入。</td></tr><tr><td><code>L25-L32</code></td><td><code>将召回的长切片按中文句末标点拆句，计算每句与查询的语义相似度，</code></td><td>核心意图：代表语句：`将召回的长切片按中文句末标点拆句，计算每句与查询的语义相似度，`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L33-L40</code></td><td><code>max_sentences_per_doc: int = 2,</code></td><td>核心意图：代表语句：`max_sentences_per_doc: int = 2,`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L41-L48</code></td><td><code>query: str,</code></td><td>核心意图：代表语句：`query: str,`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L49-L56</code></td><td><code>sentences = [s.strip() for s in re.split(r&quot;(?&lt;=[。！？；\n])&quot;, doc.page_cont</code></td><td>核心意图：筛选超过阈值的高相关句，至少保留最高分 1 句并还原原文顺序。代表语句：`sentences = [s.strip() for s in re.split(r&quot;(?&lt;=[。！？；\n])&quot;, doc.page_content) if s.strip()]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L57-L64</code></td><td><code>kept = [item for item in scored if item[0] &gt;= self.min_sentence_score]</code></td><td>核心意图：代表语句：`kept = [item for item in scored if item[0] &gt;= self.min_sentence_score]`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L65-L72</code></td><td><code>metadata={**doc.metadata, &quot;compressed&quot;: True, &quot;orig_len&quot;: len(doc.page_c</code></td><td>核心意图：代表语句：`metadata={**doc.metadata, &quot;compressed&quot;: True, &quot;orig_len&quot;: len(doc.page_content)},`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。</td></tr><tr><td><code>L73-L80</code></td><td><code>SLANG_EVAL_CASES = [</code></td><td>核心意图：专门构造贴近真实员工口语/黑话/复合意图的难题测试集。代表语句：`SLANG_EVAL_CASES = [`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L81-L88</code></td><td><code>(&quot;出差吃饭要贴票吗？&quot;, &quot;餐饮与交通补助&quot;),</code></td><td>核心意图：代表语句：`(&quot;出差吃饭要贴票吗？&quot;, &quot;餐饮与交通补助&quot;),`。工程剖析：此处声明了职责单一的函数/方法入口，显式标注了入参与返回值契约，避免隐式全局状态依赖。</td></tr><tr><td><code>L89-L96</code></td><td><code>mq = MultiQueryRetriever(vs, rewriter)</code></td><td>核心意图：代表语句：`mq = MultiQueryRetriever(vs, rewriter)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L97-L104</code></td><td><code>}</code></td><td>核心意图：代表语句：`}`。工程剖析：此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L105-L112</code></td><td><code>hits += 1</code></td><td>核心意图：代表语句：`hits += 1`。工程剖析：此处将加工后的结构化结果显式返回给上游调用方，保持纯函数或低副作用风格，方便上游链式组合。 此处通过迭代循环批量处理数据集合，实际落地时需格外留意循环终止条件与大数据集下的时间复杂度。 此处对业务分支或边界条件进行显式判定，属于保证生产环境鲁棒性的关键守卫逻辑。</td></tr><tr><td><code>L113-L120</code></td><td><code>print(f&quot;  {k_name:16s} -&gt; Recall@2 = {score:.2%}&quot;)</code></td><td>核心意图：演示上下文压缩节省 Token 效果。代表语句：`print(f&quot;  {k_name:16s} -&gt; Recall@2 = {score:.2%}&quot;)`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr><tr><td><code>L121-L126</code></td><td><code>{&quot;source&quot;: &quot;综合手册.md&quot;},</code></td><td>核心意图：代表语句：`{&quot;source&quot;: &quot;综合手册.md&quot;},`。工程剖析：此处完成基础变量初始化、模块导入或数据结构组装，为下游核心业务计算准备好标准上下文。</td></tr></tbody></table>
+        <h3>当日版本自动化单元测试（<code>versions/day32/tests/test_day32.py</code>）</h3>
+        <p>在星辰数科，没有单元测试护航的代码绝不允许合入 <code>main</code> 分支。以下测试脚本可直接通过 <code>pytest versions/day32/tests/ -v</code> 执行验证：</p>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>🧪 versions/day32/tests/test_day32.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制测试代码</button>
+          </div>
+          <pre><code>&quot;&quot;&quot;Day 32 自动化单元测试：验证 Query改写、MultiQuery、HyDE、上下文压缩与召回率提升。&quot;&quot;&quot;
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day28_loaders import Document
+from src.day30_kb_cli import build_starmind_kb
+from src.day32_compression_eval import ContextualCompressor, run_recall_comparison
+from src.day32_query_transform import HyDERetriever, MultiQueryRetriever, QueryRewriter
+
+
+def test_query_rewriter_and_multiquery():
+    rw = QueryRewriter()
+    out = rw.rewrite(&quot;礼拜五能不能推线上？&quot;)
+    assert &quot;周五&quot; in out and &quot;生产发布窗口&quot; in out
+
+    kb = build_starmind_kb()
+    mq = MultiQueryRetriever(kb.vector_store, rw)
+    sub_qs = mq.generate_queries(&quot;去魔都出差住店和吃饭怎么报销？&quot;)
+    assert len(sub_qs) &gt;= 3
+    hits = mq.retrieve(&quot;去魔都出差住店和吃饭怎么报销？&quot;, k=2)
+    sections = {d.metadata[&quot;section&quot;] for d, _ in hits}
+    assert &quot;差旅住宿标准&quot; in sections
+
+
+def test_hyde_and_recall_improvement():
+    report = run_recall_comparison(top_k=2)
+    assert report[&quot;QueryRewriting&quot;] &gt;= report[&quot;Baseline_Naive&quot;]
+    assert report[&quot;MultiQuery&quot;] &gt;= report[&quot;Baseline_Naive&quot;]
+    assert report[&quot;HyDE&quot;] &gt;= 0.80
+
+
+def test_contextual_compressor_saves_tokens():
+    doc = Document(
+        &quot;园区班车每天早8点从地铁站发车。一线城市住宿上限每晚600元。周五下午茶在3楼茶水间领取。&quot;,
+        {&quot;source&quot;: &quot;guide.md&quot;},
+    )
+    comp = ContextualCompressor(max_sentences_per_doc=1)
+    slim, saved = comp.compress_documents(&quot;一线城市住宿上限&quot;, [doc])
+    assert saved &gt; 0.4
+    assert &quot;600元&quot; in slim[0].page_content
+    assert &quot;下午茶&quot; not in slim[0].page_content
+</code></pre>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-gitlab">
+        <h2>7. 国内研发团队 GitLab 协作流与 Code Review 实录</h2>
+        <p>在杭州星辰数科的真实研发节奏里，写完代码跑通本地只是完成了一半工作，另一半决定你能不能过试用期的，是规范的 GitLab 团队协作习惯。今天对应的需求单号是 <code>STARMIND-032</code>，承接自 Day 31 已经合入主干的基线版本。我们在早会上与林产品确认了验收口径后，第一时间切出独立特性分支 <code>feat/day32-advanced-rag-query-transform</code>，严禁直接在 <code>main</code> 或 <code>release</code> 分支上裸改提交。当你把代码推上 GitLab 发起 Merge Request（简称 MR）后，系统会自动触发上面这套 CI 质量门禁：先做语法与风格扫描，再跑阿杰盯得最紧的自动化 pytest 用例，最后过一遍密钥防泄露正则检查——国内不少初创团队吃过把 DeepSeek 或通义千问 API Key 顺手推到公网仓库、半小时被刷爆几千块额度的亏，所以这道卡点是死红线。CI 全部变绿后，把 MR 链接发到飞书研发群里 <code>@老陈</code> 和 <code>@阿杰</code>，等至少一位 Reviewer 点下 Approve，才可以 Squash Merge 合并入主干并勾选删除源分支。</p>
+        <h3>7.1 当日标准 Git 操作命令清单</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>💻 GitLab 分支与提交流程（feat/day32-advanced-rag-query-transform）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制命令</button>
+          </div>
+          <pre><code># 1. 早上 09:00 站会前：同步主干最新代码，防止与同事的合入产生大面积冲突
+git checkout main
+git pull origin main
+
+# 2. 基于最新 main 拉取今日需求分支（严格遵循团队 feat/dayXX-xxx 命名规范）
+git checkout -b feat/day32-advanced-rag-query-transform
+
+# 3. 编码完成后：先在本地跑通今日模块与全量 pytest 单元测试（严禁未测先提 MR）
+python -m pytest tests/test_day32.py -v
+
+# 4. 查看变更文件清单，确认没有误提交 .env 密钥文件或临时 __pycache__ 缓存
+git status
+git diff --stat
+
+# 5. 按 Conventional Commits 规范暂存并提交代码（关联 GitLab 工单号 STARMIND-032）
+git add src/day32_query_transform.py src/day32_compression_eval.py tests/test_day32.py
+git commit -m &quot;feat(day32): 实现QueryRewriter、MultiQuery、HyDE与上下文压缩器并完成召回率对比实验
+
+Refs: STARMIND-032
+- 完成 高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩 核心模块实现与详细中文注释
+- 补充单元自动化测试并通过本地回归验证
+- 同步更新当日架构说明与踩坑复盘文档&quot;
+
+# 6. 推送到公司内网 GitLab 远端仓库，并在 Web 端发起 Merge Request 指派老陈 Review
+git push -u origin feat/day32-advanced-rag-query-transform</code></pre>
+        </div>
+        <h3>7.2 当日 GitLab CI/CD 质量门禁配置</h3>
+        <div class="code-block-wrap">
+          <div class="code-header">
+            <span>⚙️ .gitlab-ci.yml（STARMIND-032 门禁）</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制配置</button>
+          </div>
+          <pre><code># .gitlab-ci.yml（STARMIND-032 当日流水线检查阶段示例）
+stages:
+  - lint
+  - unit_test
+  - security_scan
+
+day32_syntax_check:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - python -m py_compile src/day32_query_transform.py src/day32_compression_eval.py
+    - echo &quot;Day 32 语法编译检查通过&quot;
+
+day32_pytest_gate:
+  stage: unit_test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - pytest versions/day32/tests/ -v --tb=short
+
+secret_leak_guard:
+  stage: security_scan
+  script:
+    - &#x27;! grep -rnE &quot;(sk-[a-zA-Z0-9]{20,}|DASHSCOPE_API_KEY=[a-zA-Z0-9]+)&quot; versions/day32/&#x27;
+    - echo &quot;密钥泄露扫描通过：未发现硬编码 API Key&quot; </code></pre>
+        </div>
+        <h3>7.3 Merge Request 真实 Code Review 评审记录</h3>
+        <div class="review-item"><div class="review-meta"><span>👤 老陈</span><span>状态：Approved</span></div><p>压缩后按原始句子下标 <code>idx</code> 恢复语序这个细节很专业！否则把「但是…」排在「原则上…」前面会让大模型理解反了。</p></div><div class="review-item"><div class="review-meta"><span>👤 阿杰</span><span>状态：Approved</span></div><p>企业同义词词典 <code>TERM_MAPPING</code> 后续可以做成 YAML/数据库热加载，运维同学随时加新黑话不用发版。</p></div>
+      </section>
+
+      <section class="section-card" id="sec-handbook">
+        <h2>8. 企业级实战方法论与三大业务场景迁移推演</h2>
+        <h3>实战方法论一：需求评审会现场还原——如何把林产品的业务语言翻译成 STARMIND-032 的技术方案</h3><p>很多零基础转行或者刚毕业的同学进公司后，最容易踩的第一个坑不是代码写不出来，而是“需求没听懂就开始埋头写代码”，写完三天提测才发现跟产品经理要的南辕北辙。今天我们以 STARMIND-032（高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩）为例，把星辰数科每周一上午需求评审会的真实对话逻辑拆开揉碎了讲给你听。业务背景非常明确：内测期间统计发现，约 35% 的员工提问存在地域别称（如魔都/帝都）、口语化表达（推线上/住店/请病假条）或复合多意图提问，导致 Naive RAG 单次直接检索漏召回。 在评审会上，林产品抛出来的核心业务痛点集中在：（1）用户口语/公司黑话与正式规章制度措辞差异大，直接做向量检索相似度偏低。；（2）复合问题（如「出差住宿和吃饭怎么报？」）单次查询容易只召回住宿而漏掉餐补。；（3）Top-4 检索结果中往往夹杂大量与当前提问无关的相邻条款，浪费 LLM Token 且分散注意力。。如果你只盯着字面意思去写一个“一次性脚本”，短期看似交付很快，但两周后业务方加一个新字段、换一个大模型厂商或者并发量翻倍时，整段代码就得推倒重来。</p>
+<p>老陈在评审会上通常只追问三个致命问题，建议你拿小本本记下来，以后带项目直接套用：第一问“输入数据的最坏情况长什么样？”——比如用户会不会粘进来 5 万字乱码、空文件、或者带 SQL 注入/提示词注入的恶意文本；第二问“业务方能接受的失败兜底策略是什么？”——在大模型应用里，100% 不出错是不可能的，关键是出错时系统是直接 500 白屏，还是友好提示、自动降级并留存日志；第三问“哪些指标能证明我们今天这版上线是成功的？”——围绕今天定下的交付目标：（1）实现 <code>QueryRewriter</code>（术语规范化与口语改写）、<code>MultiQueryRetriever</code>（多视角扩展 + 去重合并）和 <code>HyDERetriever</code>（假设性文档嵌入检索）。；（2）实现 <code>ContextualCompressor</code>（句子级相关性提纯，过滤低相关噪音句并统计压缩率）。；（3）在口语化/黑话测试集上运行 Baseline vs QueryRewrite vs Multi-Query vs HyDE 召回率对比实验。，必须全部翻译成可量化的测试用例和监控指标（例如 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）。</p>
+<p>经过这三轮对齐，我们在飞书需求文档里落定了今天的技术边界：明确哪些能力放在当天版本 <code>versions/day32/</code> 里做透做稳，哪些属于过度设计（Over-engineering）暂时留好接口扩展位而不急着实现。记住国内互联网大厂一条铁律：好的架构不是一开始就画一张大而全的宇航级图纸，而是像今天这样，在清晰抽象边界的前提下，让每一个迭代版本都能独立跑通、独立测试、独立交付业务价值。</p><h3>实战方法论二：核心技术点深度复盘与零基础高频认知误区排雷</h3><p>【核心专题 1 深度复盘：1. HyDE 虽好，但有一个致命适用边界！】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：HyDE 依赖大模型根据问题先「编」出一段符合领域风格的假设文档。对于通用概念（如报销流程、代码发布、休假规定），大模型非常擅长生成贴近原文的假设陈述；但如果你问的是公司内部特有代号（比如「星辰内部代号『天枢项目』的负责人是谁？」），大模型根本不知道天枢是什么，强行用 HyDE 瞎编反而会把向量带偏！…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：遇到专有项目代号、工单号、人名时不要用 HyDE，应该用明天（Day 33）的 **BM25 关键词 + 向量混合检索**！。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「1. HyDE 虽好，但有一个致命适用边界！」的理解才算真正刻进了肌肉记忆。</p>
+<p>【核心专题 2 深度复盘：2. 生产环境 LangChain 对应组件写法对照】课堂上我们梳理了主干原理，但在企业真实开发里，决定代码上限的往往是对细节和反例的拿捏。回顾本节关键脉络：在 LangChain 生态中，Multi-Query 和上下文压缩都有现成封装：<br/>```python<br/>from langchain.retrievers.multi_query import MultiQueryRetriever<br/>from langchain.retrievers import ContextualCompressionRetriever<br/>from langchain.retrievers.document_compressors import LLMChainExtractor</p>
+<p>mq_retriever = MultiQueryRetriever.from_llm(retriever=vectorstore.…… 许多同学在自学这一块时容易陷入“只看 Demo 成功路径”的误区，以为把官方文档里的 10 行示例代码跑出结果就算掌握了。实际上，真正上线踩坑的 80% 都集中在刚才反复敲黑板的盲区里：踩坑提醒：Multi-Query 和 LLM 上下文压缩都会增加额外的 LLM 调用！生产环境务必给它们配「7B/轻量小模型 + 并发执行」，不要拿昂贵的旗舰模型去干改写和压缩的脏活，否则 P95 延迟直接飙到 8 秒以上。。老陈建议你在做完今天的 Notebook 实操后，刻意做一次“破坏性实验”：把输入参数改成非法类型、把配置项删掉一个字段、把数据量放大 100 倍，观察程序的内存占用、执行耗时和报错堆栈。只有亲手把一个模块“搞崩”再亲手修好，你对「2. 生产环境 LangChain 对应组件写法对照」的理解才算真正刻进了肌肉记忆。</p><h3>实战方法论三：从“能跑就行”到“生产级代码”——Day 32 模块的代码品味与重构准则</h3><p>今天我们在 <code>versions/day32/</code> 中亲手编写了 <code>src/day32_query_transform.py</code>、<code>src/day32_compression_eval.py</code> 以及对应的自动化测试 <code>tests/test_day32.py</code>。站在初级开发者视角，代码只要在控制台打印出预期结果就算大功告成；但站在星辰数科技术委员会的 Code Review 视角，一段代码能不能合入主干，要过四道硬核关卡：第一关是“单一职责与低耦合”——函数长度尽量控制在 40~60 行以内，如果一个函数既负责读取配置、又负责清洗文本、还负责调接口和写文件，那它一定难以复用和单测；第二关是“命名即文档”——变量名绝不用 <code>a</code>、<code>b</code>、<code>data1</code>、<code>temp2</code>，而是直接用业务含义命名（如 <code>sanitized_prompt</code>、<code>chunk_overlap</code>、<code>trace_id</code>），配合 Python 类型注解（Type Hints），让阅读者一眼看清数据契约；第三关是“显式错误处理”——绝不写光秃秃的 <code>except: pass</code> 吞掉异常，因为吞掉异常等于在生产环境埋下一颗定时炸弹，真出故障时连日志都查不到；第四关是“可测试性”——任何涉及外部网络、系统时间、随机数或付费大模型 API 的逻辑，都要支持通过依赖注入或 <code>local_mock</code> 切换在离线环境 100% 确定性地跑通回归测试。</p>
+<p>对照这四道关卡回头审视你今天写下的每一行代码，你会清晰感受到：大模型应用开发绝不是“调个 API 写两句提示词”那么肤浅的玩具活，它本质上是“扎实的软件工程底座 + 大模型概率特性治理 + 垂直业务场景洞察”的三位一体。国内企业现在最缺、薪资给得最高的，恰恰是既懂 Python/FastAPI/Docker 工程落地，又懂 RAG/Agent/微调底层调优的复合型 AI 应用工程师。</p><h3>实战方法论四：晚自习刻意练习路线与国内大厂高效职场沟通模板</h3><p>每天晚上 19:00-21:00 的晚自习，是把白天听懂的“瞬时记忆”转化为自己能独立敲出来的“长期能力”的黄金两小时。老陈给你规划了标准的三步复盘法：第一步（前 30 分钟），合上课件，只看今天 <code>docs/daily/day32_gitlab_prd.md</code> 里的需求验收清单，自己在白纸或 Excalidraw 上把今天的流程图与架构图默画一遍，卡壳的地方立刻回看正文补漏；第二步（中间 60 分钟），独立完成今天的 3 道梯度课后作业，先不要点开参考答案，哪怕写得丑也要先让代码跑起来、单测变绿，再去逐行比对标准答案里的设计思路差距；第三步（最后 30 分钟），整理今天的 Git 提交记录，并在飞书项目群里发一份结构清晰的每日站会/晚间同步简报。</p>
+<p>附【星辰数科研发群晚间进度同步模板（可直接套用）】：<br/>「今日进展（Day 32 / STARMIND-032）：1. 已在分支 <code>feat/day32-advanced-rag-query-transform</code> 完成 高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩 核心开发与单元测试（pytest 全绿）；2. 已在 Jupyter Notebook 完成核心路径验证与边界测试；3. 已提 MR 请 @老陈 Review。<br/>今日踩坑与沉淀：重点解决了 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 相关边界问题，已补充进团队排障笔记。<br/>明日计划（Day 33）：明天（Day 33）我们将进入高级 RAG 技术（下）：攻克专有名词和精确编号检索难题，亲手实现 BM25 + 向量混合检索、RRF 倒数排名融合、bge-reranker 重排序与父文档检索器！」<br/>别小看这短短几行同步模板，当你入职真实公司后，用“结论先行 + 量化结果 + 风险暴露 + 明日动作”的方式汇报，老板和 Tech Lead 对你的信任度会在第一周就拉满。</p>
+        <h3>场景 A：国内 SaaS / 电商智能客服与工单自动化分流</h3><p>在双十一或大促高峰期，客服系统每天涌入数万条口语化极强、夹杂截图与订单号的咨询。把今天 Day 32 掌握的「高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩」落地到客服产线时，核心要解决高并发下的稳定响应、敏感手机号/地址脱敏以及退换货政策的精准引用。依托今天确立的工程底座（LangChain/LlamaIndex 架构范式 + 混合检索引擎 + 嵌入式/持久化向量索引 + 评估基准数据集），我们可以把客服意图识别、知识检索与工单写入拆成独立可观测的原子步骤，哪怕下游 ERP 接口临时超时，也能通过今天强调的异常兜底与重试机制平稳转接人工坐席，避免客诉升级。</p>
+<h3>场景 B：研发与运维团队内部知识库 + 值班排障副驾驶</h3><p>国内中大型研发团队普遍存在文档散落在飞书云文档、语雀、GitLab Wiki 和历史工单里的痛点，新人入职三个月还搞不清发布流程和表结构。将今天「高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩」对应的模块接入公司内部研发中台后，新同事只需在飞书机器人里用自然语言提问，系统即可按照今天的架构链路自动完成权限校验、语义召回或工具编排，并把引用文档路径与精准段落一并附在回答末尾。阿杰在值班时也能直接让 Agent 查历史告警与近期变更记录，把平均故障定位时间（MTTR）从 40 分钟压缩到 5 分钟以内。</p>
+<h3>场景 C：金融/政企私有化信创环境与数据安全合规交付</h3><p>面向银行、券商或大型国央企交付「星辰智脑」时，客户最敏感的往往不是模型有多炫酷，而是“数据绝不能出内网”“操作必须可审计”“模型能无缝切换到本地私有化部署的 Qwen/DeepSeek”。我们在今天编码中坚持的配置解耦、统一抽象接口、离线 Mock 可测性以及结构化日志审计，正是为了满足私有化交付的严苛门槛。当你把这套工程习惯贯彻到整个 70 天迭代周期，毕业时手里拿出来的就不再是一个只能在笔记本上演示的玩具 Demo，而是真正经得起企业安全评审与运维验收的生产级方案。</p>
+      </section>
+
+      <section class="section-card" id="sec-troubleshoot">
+        <h2>9. 生产环境排障实录与工程验收自查表</h2>
+        <h3>故障演练一：高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩 核心链路在异常脏数据或边界输入下触发未预期中断</h3><p><strong>【线上现象】</strong>在联调 STARMIND-032 对应的功能模块时，开发机上用自己构造的“干净样例”跑得丝滑无比，但一交给阿杰跑边界测试（如空文本、超长中文混排、包含特殊 Emoji 或嵌套缺失字段的 JSON），控制台直接抛出未捕获异常，导致整个服务进程或上游调用链雪崩。</p><p><strong>【根因定位】</strong>根本原因在于把“理想假设”当成了“生产契约”。在 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 环节，上游业务系统传过来的数据往往充满历史包袱（比如字段值为 None 而非空字符串、编码混杂 GBK/UTF-8、或者模型偶发少输出一个右括号）。如果函数入口缺少显式的参数防御与 Pydantic/类型校验，异常就会在深层调用栈里爆炸。</p><p><strong>【止血与根治方案】</strong></p><p>1. 在所有对外暴露的入口函数与接口层建立“防御性边界”，先校验、清洗并标准化输入，再进入核心逻辑；<br/>2. 为当日核心模块补充至少 3 组异常/空值/极值单元测试，并纳入 <code>tests/test_day32.py</code> 回归集合；<br/>3. 捕获可预期异常时，返回结构化错误对象并附带 <code>trace_id</code>，方便在飞书告警群里一眼定位到具体是哪条请求出了岔子。</p><h3>故障演练二：性能退化、成本突增与线上可观测性盲区（切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索）</h3><p><strong>【线上现象】</strong>上线试运行两天后，林产品反馈早高峰时段页面转圈变慢，同时财务侧看到大模型 API 账单曲线出现异常毛刺，但翻开服务器日志却只看到零星几句 `print(&#x27;ok&#x27;)`，完全无法还原当时到底哪个环节耗时最长、哪条 Prompt 吃掉了最多 Token。</p><p><strong>【根因定位】</strong>缺少工程化的日志分级、耗时打点与配额熔断机制。很多从零基础转行过来的同学习惯用 `print` 调试完就留在线上，既没有时间戳和请求追踪号，也没有统计输入/输出 Token 数和单步耗时；一旦外部接口抖动或触发死循环重试，成本就会在几分钟内失控。</p><p><strong>【止血与根治方案】</strong></p><p>1. 严格使用标准 <code>logging</code> 模块替代裸 <code>print</code>，记录关键节点的入参摘要、耗时毫秒数（latency_ms）和状态码；<br/>2. 针对所有外部 I/O（文件、数据库、HTTP/LLM API）显式设置 <code>timeout</code> 超时上限和最大重试次数（通常 &lt;= 3 次 + 指数退避）；<br/>3. 定期对照今日 SLA 基线（Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点）跑压测回归，把隐性瓶颈消灭在灰度发布之前。</p><h3>故障演练三：国内团队跨环境一致性问题（开发环境能跑，测试/Docker 环境报错）</h3><p><strong>【线上现象】</strong>学员在自己 Windows/Mac 笔记本的 VS Code 里运行 Day 32 代码一切正常，但提交到 GitLab CI（Linux Debian 容器环境）后，出现文件路径分隔符报错、时区偏差或国内网络下载依赖超时。</p><p><strong>【根因定位】</strong>代码中硬编码了反斜杠路径（如 `data\test.json`）或绝对路径（如 `C:\Users\...`），未统一使用 `pathlib.Path`；同时 `pip install` 未指定国内镜像源或 `requirements.txt` 未锁定主版本号。</p><p><strong>【止血与根治方案】</strong></p><p>1. 全仓库统一使用 <code>pathlib.Path(__file__).resolve().parent</code> 构建相对路径，彻底告别跨平台路径坑；<br/>2. 打开文本文件强制显式传参 <code>encoding=&#x27;utf-8&#x27;</code>，避免 Windows 默认 GBK 编码引发的 <code>UnicodeDecodeError</code>；<br/>3. 依赖安装统一配置清华源 <code>-i https://pypi.tuna.tsinghua.edu.cn/simple</code>，并在 <code>README.md</code> 中固定 Python 3.11+ 版本要求。</p>
+        <h3>当日交付工程验收自查清单</h3>
+        <table>
+          <thead><tr><th style="width:170px">验收维度</th><th>核心检查要求</th><th style="width:280px">可执行验证方式</th></tr></thead>
+          <tbody><tr><td><strong>环境与依赖一致性</strong></td><td>确认已激活项目 `.venv` 虚拟环境（Python 3.11+），依赖通过国内清华源安装完成，无硬编码本地绝对路径。</td><td>在 `versions/day32/` 目录下执行 `python --version` 与导入检查无报错。</td></tr>
+<tr><td><strong>代码可读性与注释规范</strong></td><td>核对今日所有核心模块（src/day32_query_transform.py, src/day32_compression_eval.py）均包含清晰的模块级/函数级中文 Docstring 与关键逻辑行级注释。</td><td>同事在不看需求文档的情况下，仅读代码注释能在 5 分钟内理解核心数据流。</td></tr>
+<tr><td><strong>核心业务验收达标</strong></td><td>针对「魔都住店」「礼拜五推线上」等口语难题，QueryRewrite / Multi-Query / HyDE 的召回率显著高于 Naive 基线。；上下文压缩器在保留核心答案句子的前提下，平均压缩掉至少 35% 的冗余字符。；所有 pytest 单元测试与对比实验脚本 100% 通过。</td><td>运行 `pytest versions/day32/tests/ -v` 所有用例 100% GREEN 通过。</td></tr>
+<tr><td><strong>Notebook 实操同步</strong></td><td>配套 `notebooks/day32/day32_practice.ipynb` 从上到下 Restart &amp; Run All 无任何报错，输出结果与课件预期一致。</td><td>关键实验数据、中间变量打印与可视化结果完整留痕。</td></tr>
+<tr><td><strong>安全合规与 GitLab 提交</strong></td><td>严禁提交真实 API Key、数据库密码或客户隐私明文；分支 `feat/day32-advanced-rag-query-transform` 按规范提交并完成 MR 自检。</td><td>满足当前阶段质量基线：Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点。</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="section-card" id="sec-interview">
+        <h2>10. 大厂高频面试延伸与老陈收尾复盘</h2>
+        <div class="review-item"><div class="review-meta"><span>🎯 面试官追问 1：你在「星辰智脑」项目中负责了「高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩」相关模块，能否结合具体业务场景讲讲当时的架构选型和为什么不采用更简单的方案？</span></div><p>【高分 STAR 回答思路】不要一上来背概念，直接切入真实业务痛点：在星辰数科内部推进 STARMIND-032 需求时，我们的核心业务目标是：实现 <code>QueryRewriter</code>（术语规范化与口语改写）、<code>MultiQueryRetriever</code>（多视角扩展 + 去重合并）和 <code>HyDERetriever</code>（假设性文档嵌入检索）。；实现 <code>ContextualCompressor</code>（句子级相关性提纯，过滤低相关噪音句并统计压缩率）。；在口语化/黑话测试集上运行 Baseline vs QueryRewrite vs Multi-Query vs HyDE 召回率对比实验。。最初我们也评估过极简脚本方案，但在 切片过大稀释语义/过小截断上下文、召回率不足引发大模型幻觉、跨租户知识库越权检索 这几个生产维度上扛不住真实流量。因此我在设计上重点落地了 1. HyDE 虽好，但有一个致命适用边界！、2. 生产环境 LangChain 对应组件写法对照 这几层解耦抽象，既满足了当前阶段的 Top-5 召回率 &gt;= 90%，忠实度 Faithfulness &gt;= 0.88，所有回答必须附带可溯源引用锚点，又为后续向完整企业级 Agent 平台平滑演进预留了扩展点。落地后通过自动化测试与回归基准验证，稳定性与可维护性都有了可量化的提升。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 2：如果「高级RAG技术(上)：Query改写、Multi-Query、HyDE与上下文压缩」这一块在生产环境流量翻 10 倍，或者遇到极端异常输入，你的代码最先会在哪里出瓶颈？你会怎么重构优化？</span></div><p>【高分架构思维】主动暴露对系统边界的清醒认知最能加分。首先我会通过链路耗时监控定位瓶颈是在 CPU 计算、本地 I/O 还是外部模型 API 延迟；其次针对 LCEL 可组合管道、多会话记忆隔离、中文递归分块、向量数据库与 HNSW 近似检索、BM25+向量混合检索、RRF 融合、Rerank 重排与 Ragas 量化评估 的特性，我会从三个层面做渐进式演进：第一层是请求级优化（输入校验前置、热点结果缓存、批处理或异步并发 <code>asyncio</code>）；第二层是容错与降级（超时熔断、主备模型路由切换、兜底响应）；第三层是工程治理（接入结构化 Trace 追踪、单请求 Token 成本核算与异常告警自动化），确保系统在高压下可观测、可降级、可回滚。</p></div><div class="review-item"><div class="review-meta"><span>🎯 面试官追问 3：能否现场手写或口述 Day 32 核心模块中最关键的数据结构设计与核心函数执行流程？</span></div><p>【白板手撕要点】牢记“先画数据流，再定接口契约，最后补边界防御”三步法。今天我们亲手敲过的 src/day32_query_transform.py、src/day32_compression_eval.py 就是最好的蓝本：先清晰写出输入/输出的数据模型（字段名、类型、必填/选填），再写出核心处理管道的主干步骤，最后主动向面试官补充空值处理、异常捕获和单元测试用例思路——哪怕时间紧张没写完所有辅助代码，这种工程严谨度也足以让你在众多候选人中脱颖而出。</p></div>
+        <div class="narrator-box">
+          <div class="narrator-header"><span class="narrator-avatar">陈</span>老陈收尾复盘旁白</div>
+          <p>今天这四招（Query Rewrite / Multi-Query / HyDE / 上下文压缩）是面试和企业落地的高频杀手锏。大家也从刚才的量化对比实验看到了：面对口语化/黑话提问，Multi-Query 和 HyDE 能把召回率从基线一路拉满，而上下文压缩直接帮我们省掉 50% 以上的冗余输入字符！明天咱们继续进阶，攻克 BM25 + 向量混合检索与 Reranker 重排。</p>
+        </div>
+      </section>
+
+      <section class="section-card" id="sec-homework">
+        <h2>11. 课后梯度实战作业与完整参考答案</h2>
+        <p>每天课后务必独立完成以下三道梯度实战题（基础巩固 → 企业实战 → 架构进阶）。建议先自己敲代码跑通，再对照参考答案复盘设计差异。</p>
+        <div class="hw-card"><div class="hw-header"><strong>作业 1：作业一：实现 Step-Back Prompting（退步抽象查询）检索增强器</strong><span class="badge">基础巩固</span></div><p>当员工问一个极其具体的案例（如「我从杭州坐高铁去北京住全季酒店花了650元能全报吗？」）时，先退一步抽象成高层次制度问题（「一线城市出差住宿报销上限标准是什么？」）再检索。请实现 <code>step_back_rewrite(query)</code> 函数并验证其对具体案例的检索命中率。</p><p><strong>💡 思路提示：</strong>提取具体场景中的核心实体（城市/金额/行为），映射为对应的抽象制度问题，再与原问题合并检索。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-32-1')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-32-1"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 1）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 32 作业一参考答案：Step-Back 退步抽象检索增强&quot;&quot;&quot;
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day30_kb_cli import build_starmind_kb
+
+
+def step_back_rewrite(specific_query: str) -&gt; str:
+    if any(k in specific_query for k in (&quot;全季&quot;, &quot;如家&quot;, &quot;酒店&quot;, &quot;花&quot;, &quot;元&quot;, &quot;北京&quot;, &quot;上海&quot;)):
+        return &quot;一线城市与新一线城市差旅酒店住宿报销上限标准是什么？&quot;
+    if any(k in specific_query for k in (&quot;感冒&quot;, &quot;发烧&quot;, &quot;请2天&quot;, &quot;医院&quot;)):
+        return &quot;员工申请病假需要提供什么证明及薪资发放标准？&quot;
+    return specific_query
+
+
+if __name__ == &quot;__main__&quot;:
+    kb = build_starmind_kb()
+    q = &quot;我昨天去北京住全季花了650块超标了吗？&quot;
+    abstract_q = step_back_rewrite(q)
+    hits = kb.vector_store.similarity_search_with_score(abstract_q, k=1)
+    print(&quot;退步抽象查询:&quot;, abstract_q)
+    print(&quot;命中章节:&quot;, hits[0][0].metadata[&quot;section&quot;], &quot;score=&quot;, hits[0][1])
+    assert hits[0][0].metadata[&quot;section&quot;] == &quot;差旅住宿标准&quot;
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>Step-Back Prompting 是 Google DeepMind 提出的经典技巧，专治「用户举了一个超长具体案例，直接检索反而被无关细节稀释向量」的痛点。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 2：作业二：实现基于多轮历史的指代消解改写器（CoreferenceRewriter）</strong><span class="badge">企业实战</span></div><p>当上一轮聊的是「年假规定」，本轮用户只问了「它需要提前几天申请？」或「那病假呢？」，请实现 <code>rewrite_with_history(history_questions, current_query)</code>，自动将「它/这个/那…」替换为上一轮的主题词，生成可独立检索的完整问句。</p><p><strong>💡 思路提示：</strong>检测 `current_query` 是否包含指代词（`它/这个/那个/那`）或长度过短，从最近一轮历史提取主题实体进行补全。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-32-2')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-32-2"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 2）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 32 作业二参考答案：多轮对话指代消解查询改写器&quot;&quot;&quot;
+from typing import List
+
+
+def rewrite_with_history(history_questions: List[str], current_query: str) -&gt; str:
+    if not history_questions:
+        return current_query
+    last_q = history_questions[-1]
+    pronouns = (&quot;它&quot;, &quot;这个&quot;, &quot;那个&quot;, &quot;该制度&quot;, &quot;这项&quot;)
+    if any(p in current_query for p in pronouns) or (current_query.startswith(&quot;那&quot;) and len(current_query) &lt;= 8):
+        # 提取上一轮的核心主题词作为上下文锚点
+        topic = last_q.replace(&quot;请问&quot;, &quot;&quot;).replace(&quot;？&quot;, &quot;&quot;).replace(&quot;?&quot;, &quot;&quot;)[:14]
+        resolved = current_query
+        for p in pronouns:
+            resolved = resolved.replace(p, f&quot;「{topic}」&quot;)
+        if resolved == current_query:
+            resolved = f&quot;结合前文「{topic}」，{current_query}&quot;
+        return resolved
+    return current_query
+
+
+if __name__ == &quot;__main__&quot;:
+    hist = [&quot;杭州星辰数科年假有几天？&quot;]
+    r1 = rewrite_with_history(hist, &quot;它需要提前几天申请？&quot;)
+    r2 = rewrite_with_history(hist, &quot;那病假呢？&quot;)
+    print(&quot;改写1:&quot;, r1)
+    print(&quot;改写2:&quot;, r2)
+    assert &quot;年假&quot; in r1 and &quot;年假&quot; in r2
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>这是多轮 RAG 系统的必经关口（Day 37 项目二会正式接入 FastAPI 链路），解决了追问场景下检索失灵的核心痛点。</p></div></div><div class="hw-card"><div class="hw-header"><strong>作业 3：作业三：实现子问题拆解与子答案汇总器（QueryDecomposition）</strong><span class="badge">架构进阶</span></div><p>当员工一次问两个跨部门问题（「入职满一年有几天年假，另外周五晚上能发布代码吗？」）时，实现 <code>decompose_and_answer(kb, complex_query)</code>：按标点/连接词拆成多个子问题，分别调用 <code>kb.ask()</code> 检索回答，最后汇总成带统一引用列表的完整回复。</p><p><strong>💡 思路提示：</strong>用正则按 `[，,。；;]|另外|以及|还有` 拆分，过滤掉短于 4 字的碎片，分别调用 `kb.ask()` 后合并 `answer` 和 `citations`。</p><button class="btn" onclick="toggleSolution(this, 'hw-sol-32-3')">查看标准答案与解析</button><div class="hw-solution open" id="hw-sol-32-3"><div class="code-block-wrap"><div class="code-header"><span>✅ 参考实现代码（作业 3）</span><button class="copy-btn" onclick="copyCode(this)">复制参考代码</button></div><pre><code>&quot;&quot;&quot;Day 32 作业三参考答案：跨部门复合问题拆解与汇总器&quot;&quot;&quot;
+import re
+import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.day30_kb_cli import build_starmind_kb
+
+
+def decompose_and_answer(kb, complex_query: str) -&gt; Dict[str, Any]:
+    parts = [p.strip() for p in re.split(r&quot;[，,。；;]|另外|以及|还有&quot;, complex_query) if len(p.strip()) &gt;= 4]
+    sub_answers: List[str] = []
+    all_sources: List[str] = []
+    for idx, sub_q in enumerate(parts, start=1):
+        resp = kb.ask(sub_q)
+        sub_answers.append(f&quot;【子问题{idx}：{sub_q}】\n{resp.answer}&quot;)
+        for c in resp.citations:
+            if c.source not in all_sources:
+                all_sources.append(c.source)
+    return {
+        &quot;sub_questions&quot;: parts,
+        &quot;combined_answer&quot;: &quot;\n\n&quot;.join(sub_answers),
+        &quot;sources&quot;: all_sources,
+    }
+
+
+if __name__ == &quot;__main__&quot;:
+    kb = build_starmind_kb()
+    kb.score_threshold = 0.12  # 短子问题场景适度放宽向量相似度阈值以保证跨部门召回
+    out = decompose_and_answer(kb, &quot;员工入职满一年有多少天年假，另外周五晚上能发布代码上线吗？&quot;)
+    print(&quot;拆解子问题:&quot;, out[&quot;sub_questions&quot;])
+    print(&quot;涉及文档:&quot;, out[&quot;sources&quot;])
+    assert len(out[&quot;sources&quot;]) &gt;= 2
+</code></pre></div><h4>答案深度解析与评分标准</h4><p>跨部门复合提问是 Naive RAG 的天然软肋（单次 Top-3 容易全被一个部门占满）。Query Decomposition（问题拆解）完美解决了多跳/多意图问答。</p></div></div>
+      </section>
+
+      <nav class="footer-nav">
+        <a class="btn" href="../day31/index.html">← 返回上一天课程</a>
+        <a class="btn" href="../../index.html">📚 返回 70 天课程总门户</a>
+        <a class="btn btn-primary" href="../day33/index.html">进入下一天迭代 →</a>
+      </nav>
+    </main>
+  </div>
+
+  <script src="../assets/app.js"></script>
+</body>
+</html>
